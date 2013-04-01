@@ -1,0 +1,11 @@
+<section class="msg{{#unread}} new{{/unread}}{{#sent}} sent{{/sent}}" data-mid="{{id}}" data-ts="{{date}}">
+	<section class="date">
+		<a href="http://vk.com/mail?act=show&id={{id}}" target="_blank" title="{{localizedDate}}">{{humanDate}}</a>
+		<span class="important{{#important}} active{{/important}}"{{#important}} title="{{importantTitle}}"{{/important}}></span>
+	</section>
+	<section class="text">{{{body}}}</section>
+
+	<section class="attach">
+		{{> attachments}}
+	</section>
+</section>

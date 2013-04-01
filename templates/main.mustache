@@ -1,0 +1,26 @@
+<section id="header">
+	<div class="hide-avatars"></div>
+	<section class="acc-container"{{#multipleAccounts}} style="left: {{multipleAccountsMargin}}px"{{/multipleAccounts}}>
+		<section class="avatars-container">
+			{{#accounts}}
+				<img width="50" height="50" alt="" src="{{avatarSrc}}" data-uid="{{uid}}"/>
+			{{/accounts}}
+		</section>
+		<span class="fio">{{activeAccountFio}}</span>
+		<span class="network-status {{^offline}}online{{/offline}}{{#offline}}offline{{/offline}}"></span>
+	</section>
+</section>
+
+<section id="content"{{#offline}} class="offline"{{/offline}}>
+	<header class="left"></header>
+	<header class="right"></header>
+	<header class="one"></header>
+
+	<section class="left"></section>
+	<section class="right"></section>
+	<section class="one"></section>
+</section>
+
+<aside>
+	<span class="icon settings" title="{{settingsTitle}}"></span><span class="icon alert" title="{{alertTitle}}"></span><span class="icon twitter" title="{{twitterTitle}}"></span>{{#showLike}}<span class="icon like" title="{{likeTitle}}"></span>{{/showLike}}<span class="news is-empty"></span>
+</aside>

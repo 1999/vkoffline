@@ -1,0 +1,17 @@
+{{#threads}}
+	<section data-id="{{id}}">
+		<div class="date">{{humanDate}}</div>
+		<div class="prtc">
+			{{#participants}}
+				<span{{#fio}} title="{{fio}}"{{/fio}} class="user" data-uid="{{uid}}">{{name}}</span>
+			{{/participants}}
+			<div class="counter">{{totalMessages}}</div>
+		</div>
+		<span class="text">
+			{{#subject}}
+				<span class="subj">{{subject}}</span>
+			{{/subject}}
+			<span class="body">{{{body}}}</span>
+		</span>
+	</section>
+{{/threads}}

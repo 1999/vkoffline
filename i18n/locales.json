@@ -1,0 +1,1399 @@
+[
+	{
+		"key": "accessGranted",
+		"messages": {
+			"en": "Access granted",
+			"ru": "Доступ предоставлен",
+			"uk": "Доступ надано"
+		}
+	},
+	{
+		"key": "accounts",
+		"messages": {
+			"en": "Accounts",
+			"ru": "Аккаунты",
+			"uk": "Аккаунти"
+		}
+	},
+	{
+		"key": "addAttachments",
+		"messages": {
+			"en": "Add attachments",
+			"ru": "Прикрепить файлы",
+			"uk": "Прикріпити файли"
+		}
+	},
+	{
+		"key": "addMoreProfiles",
+		"messages": {
+			"en": "Add new VK profile",
+			"ru": "Добавить профиль ВКонтакте",
+			"uk": "Додати профіль ВКонтакті"
+		}
+	},
+	{
+		"key": "ago",
+		"messages": {
+			"en": "ago",
+			"ru": "назад",
+			"uk": "назад"
+		},
+		"description": "Конечная часть фразы N минут/часов назад"
+	},
+	{
+		"key": "alertIconTitle",
+		"messages": {
+			"en": "Please let us know if you find an error in the app",
+			"ru": "Обратная связь. Сообщите нам об ошибке в работе приложения",
+			"uk": "Зворотній зв’язок. Повідомте нам про помилку в роботі додатку"
+		}
+	},
+	{
+		"key": "appName",
+		"messages": {
+			"en": "VK Offline",
+			"ru": "VKontakte Offline",
+			"uk": "VKontakte Offline"
+		}
+	},
+	{
+		"key": "appDescription",
+		"messages": {
+			"en": "New approach of working with your contacts and correspondence in VK.com / VKontakte social network",
+			"ru": "Новый подход к работе с вашими контактами и перепиской ВКонтакте / VKontakte",
+			"uk": "Новий підхід до роботи з вашими контактами та перепискою ВКонтакті / VKontakte"
+		}
+
+	},
+	{
+		"key": "appUpdated",
+		"messages": {
+			"en": "%appname% app has been updated to version %appversion%. Click this notification to open the app's window.",
+			"ru": "Приложение %appname% обновилось до версии %appversion%. Кликните по этому окну, чтобы открыть окно приложения.",
+			"uk": "Додаток %appname% оновився до версії %appversion%. Клікніть на цьому вікні, щоб відкрити вікно додатку."
+		}
+	},
+	{
+		"key": "areyouready",
+		"messages": {
+			"en": "Are you sure?",
+			"ru": "Вы уверены?",
+			"uk": "Ви впевнені?"
+		}
+	},
+	{
+		"key": "author",
+		"messages": {
+			"en": "Dmitry Sorin",
+			"ru": "Дмитрий Сорин",
+			"uk": "Дмитро Сорін"
+		}
+	},
+	{
+		"key": "backToDialogsList",
+		"messages": {
+			"en": "back to the dialogs list",
+			"ru": "вернуться к списку диалогов",
+			"uk": "повернутися до списку діалогів"
+		}
+	},
+	{
+		"key": "birthdate",
+		"messages": {
+			"en": "birthday",
+			"ru": "дата рождения",
+			"uk": "дата народження"
+		}
+	},
+	{
+		"key": "birthday",
+		"messages": {
+			"en": "Today's his-her birthday|%years% old now",
+			"ru": "Сегодня его-ее день рождения|исполнилось %years%",
+			"uk": "Сьогодні його-її день народження|виповнилося %years%"
+		},
+		"description" : "его-ее заменится на что-то одно во всплывающем окне"
+	},
+	{
+		"key": "close",
+		"messages": {
+			"en": "close",
+			"ru": "закрыть",
+			"uk": "закрити"
+		}
+	},
+	{
+		"key": "commonDialog",
+		"messages": {
+			"en": "without subject",
+			"ru": "без темы",
+			"uk": "без теми"
+		}
+	},
+	{
+		"key": "contactsName",
+		"messages": {
+			"en": "Contacts",
+			"ru": "Контакты",
+			"uk": "Контакти"
+		}
+	},
+	{
+		"key": "correspondence",
+		"messages": {
+			"en": "Mail",
+			"ru": "Переписка",
+			"uk": "Листування"
+		},
+		"description": "Кнопка, отображающаяся вверху приложения. Контекст - контакты и переписка"
+	},
+	{
+		"key": "correspondenceManagement",
+		"messages": {
+			"en": "Correspondence management",
+			"ru": "Управление перепиской",
+			"uk": "Керування листуванням"
+		}
+	},
+	{
+		"key": "currentActiveAccount",
+		"messages": {
+			"en": "this account is now active",
+			"ru": "текущий активный аккаунт",
+			"uk": "поточний активний акаунт"
+		}
+	},
+	{
+		"key": "dayAndTimeSeparator",
+		"messages": {
+			"en": "at",
+			"ru": "в",
+			"uk": "о"
+		},
+		"description": "Разделитель даты и времени, например 20 янв 2010 в 10:43"
+	},
+	{
+		"key": "deleteAccount",
+		"messages": {
+			"en": "delete account",
+			"ru": "удалить аккаунт",
+			"uk": "видалити акаунт"
+		}
+	},
+	{
+		"key": "deleteMessage",
+		"messages": {
+			"en": "delete",
+			"ru": "удалить",
+			"uk": "видалити"
+		}
+	},
+	{
+		"key": "deleteMessageForever",
+		"messages": {
+			"en": "Message will be deleted and you won't be able to restore it. Continue?",
+			"ru": "Сообщение будет удалено навсегда и вы больше не сможете его восстановить. Продолжить?",
+			"uk": "Повідомлення буде видалено назавжди і ви більше не зможете його відновити. Продовжити?"
+		}
+	},
+	{
+		"key": "dropFilesHere",
+		"messages": {
+			"en": "Drop files here...",
+			"ru": "Перетащите файлы сюда...",
+			"uk": "Перетягніть файли сюди..."
+		}
+	},
+	{
+		"key": "errorFormTitle",
+		"messages": {
+			"en": "Report error",
+			"ru": "Отправка сообщения об ошибке",
+			"uk": "Відправка повідомлення про помилку"
+		}
+	},
+	{
+		"key": "errorSendFormDescriptionText",
+		"messages": {
+			"en": "Please describe your problem. If the trouble exists for a long period of time, describe the app's workflow starting from the installation.",
+			"ru": "Подробно опишите вашу проблему. Если в процессе работы приложения постоянно возникают ошибки, опишите работу приложения начиная с момента установки.",
+			"uk": "Детально опишіть вашу проблему. Якщо в процесі робити додатку постійно виникають помилки, опишіть роботу додатку починаючи з моменту встановлення."
+		}
+	},
+	{
+		"key": "errorSendFormInfoText",
+		"messages": {
+			"en": "Please open %info% page in the new tab and copy all information from this tab to the form. This will help us to deal with the problem faster.",
+			"ru": "Пожалуйста откройте страницу %info% в новой вкладке и скопируйте всю информацию оттуда в эту форму. Это поможет нам разобраться с причиной ошибки.",
+			"uk": "Будь ласка, відкрийте сторінку %info% в новій вкладці і скопіюйте всю інформацію звідти в цю форму. Це допоможе нам розібратися з причиною помилки."
+		}
+	},
+	{
+		"key" : "errorSendFormWarning",
+		"messages" : {
+			"en": "%appname% app is being created by a community of independent developers. Please provide information about your browser and installed extensions, so we could solve your problem. Please fill this form and write us a letter to %email%.",
+			"ru": "Приложение %appname% разрабатывается группой независимых разработчиков, поэтому нам нужны данные о вашем браузере и установленных расширениях, чтобы было проще разобраться в проблеме. Заполните эту форму и напишите нам письмо по адресу %email%.",
+			"uk": "Додаток %appname% створений групою незалежних розробників, тому нам потрібні данні про ваш браузер та про встановлені розширення, для того щоб було легше розібратися в проблемі. Заповніть цю форму та напишіть нам листа на адресу %email%."
+		}
+	},
+	{
+		"key" : "errorSendFormButtonText",
+		"messages" : {
+			"en" : "Collect data",
+			"ru" : "Собрать данные",
+			"uk" : "Зібрати дані"
+		}
+	},
+	{
+		"key" : "errorSendFormCopyButtonText",
+		"messages" : {
+			"en" : "Copy message text",
+			"ru" : "Скопировать текст сообщения",
+			"uk" : "Скопіювати текст повідомлення"
+		}
+	},
+	{
+		"key" : "copiedToClipboard",
+		"messages" : {
+			"en" : "Copied to clipboard!",
+			"ru" : "Скопировано в буфер обмена!",
+			"uk" : "Скопійовано в буфер обміну!"
+		}
+	},
+	{
+		"key": "fileType",
+		"messages": {
+			"en": "file extension",
+			"ru": "тип файла",
+			"uk": "тип файлу"
+		}
+	},
+	{
+		"key": "fileUploadFailed",
+		"messages": {
+			"en": "We couldn't host %filename% on VK server. Try to upload this file to another file hosting (dropbox.com, box.net, ...) and insert the link to it in your message.",
+			"ru": "Не удалось разместить файл %filename% на сервере ВКонтакте. Попробуйте загрузить этот файл на другой файл-хостинг (narod.yandex.ru, ifolder.ru, ...) и вставьте ссылку в отправляемое сообщение.",
+			"uk": "Не вдалося розмістити файл %filename% на сервері ВКонтакті. Спробуйте завантажити цей файл на інший файл-хостинг (upload.com.ua, fileshare.in.ua, ...) та вставте ссилку у відправляюче повідомлення."
+		}
+	},
+	{
+		"key": "fileUploadRejected",
+		"messages": {
+			"en": "VK.com rejected to host %filename% on its server. Try to upload this file to another file hosting (dropbox.com, box.net, ...) and insert the link to it in your message.",
+			"ru": "ВКонтакте отклонил запрос на размещение файла %filename% на своем сервере. Попробуйте загрузить этот файл на другой файл-хостинг (narod.yandex.ru, ifolder.ru, ...) и вставьте ссылку в отправляемое сообщение.",
+			"uk": "ВКонтакті відхилив запит на розміщення файла %filename% на своєму сервері. Спробуйте завантажити цей файл на інший файл-хостинг (upload.com.ua, fileshare.in.ua, ...) та вставте ссилку у відправляюче повідомлення."
+		}
+	},
+	{
+		"key": "firstInstallText",
+		"messages": {
+			"en": "Now you should |grant access| to your data on VK.com",
+			"ru": "Для корректной работы приложения %appname% вам необходимо |предоставить доступ| к своим данным ВКонтакте",
+			"uk": "Для коректної роботи додатку %appname% вам необхідно |надати доступ| до своїх даних ВКонтакті"
+		},
+		"description": "Текст внутри символов || преобразуется в ссылку"
+	},
+	{
+		"key": "foldersAndTags",
+		"messages": {
+			"en": "Folders and tags",
+			"ru": "Папки и метки",
+			"uk": "Папки та мітки"
+		}
+	},
+	{
+		"key": "getUploadDataFromServer",
+		"messages": {
+			"en": "Fetching the data needed for upload of %filename%",
+			"ru": "Получаем данные необходимые для загрузки файла %filename%",
+			"uk": "Отримуєм дані необхідні для завантаження файлу %filename%"
+		}
+	},
+	{
+		"key": "homephone",
+		"messages": {
+			"en": "home phone",
+			"ru": "дом. телефон",
+			"uk": "дом. телефон"
+		}
+	},
+	{
+		"key": "hoursAgo",
+		"messages": {
+			"en": "hour|hours",
+			"ru": "час|часа|часов",
+			"uk": "годину|години|годин"
+		},
+		"description": "Варианты слова час: 1 час назад, 2 часа назад, 10 часов назад"
+	},
+	{
+		"key": "importantMessage",
+		"messages": {
+			"en": "important message",
+			"ru": "важное сообщение",
+			"uk": "важливе повідомлення"
+		}
+	},
+	{
+		"key": "installGrantAccess",
+		"messages": {
+			"en": "Grant access now",
+			"ru": "Предоставить доступ сейчас",
+			"uk": "Надати доступ зараз"
+		}
+	},
+	{
+		"key": "justNow",
+		"messages": {
+			"en": "just now",
+			"ru": "только что",
+			"uk": "щойно"
+		}
+	},
+	{
+		"key": "kb",
+		"messages": {
+			"en": "Kb",
+			"ru": "Кб",
+			"uk": "Кб"
+		}
+	},
+	{
+		"key": "likeIconTitle",
+		"messages": {
+			"en": "Spread the word about %appname% app. Like and repost a piece of information about the app so your friends can see it",
+			"ru": "Расскажите друзьям о приложении %appname%. Нажмите на эту иконку, чтобы опубликовать информацию о приложении на вашей стенке ВКонтакте",
+			"uk": "Розповісти друзям про додаток %appname%. Натисніть на цю іконку, щоб опублікувати інформацію про додаток на вашій стінці ВКонтакті"
+		}
+	},
+	{
+		"key": "mb",
+		"messages": {
+			"en": "Mb",
+			"ru": "Мб",
+			"uk": "Мб"
+		}
+	},
+	{
+		"key": "messageNoSubject",
+		"messages": {
+			"en": "no subject",
+			"ru": "без темы",
+			"uk": "без теми"
+		}
+	},
+	{
+		"key": "messagePluralForms",
+		"messages": {
+			"en": "message|messages",
+			"ru": "сообщение|сообщения|сообщений",
+			"uk": "повідомлення|повідомлення|повідомлень"
+		},
+		"description": "Варианты слова сообщение: 1 сообщение, 2 сообщения, 10 сообщений"
+	},
+	{
+		"key": "messageSentFail",
+		"messages": {
+			"en": "Error while sending message",
+			"ru": "Ошибка при отправке сообщения",
+			"uk": "Помилка при відправлені повідомлення"
+		}
+	},
+	{
+		"key": "messageSentSuccess",
+		"messages": {
+			"en": "Your message has been sent",
+			"ru": "Ваше сообщение было успешно отправлено",
+			"uk": "Ваше повідомлення було успішно відправлено"
+		}
+	},
+	{
+		"key": "messageTypeAttachments",
+		"messages": {
+			"en": "attachments",
+			"ru": "вложения",
+			"uk": "вкладення"
+		}
+	},
+	{
+		"key": "messageTypeAudio",
+		"messages": {
+			"en": "audio message",
+			"ru": "аудио-письмо",
+			"uk": "аудіо-лист"
+		}
+	},
+	{
+		"key": "messageTypeText",
+		"messages": {
+			"en": "text",
+			"ru": "текст",
+			"uk": "текст"
+		}
+	},
+	{
+		"key": "messageTypeVideo",
+		"messages": {
+			"en": "video message",
+			"ru": "видео-письмо",
+			"uk": "відео-лист"
+		}
+	},
+	{
+		"key": "minutesAgo",
+		"messages": {
+			"en": "minute|minutes",
+			"ru": "минуту|минуты|минут",
+			"uk": "хвилину|хвилини|хвилин"
+		},
+		"description": "Варианты слова минута: 1 минуту назад, 2 минуты назад, 10 минут назад"
+	},
+	{
+		"key": "mobilephone",
+		"messages": {
+			"en": "mob. phone",
+			"ru": "моб. телефон",
+			"uk": "моб. телефон"
+		}
+	},
+	{
+		"key": "monthes",
+		"messages": {
+			"en": "january|february|march|april|may|june|july|august|september|october|november|december",
+			"ru": "января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря",
+			"uk": "січня|лютого|березня|квітня|травня|червня|липня|серпня|вересня|жовтня|листопада|грудня"
+		}
+	},
+	{
+		"key": "monthesCut",
+		"messages": {
+			"en": "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec",
+			"ru": "янв|фев|мар|апр|мая|июн|июл|авг|сен|окт|ноя|дек",
+			"uk": "січ|лют|бер|кв|тр|чер|лип|сер|вер|жов|лис|гр"
+		},
+		"description": "Короткие имена месяцев, используемые в формате 20 янв 2010"
+	},
+	{
+		"key": "more",
+		"messages": {
+			"en": "more",
+			"ru": "еще",
+			"uk": "ще"
+		}
+	},
+	{
+		"key": "moreMessagesForm",
+		"messages": {
+			"en": "x more messagePluralForms",
+			"ru": "more x messagePluralForms",
+			"uk": "more x messagePluralForms"
+		},
+		"description": "Форма написания фразы 'еще x сообщений'"
+	},
+	{
+		"key": "newMessage",
+		"messages": {
+			"en": "New message",
+			"ru": "Новое сообщение",
+			"uk": "Нове повідомлення"
+		}
+	},
+	{
+		"key": "newNotifications",
+		"messages": {
+			"en": "Unread notifications",
+			"ru": "Новые оповещения",
+			"uk": "Нові сповіщення"
+		}
+	},
+	{
+		"key": "newsIconTitles",
+		"messages": {
+			"en": "unread notification|unread notifications",
+			"ru": "новое оповещение|новых оповещения|новых оповещений",
+			"uk": "нове сповіщення|нових сповіщення|нових сповіщень"
+		}
+	},
+	{
+		"key": "no",
+		"messages": {
+			"en": "No",
+			"ru": "Нет",
+			"uk": "Ні"
+		}
+	},
+	{
+		"key": "noInternetConnection",
+		"messages": {
+			"en": "You are currently offline",
+			"ru": "У вас отсутствует соединение с интернетом",
+			"uk": "У вас відсутнє з’єднання з інтернетом"
+		}
+	},
+	{
+		"key": "notificationBeforeAccountDelete",
+		"messages": {
+			"en": "Your contacts and correspondence will be cleared. Proceed?",
+			"ru": "Все ваши контакты и переписка будут удалены. Продолжить?",
+			"uk": "Всі ваші контакти і переписка будуть видалені. Продовжити?"
+		}
+	},
+	{
+		"key": "notificationsHide",
+		"messages": {
+			"en": "hide notifications",
+			"ru": "не показывать",
+			"uk": "не показувати"
+		}
+	},
+	{
+		"key": "notificationsShow",
+		"messages": {
+			"en": "show until user closes them manually",
+			"ru": "не скрывать до закрытия пользователем",
+			"uk": "не ховати до закриття користувачем"
+		}
+	},
+	{
+		"key": "offlineStatus",
+		"messages": {
+			"en": "offline",
+			"ru": "отключен",
+			"uk": "відключений"
+		}
+	},
+	{
+		"key": "onlineStatus",
+		"messages": {
+			"en": "online",
+			"ru": "подключен",
+			"uk": "підключений"
+		}
+	},
+	{
+		"key": "options",
+		"messages": {
+			"en": "Options",
+			"ru": "Настройки",
+			"uk": "Налаштування"
+		}
+	},
+	{
+		"key": "tokenExpired",
+		"messages": {
+			"en": "access token expired",
+			"ru": "ключ доступа устарел",
+			"uk": "ключ доступу застарів"
+		}
+	},
+	{
+		"key": "participantMe",
+		"messages": {
+			"en": "me",
+			"ru": "Вы",
+			"uk": "Ви"
+		},
+		"description": "Фраза, которая обозначает вас в переписке, например Витя, Катя и Вы"
+	},
+	{
+		"key": "pleaseWait",
+		"messages": {
+			"en": "please wait",
+			"ru": "подождите",
+			"uk": "зачекайте"
+		}
+	},
+	{
+		"key": "printCorrespondence",
+		"messages": {
+			"en": "print the whole correspondence",
+			"ru": "распечатать всю переписку",
+			"uk": "роздрукувати все листування"
+		}
+	},
+	{
+		"key": "printMessage",
+		"messages": {
+			"en": "print message",
+			"ru": "распечатать текст сообщения",
+			"uk": "роздрукувати текст повідомлення"
+		}
+	},
+	{
+		"key": "remove",
+		"messages": {
+			"en": "Remove",
+			"ru": "Удалить",
+			"uk": "Видалити"
+		}
+	},
+	{
+		"key": "removeAccountButtonText",
+		"messages": {
+			"en": "Delete account",
+			"ru": "Удалить аккаунт",
+			"uk": "Видалити аккаунт"
+		}
+	},
+	{
+		"key": "respondMessage",
+		"messages": {
+			"en": "reply",
+			"ru": "ответить",
+			"uk": "відповісти"
+		}
+	},
+	{
+		"key": "restoreMessage",
+		"messages": {
+			"en": "restore",
+			"ru": "восстановить",
+			"uk": "відновити"
+		}
+	},
+	{
+		"key": "saveBtn",
+		"messages": {
+			"en": "Save",
+			"ru": "Сохранить",
+			"uk": "Зберегти"
+		}
+	},
+	{
+		"key": "saveBtnClicked",
+		"messages": {
+			"en": "Saved!",
+			"ru": "ОК!",
+			"uk": "ОК!"
+		}
+	},
+	{
+		"key": "saveMessageButtonTitle",
+		"messages": {
+			"en": "save",
+			"ru": "сохранить",
+			"uk": "зберігти"
+		}
+	},
+	{
+		"key": "saveUploadedData",
+		"messages": {
+			"en": "Saving information about the uploaded data",
+			"ru": "Сохраняем данные о вложении на сервере",
+			"uk": "Зберігаємо дані о вкладенні на сервері"
+		}
+	},
+	{
+		"key": "searchContact",
+		"messages": {
+			"en": "Search contact",
+			"ru": "Поиск контакта",
+			"uk": "Пошук контакту"
+		}
+	},
+	{
+		"key": "searchContactPlaceholder",
+		"messages": {
+			"en": "Start typing the contact name",
+			"ru": "Начните вводить данные контакта",
+			"uk": "Почніть вводити дані контакта"
+		}
+	},
+	{
+		"key": "searchMail",
+		"messages": {
+			"en": "Search mail",
+			"ru": "Поиск писем",
+			"uk": "Пошук листів"
+		}
+	},
+	{
+		"key": "searchMailPlaceholder",
+		"messages": {
+			"en": "Start typing message text",
+			"ru": "Начните вводить текст письма",
+			"uk": "Почніть вводити текст листа"
+		}
+	},
+	{
+		"key": "second",
+		"messages": {
+			"en": "seconds",
+			"ru": "сек",
+			"uk": "сек"
+		}
+	},
+	{
+		"key": "sendMessageButtonTitle",
+		"messages": {
+			"en": "send",
+			"ru": "отправить",
+			"uk": "відправити"
+		}
+	},
+	{
+		"key": "settingsDebug",
+		"messages": {
+			"en": "Error log settings (do not change)",
+			"ru": "Запись ошибок (не меняйте эту настройку)",
+			"uk": "Запис помилок (не міняйте це налаштування)"
+		}
+	},
+	{
+		"key": "settingsDebugEverything",
+		"messages": {
+			"en": "Log everything",
+			"ru": "Записывать все",
+			"uk": "Записувати все"
+		}
+	},
+	{
+		"key": "settingsDebugMore",
+		"messages": {
+			"en": "Log errors, warnings and system notifications",
+			"ru": "Записывать ошибки, предупреждения и системные сообщения",
+			"uk": "Записувати помилки, попередження та системні повідомлення"
+		}
+	},
+	{
+		"key": "settingsDebugWarningsErrors",
+		"messages": {
+			"en": "Log errors and warnings (default)",
+			"ru": "Записывать ошибки и предупреждения (по умолчанию)",
+			"uk": "Записувати помилки та попередження (по замовчуванню)"
+		}
+	},
+	{
+		"key": "settingsDeleteUser",
+		"messages": {
+			"en": "When you delete contact / message",
+			"ru": "При удалении контакта / сообщения",
+			"uk": "При видалені контакту / повідомлення"
+		}
+	},
+	{
+		"key": "settingsDeleteUserEverything",
+		"messages": {
+			"en": "Delete contact's data and correspondence on your local computer + flush correspondence and remove from friends list on VK.com",
+			"ru": "Удалить все, что связано с ним на локальном компьютере, очистить переписку и удалить из друзей ВКонтакте",
+			"uk": "Видалити все, що пов’язано з ним на локальному комп’ютері, очистити листування та видалити з друзів ВКонтакті"
+		}
+	},
+	{
+		"key": "settingsDeleteUserLocal",
+		"messages": {
+			"en": "Delete contact's data and correspondence on your local computer",
+			"ru": "Удалить его и переписку с ним только на локальном компьютере",
+			"uk": "Видалити його та листування з ним тільки на локальному комп’ютері"
+		}
+	},
+	{
+		"key": "settingsDeleteUserServer",
+		"messages": {
+			"en": "Delete contact's data and correspondence on your local computer + flush correspondence on VK.com",
+			"ru": "Удалить его и переписку с ним на локальном компьютере и очистить переписку ВКонтакте",
+			"uk": "Видалити його та листування з ним на локальному комп’ютері, а також очистити листування ВКонтакті"
+		}
+	},
+	{
+		"key": "settingsNotificationsTime",
+		"messages": {
+			"en": "Notifications' show time",
+			"ru": "Время отображения уведомлений",
+			"uk": "Час відображення сповіщення"
+		}
+	},
+	{
+		"key": "settingsShowCounters",
+		"messages": {
+			"en": "Show contacts and messages counters",
+			"ru": "Показывать счетчики контактов и сообщений",
+			"uk": "Показувати лічильник контактів і повідомлень"
+		}
+	},
+	{
+		"key": "settingsShowWhenVK",
+		"messages": {
+			"en": "Show notifications about the new messages when VK tab is opened",
+			"ru": "Показывать уведомления о новых сообщениях при открытой вкладке ВКонтакте",
+			"uk": "Показувати сповіщення про нові повідомлення при відкритій вкладці ВКонтакті"
+		}
+	},
+	{
+		"key": "settingsShowBirthdayNotifications",
+		"messages": {
+			"en": "Show notifications about your friends' birthday coming",
+			"ru": "Показывать уведомления о наступивших ДР друзей",
+			"uk": "Показувати сповіщення про дні народження друзів"
+		}
+	},
+	{
+		"key": "settingsSortContacts",
+		"messages": {
+			"en": "Sort contact list",
+			"ru": "Выводить список контактов",
+			"uk": "Виводити список контактів"
+		}
+	},
+	{
+		"key": "settingsSortContactsAlpha",
+		"messages": {
+			"en": "Alphabetically",
+			"ru": "В алфавитном порядке",
+			"uk": "В алфавітному порядку"
+		}
+	},
+	{
+		"key": "settingsSortContactsLast",
+		"messages": {
+			"en": "By last message date",
+			"ru": "По дате последней переписки",
+			"uk": "По даті останнього листування"
+		}
+	},
+	{
+		"key": "settingsSortContactsPopular",
+		"messages": {
+			"en": "By messages number",
+			"ru": "По частоте переписки",
+			"uk": "По частоті листування"
+		}
+	},
+	{
+		"key": "settingsSoundLevel",
+		"messages": {
+			"en": "Notifications' volume level",
+			"ru": "Громкость оповещений",
+			"uk": "Гучність оповіщення"
+		}
+	},
+	{
+		"key": "showMoreInfoAboutContactOrMessage",
+		"messages": {
+			"en": "open",
+			"ru": "подробнее",
+			"uk": "детальніше"
+		},
+		"description": "Текст, который появляется при наведении на стрелку напротив контакта или сообщения"
+	},
+	{
+		"key": "subject",
+		"messages": {
+			"en": "Subject",
+			"ru": "Тема",
+			"uk": "Тема"
+		}
+	},
+	{
+		"key": "switchToAnotherAccount",
+		"messages": {
+			"en": "switch to this account",
+			"ru": "переключиться на этот аккаунт",
+			"uk": "переключитися на цей акаунт"
+		}
+	},
+	{
+		"key": "syncFriends",
+		"messages": {
+			"en": "Friends list is syncing",
+			"ru": "Синхронизируется список друзей",
+			"uk": "Синхронізується список друзів"
+		}
+	},
+	{
+		"key": "syncingContacts",
+		"messages": {
+			"en": "Syncing contacts data",
+			"ru": "Синхронизация контактов",
+			"uk": "Синхронізація контактів"
+		}
+	},
+	{
+		"key": "syncingInbox",
+		"messages": {
+			"en": "Syncing inbox messages",
+			"ru": "Синхронизация входящих сообщений",
+			"uk": "Синхронізація вхідних повідомленнь"
+		}
+	},
+	{
+		"key": "syncingSent",
+		"messages": {
+			"en": "Syncing sent messages",
+			"ru": "Синхронизация исходящих сообщений",
+			"uk": "Синхронізація вихідних повідомленнь"
+		}
+	},
+	{
+		"key": "updatingContacts",
+		"messages": {
+			"en": "Updating contacts database structure",
+			"ru": "Обновление базы данных контактов",
+			"uk": "Оновлення бази даних контактів"
+		}
+	},
+	{
+		"key": "updatingInbox",
+		"messages": {
+			"en": "Updating inbox messages database structure",
+			"ru": "Обновление структуры входящих сообщений",
+			"uk": "Оновлення структури вхідних повідомленнь"
+		}
+	},
+	{
+		"key": "updatingSent",
+		"messages": {
+			"en": "Updating sent messages database structure",
+			"ru": "Обновление структуры исходящих сообщений",
+			"uk": "Оновлення структури вихідних повідомленнь"
+		}
+	},
+	{
+		"key": "tagAttachmentsName",
+		"messages": {
+			"en": "With attachments",
+			"ru": "С вложениями",
+			"uk": "З вкладеннями"
+		}
+	},
+	{
+		"key": "tagDraftsName",
+		"messages": {
+			"en": "Drafts",
+			"ru": "Черновики",
+			"uk": "Чернетки"
+		}
+	},
+	{
+		"key": "tagImportantName",
+		"messages": {
+			"en": "Important",
+			"ru": "Важные",
+			"uk": "Важливі"
+		}
+	},
+	{
+		"key": "tagInboxName",
+		"messages": {
+			"en": "Inbox",
+			"ru": "Входящие",
+			"uk": "Вхідні"
+		}
+	},
+	{
+		"key": "tagOutboxName",
+		"messages": {
+			"en": "Outbox",
+			"ru": "Исходящие",
+			"uk": "Вихідні"
+		}
+	},
+	{
+		"key": "tagSentName",
+		"messages": {
+			"en": "Sent",
+			"ru": "Отправленные",
+			"uk": "Надіслані"
+		}
+	},
+	{
+		"key": "tagTrashName",
+		"messages": {
+			"en": "Trash",
+			"ru": "Удаленные",
+			"uk": "Кошик"
+		}
+	},
+	{
+		"key": "takeTour",
+		"messages": {
+			"en": "Take a tour",
+			"ru": "Что внутри приложения?",
+			"uk": "Що всередені додатку?"
+		}
+	},
+	{
+		"key": "tourAgainButtonTitle",
+		"messages": {
+			"en": "Watch tour slides again",
+			"ru": "Смотреть снова",
+			"uk": "Дивитися знов"
+		}
+	},
+	{
+		"key": "tourFurtherButtonTitle",
+		"messages": {
+			"en": "Next slide",
+			"ru": "Дальше",
+			"uk": "Далі"
+		}
+	},
+	{
+		"key": "tourStep1Description",
+		"messages": {
+			"en": "You can always find the needed contact's data or a message when the internet connection is down or unstable. The app keeps your contacts data and correspondence synchronized during its work for this purpose.|Don't worry about your internet connection status - you contacts' phones and friends' birthdays will always be available.",
+			"ru": "Вы всегда сможете найти нужного вам человека или письмо даже когда соединение с интернетом отсутствует или нестабильно. Для этого приложение полностью синхронизирует список ваших собеседников и сообщения ВКонтакте в процессе своей работы.|Не бойтесь того, что соединение с интернетом пропадет - телефоны знакомых и дни рождения друзей будут всегда под рукой.",
+			"uk": "Ви завжди зможете знайти потрібну вам людину чи листа навіть коли з’єднання з інтернетом відсутнє чи нестабільне. Для цього додаток повністю синхронізує список ваших співбесідників та повідомлення ВКонтакті в процесі своєї роботи.|Не бійтеся того, що з’єднання з інтернетом зникне - телефони знайомих та дні народження друзів будуть завжди під рукою."
+		},
+		"description": "Параграфы текста разделяются символом |"
+	},
+	{
+		"key": "tourStep1Title",
+		"messages": {
+			"en": "Offline access to your data",
+			"ru": "Доступ к данным при отсутствии интернета",
+			"uk": "Доступ до даних при відсутності інтернета"
+		}
+	},
+	{
+		"key": "tourStep2Description",
+		"messages": {
+			"en": "The app will notify you about the new incoming message or a birthday of your friend even if all Google Chrome windows are closed. Background pages feature is used for this purpose and it allows you to get information about the new messages and events immediately.|Do your business and don't worry about the new messages.",
+			"ru": "Даже когда все окна Google Chrome закрыты, приложение уведомит вас о поступившем сообщении или о наступившем дне рождения вашего друга. Для этого используется возможность работы приложения в фоне, которая позволяет узнать о новых сообщениях и событиях практически мгновенно.|Занимайтесь важными делами и не беспокойтесь, что важное сообщение пройдет незамеченным.",
+			"uk": "Навіть коли всі вікна Google Chrome закриті, додаток сповістить вас про вхідне повідомлення чи про наставший день народження вашого друга. Для цього використовується можливість роботи додатку у фоновому режимі, яка дозволяє дізнатися про нові повідомлення та події практично миттєво.|Займайтеся важливими справами та не хвилюйтесь, що важливе повідомлення пройде непоміченим."
+		},
+		"description": "Параграфы текста разделяются символом |"
+	},
+	{
+		"key": "tourStep2Title",
+		"messages": {
+			"en": "The app works when your browser is closed",
+			"ru": "Приложение работает при закрытом браузере",
+			"uk": "Додаток працює при закритому браузері"
+		}
+	},
+	{
+		"key": "tourStep3Description",
+		"messages": {
+			"en": "This feature works exactly as <a target='_blank' href='http://support.google.com/accounts/bin/answer.py?hl=ru&answer=1721977'>Google Multiple Sign-in</a>: you have one active account and its data is being synchronized until you switch to another account on the settings page of the app.|You can add unlimited number of accounts.",
+			"ru": "Внешне это работает аналогично <a target='_blank' href='http://support.google.com/accounts/bin/answer.py?hl=ru&answer=1721977'>Google Multiple Sign-in</a>, когда есть один активный аккаунт, для которого синхронизация происходит в реальном времени.|Переключиться на другой аккаунт можно на странице настроек приложения. Вы можете добавить неограниченное количество аккаунтов.",
+			"uk": "Зовні це працює аналогічно <a target='_blank' href='http://support.google.com/accounts/bin/answer.py?hl=ru&answer=1721977'>Google Multiple Sign-in</a>, коли є один активний акаунт, для якого синхронізація відбувається в реальному часі.|Перейти на іший акаунт можна на сторінці налаштувань додатку. Ви можете додати необмежену кількість акаунтів."
+		},
+		"description": "Параграфы текста разделяются символом |"
+	},
+	{
+		"key": "tourStep3Title",
+		"messages": {
+			"en": "Multiple VK accounts support",
+			"ru": "Поддержка нескольких аккаунтов ВКонтакте",
+			"uk": "Підтримка декількох акаунтів ВКонтакті"
+		}
+	},
+	{
+		"key": "tourStep4Description",
+		"messages": {
+			"en": "Yes, you can replace boring messages text typing process with just speaking this text. Google Voice Search technology will recognize your speech and convert it to text.|Soon we plan to implement video- and audiomessages in the app which won't need third-party plugins like Flash or Silverlight.",
+			"ru": "Да, вы можете не вводить текст письма на клавиатуре, а проговорить его, после чего технология Google Voice Search его распознает и преобразует в текст.|Вскоре в приложении появятся видео- и аудиописьма, которые будут работать без сторонних плагинов (Flash, Silverlight, etc).",
+			"uk": "Так, ви можете не вводити текст листа на клавіатурі, а промовити його, після чого технологія Google Voice Search его распознает и преобразует в текст.|Найближчим часом в додатку з’являться відео- та аудіо-листи, котрі будуть працювати без сторонніх плагінів (Flash, Silverlight, etc)."
+		},
+		"description": "Параграфы текста разделяются символом |"
+	},
+	{
+		"key": "tourStep4SmallDescription",
+		"messages": {
+			"en": "You can get closer to the future by clicking the links behind and starring the issues there. This will let Chromium developers know that many people are waiting for this feature to appear in the browser.",
+			"ru": "Чтобы приблизить это светлое будущее, перейдите по ссылкам и кликните на звездочки в левых верхних частях этих страниц. Это подскажет разработчикам Chromium, что много людей ждут, когда эта возможность появится в браузере.",
+			"uk": "Щоб наблизити це світле майбутнє, перейдіть по силкам та клікніть на зірочки в лівих верхніх частинах цих сторінок. Це підкаже розробникам Chromium, що багато людей чекають, коли ця можливість з’явиться в браузері."
+		}
+	},
+	{
+		"key": "tourStep4Title",
+		"messages": {
+			"en": "Type messages text by speaking it",
+			"ru": "Голосовой ввод текста писем",
+			"uk": "Голосовий ввід тексту листів"
+		}
+	},
+	{
+		"key": "tourStep5Description",
+		"messages": {
+			"en": "Important messages which are easy to find, deleting messages and their restoring, your own tags and drafts - %appname% has it! We've combined simplicity and convenience of VK chats with the common features of any E-mail app.",
+			"ru": "Важные сообщения, к которым легко получить доступ, удаление сообщений с последующей возможностью их восстановления, собственные метки и черновики - все это есть в %appname%.|Мы объединили легкость и простоту диалогов ВКонтакте с удобными и привычными функциями любого E-mail клиента.",
+			"uk": "Важливі повідомлення, до котрих легко отримати доступ, видалення повідомлень з подальшою можливістю їх відновлення, власні мітки та чернетки - все це є в %appname%.|Ми з’єднали легкість та простоту діалогів ВКонтакті із зручними та звичними функціями любого E-mail кліента."
+		},
+		"description": "Параграфы текста разделяются символом |"
+	},
+	{
+		"key": "tourStep5Title",
+		"messages": {
+			"en": "Well-known features from E-mail correspondance are now in the app",
+			"ru": "Все, к чему вы привыкли в E-mail переписке",
+			"uk": "Все, до чого ви звикли в E-mail листуванні"
+		}
+	},
+	{
+		"key": "tourStep6Description",
+		"messages": {
+			"en": "All data is stored on your computer. This means that your contacts, tags and inbox messages stay still on your computer and can't be sent anywhere.|When you install an app Chrome Web Store asks your permission for the app to use *.vk.com and *.userapi.com - these sites are used to synchronize your data.",
+			"ru": "Все данные хранятся локально. Это означает, что контакты, метки и принятые сообщения никуда не посылаются, а хранятся в базе данных у вас на компьютере.|При установке приложение запрашивает у вас доступ к сайтам *.vk.com и *.userapi.com - через них приложение синхронизирует ваши данные.",
+			"uk": "Всі дані зберігаються локально. Це означає, що контакти, мітки та прийняті повідомлення нікуди не відсилаються, а зберігаються в базі даних у вас на комп’ютері.|При встановлені додаток запитує у вас доступ до сайтів *.vk.com та *.userapi.com - через них додаток синхронізує ваші дані."
+		},
+		"description": "Параграфы текста разделяются символом |"
+	},
+	{
+		"key": "tourStep6Title",
+		"messages": {
+			"en": "Full control over data",
+			"ru": "Полный контроль над данными",
+			"uk": "Повний контроль над даними"
+		}
+	},
+	{
+		"key": "truncatingCorrespondance",
+		"messages": {
+			"en": "Processing correspondance. Messages to delete: ",
+			"ru": "Очищаем переписку. Осталось сообщений: ",
+			"uk": "Очищаємо листування. Залишилося повідомлень: "
+		}
+	},
+	{
+		"key": "twitterIconTitle",
+		"messages": {
+			"en": "Official Twitter with news and updates",
+			"ru": "Официальный Twitter-аккаунт приложения с новостями и обновлениями",
+			"uk": "Офіційний Twitter-акаунт додатку з новинами та оновленнями"
+		}
+	},
+	{
+		"key": "typeCaptchaSymbols",
+		"messages": {
+			"en": "Type these symbols",
+			"ru": "Введите символы с картинки",
+			"uk": "Введіть символи з картинки"
+		}
+	},
+	{
+		"key": "updateAccountToken",
+		"messages": {
+			"en": "update account access token",
+			"ru": "обновить ключ доступа",
+			"uk": "оновіть ключ доступу"
+		}
+	},
+	{
+		"key": "uploadedPercents",
+		"messages": {
+			"en": "%bytes% of %total% uploaded (%percents%)",
+			"ru": "загружено %bytes% из %total% (%percents%)",
+			"uk": "завантажено %bytes% з %total% (%percents%)"
+		}
+	},
+	{
+		"key": "writeMessage",
+		"messages": {
+			"en": "write a message",
+			"ru": "написать сообщение",
+			"uk": "написати повідомлення"
+		}
+	},
+	{
+		"key": "writesMessageToSomebody",
+		"messages": {
+			"en": "is writing a message",
+			"ru": "набирает сообщение",
+			"uk": "набирає повідомлення"
+		}
+	},
+	{
+		"key": "writesMessageToYou",
+		"messages": {
+			"en": "is writing a message to you",
+			"ru": "пишет вам сообщение",
+			"uk": "пише вам повідомлення"
+		}
+	},
+	{
+		"key": "years",
+		"messages": {
+			"en": "year|years",
+			"ru": "год|года|лет",
+			"uk": "рік|роки|років"
+		}
+	},
+	{
+		"key": "yes",
+		"messages": {
+			"en": "Yes",
+			"ru": "Да",
+			"uk": "Так"
+		}
+	},
+	{
+		"key": "youMustGrantAccessManagement",
+		"messages": {
+			"en": "You must grant access to extensions management so we can get the list of installed extensions and apps. This will help us to deal with the problem faster.",
+			"ru": "Вы должны предоставить доступ к управлению вашими расширениями, чтобы вместе с вашим сообщением об ошибке был отправлен список установленных у вас расширений и приложений. Это поможет нам быстрее разобраться с причиной ошибки.",
+			"uk": "Ви повинні надати доступ до керування вашими розширеннями, щоб разом з вашим повідомленням про помилку був відправлений список встановлених у вас розширень та додатків. Це допоможе нам швидше розібратися з причиною помилки."
+		}
+	},
+	{
+		"key" : "ruSymbols",
+		"messages" : {
+			"en" : "йцукенгшщзфывапролдячсмить",
+			"ru" : "йцукенгшщзфывапролдячсмить",
+			"uk" : "йцукенгшщзфывапролдячсмить"
+		}
+	},
+	{
+		"key": "updateTokenNow",
+		"messages": {
+			"en": "Update access token now",
+			"ru": "Обновить ключ доступа сейчас",
+			"uk": "Оновити ключ доступу зараз"
+		}
+	},
+	{
+		"key": "updateTokenLater",
+		"messages": {
+			"en": "Do it later",
+			"ru": "Сделать это позже",
+			"uk": "Зробити це пізніше"
+		}
+	},
+	{
+		"key" : "continue",
+		"messages" : {
+			"en" : "continue",
+			"ru" : "продолжить",
+			"uk" : "продовжити"
+		}
+	},
+	{
+		"key" : "chromeAppIsBroken",
+		"messages" : {
+			"en" : "It seems like app's version detecting feature is missing in your browser. Try to update it to the latest version.",
+			"ru" : "В вашем браузере отсутствует возможность определения версии приложения. Попробуйте обновить браузер до более новой версии.",
+			"uk" : "У вашому браузері відсутня можливість визначення версії додатку. Спробуйте оновити браузер до більш нової версії."
+		}
+	},
+	{
+		"key" : "updateItNow",
+		"messages" : {
+			"en" : "Update it now",
+			"ru" : "Обновить сейчас",
+			"uk" : "Оновити зараз"
+		}
+	},
+	{
+		"key" : "tokenUpdatedInsteadOfAccountAdd",
+		"messages" : {
+			"en" : "You wanted to add a new account but you are authorized as <a href='http://vk.com/id%id%' target='_blank'>%fio%</a> on VK.com right now. Authorize on VK.com with the needed user/password and add acount in the app after this.",
+			"ru" : "Вы хотели добавить новый аккаунт, но на сайте ВКонтакте вы сейчас авторизованы под аккаунтом <a href='http://vk.com/id%id%' target='_blank'>%fio%</a>. Авторизуйтесь ВКонтакте под нужным пользователем и добавьте аккаунт еще раз.",
+			"uk" : "Ви хотіли додати новий акаунт, але на сайті ВКонтакті ви зараз авторизовані під акаунтом <a href='http://vk.com/id%id%' target='_blank'>%fio%</a>. Авторизуйтеся ВКонтакті під потрібним користувачем і додайте акаунт ще раз."
+		}
+	},
+	{
+		"key" : "tokenAddedInsteadOfUpdate",
+		"messages" : {
+			"en" : "You wanted to update access token for account but you are authorized as <a href='http://vk.com/id%id%' target='_blank'>ID%id%</a> on VK.com right now. Would you like to synchronize contacts and correspondence of this account with its data on VK.com?",
+			"ru" : "Вы хотели обновить ключ доступа для аккаунта, но на сайте ВКонтакте вы сейчас авторизованы под аккаунтом <a href='http://vk.com/id%id%' target='_blank'>ID%id%</a>. Синхронизировать контакты и переписку этого аккаунта с данными на сервере?",
+			"uk" : "Ви хотіли оновити ключ доступу для акаунту, але на сайті ВКонтакті ви зараз авторизовані під акаунтом <a href='http://vk.com/id%id%' target='_blank'>ID%id%</a>. Синхронізувати контакти та листування цього акаунта з даними на сервері?"
+		}
+	},
+	{
+		"key" : "tokenUpdatedForWrongUser",
+		"messages" : {
+			"en" : "You wanted to update access token for account but you are authorized as <a href='http://vk.com/id%id%' target='_blank'>%fio%</a> on VK.com right now. Authorize on VK.com with the needed user/password and update access token in the app after this.",
+			"ru" : "Вы хотели обновить ключ доступа для аккаунта, но на сайте ВКонтакте вы сейчас авторизованы под аккаунтом <a href='http://vk.com/id%id%' target='_blank'>%fio%</a>. Авторизуйтесь ВКонтакте под нужным пользователем и обновите ключ доступа еще раз.",
+			"uk" : "Ви хотіли оновити ключ доступу для акаунта, але на сайті ВКонтакті ви авторизовані під акаунтом <a href='http://vk.com/id%id%' target='_blank'>%fio%</a>. Авторизуйтеся ВКонтакті під потрібним користувачем та оновіть ключ доступу ще раз."
+		}
+	},
+	{
+		"key" : "tokenUpdated",
+		"messages" : {
+			"en" : "Access token updated successfully.",
+			"ru" : "Ключ доступа успешно обновлен.",
+			"uk" : "Ключ доступу успішно оновлений."
+		}
+	},
+	{
+		"key" : "accessDeniedWhenSendingMessage",
+		"messages" : {
+			"en" : "You are now allowed to send messages. This can happen because the user who you write message to has limited the number of people who can write messages to him/her. If you are sure this is not the actual situation, open settings page and update your account's access token for VK.com. After this try to send the message again.",
+			"ru" : "Вам запрещено посылать письма. Возможно это произошло потому что человек, которому вы хотите послать письмо, ограничил круг общения. Если вы уверены, что это не так, перейдите на страницу настроек и обновите ключ доступа для вашего аккаунта, после чего попробуйте отправить сообщение заново.",
+			"uk" : "Вам заборонено відсилати листи. Можливо це сталося тому що людина, котрій ви хочети написати листа, обмежила коло спілкування. Якщо ви впевнені, що це не так, перейдіть на сторінку налаштувань та оновіть ключ доступу для вашого акаунту, після чого спробуйте відправити повідомлення заново."
+		}
+	},
+	{
+		"key" : "appWontWorkWithoutAccessGranted",
+		"messages" : {
+			"en" : "%appname% app won't work if you don't grant access to your data on VK.com.",
+			"ru" : "Приложение %appname% не сможет работать, если вы не предоставите доступ к своим данным ВКонтакте.",
+			"uk" : "Додаток %appname% не зможе працювати, якщо ви не надасте доступ до своїх даних ВКонтакті"
+		}
+	},
+	{
+		"key" : "appWontWorkDueSecurityBreach",
+		"messages" : {
+			"en" : "You have connected from completely new IP-address so now you should |confirm your phone number| on VK.com to proceed.",
+			"ru" : "Вы авторизовались с нового IP-адреса, поэтому перед предоставлением доступа вам необходимо |подтвердить свой номер телефона| ВКонтакте.",
+			"uk" : "Ви авторизувались з нової IP-адреси, тому перед наданням доступу вам необхідно |підтвердити свій номер телефона| Вконтакті."
+		},
+		"description": "Текст внутри символов | превратится в ссылку"
+	},
+	{
+		"key" : "pressHereIfSyncHangs",
+		"messages" : {
+			"en" : "If sync process hangs out |press this button|",
+			"ru" : "Если процесс синхронизации застыл, |нажмите сюда|",
+			"uk" : "Якщо процес синхронізації застиг, |натисніть сюди|"
+		}
+	},
+	{
+		"key" : "startTypingMessage",
+		"messages" : {
+			"en" : "Click here to reply...",
+			"ru" : "Нажмите сюда, чтобы ответить...",
+			"uk" : "Натисніть сюди, щоб відповісти..."
+		}
+	},
+	{
+		"key" : "backendIsLoading",
+		"messages" : {
+			"en" : "Please wait while the background page of the app is loading...",
+			"ru" : "Подождите пожалуйста, пока загрузится фоновая страница приложения...",
+			"uk" : "Зачекайте будь ласка, поки завантажиться фонова сторінка додатку..."
+		}
+	},
+	{
+		"key" : "refreshPage",
+		"messages" : {
+			"en" : "Обновить страницу",
+			"ru" : "Refresh page",
+			"uk" : "Оновити сторінку"
+		}
+	},
+	{
+		"key": "settingsAttachGeolocation",
+		"messages": {
+			"en": "Attach your geolocation to sent messages",
+			"ru": "Добавлять к отправляемым сообщениям ваше местоположение на карте",
+			"uk": "Додавати до відсилаємих повідомлень ваше місцезнаходження на карті"
+		}
+	},
+	{
+		"key": "settingsShowOnline",
+		"messages": {
+			"en": "Show contacts' online status",
+			"ru": "Показывать онлайн-статус контактов",
+			"uk": "Показувати онлайн-статус контактів"
+		}
+	},
+	{
+		"key" : "happyBirthday",
+		"messages" : {
+			"en" : "Happy Birthday! Sincerely, %appname% app team.",
+			"ru" : "Команда приложения %appname% поздравляет Вас с Днем Рождения!",
+			"uk" : "Команда додатку %appname% вітає Вас з Днем Народження!"
+		}
+	},
+	{
+		"key" : "recepientTo",
+		"messages" : {
+			"en" : "To: ",
+			"ru" : "Кому: ",
+			"uk" : "Кому: "
+		},
+		"description" : "Слово, которое пишется перед адресатом сообщения. Например 'To: Dmitry Sorin'"
+	}
+]

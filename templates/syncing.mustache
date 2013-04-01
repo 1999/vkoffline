@@ -1,0 +1,15 @@
+<h1>
+	<img width="50" height="50" alt="" src="{{avatarSrc}}" data-uid="{{uid}}"/>
+	<span>{{fio}}</span>
+</h1>
+
+<section class="syncing">
+{{#data}}
+	<section class="synctype" id="{{key}}_{{uid}}">
+		<p>{{description}}: <span>{{percentSynced}}</span></p>
+		<progress max="{{max}}" value="{{current}}"></progress>
+	</section>
+{{/data}}
+</section>
+
+<img width="900" height="513" alt="" src="http://img-fotki.yandex.ru/get/6301/38295944.32/0_69a45_99fe3a0d_orig"/>

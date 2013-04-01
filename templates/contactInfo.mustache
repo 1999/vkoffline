@@ -1,0 +1,14 @@
+<img width="50" height="50" alt="" src="{{avatarSrc}}" data-uid="{{uid}}"/>
+<a target="_blank" href="{{linkToProfile}}" class="data">{{linkTitle}}</a>
+
+{{#hasBirthday}}
+	<section class="data"><b>{{birthdayI18n}}:</b> {{birthday}}</section>
+{{/hasBirthday}}
+
+{{#hasMobilePhone}}
+	<section class="data"><b>{{mobilePhoneI18n}}:</b> {{mobilePhone}}</section>
+{{/hasMobilePhone}}
+
+{{#hasHomePhone}}
+	<section class="data"><b>{{homePhoneI18n}}:</b> {{homePhone}}</section>
+{{/hasHomePhone}}

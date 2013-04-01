@@ -1,0 +1,127 @@
+/* ==========================================================
+ * Tipsy-like popup styles (VK Offline Chrome app)
+ * https://github.com/1999/vkoffline
+ * ==========================================================
+ * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ========================================================== */
+
+div.tipsy {
+	font-size: 13px;
+	line-height: 16px;
+	position: absolute;
+	padding: 5px;
+	z-index: 100000;
+	opacity: .8;
+}
+
+div.tipsy.hidden {
+	top: 0;
+	left: 0;
+	visibility: hidden;
+	display: block;
+}
+
+div.tipsy > div.tipsy-inner {
+	background-color: black;
+	color: white;
+	max-width: 200px;
+	padding: 5px 8px 4px 8px;
+	text-align: center;
+	border-radius: 3px;
+}
+
+div.tipsy > div.tipsy-arrow {
+	position: absolute;
+	width: 0;
+	height: 0;
+	line-height: 0;
+	border: 5px dashed black;
+}
+
+div.tipsy.tipsy-n > div.tipsy-arrow {
+	top: 0;
+	left: 50%;
+	margin-left: -5px;
+	border-bottom-style: solid;
+	border-top: none;
+	border-left-color: transparent;
+	border-right-color: transparent;
+}
+
+div.tipsy.tipsy-nw > div.tipsy-arrow {
+	top: 0;
+	left: 10px;
+	border-bottom-style: solid;
+	border-top: none;
+	border-left-color: transparent;
+	border-right-color: transparent;
+}
+
+div.tipsy.tipsy-ne > div.tipsy-arrow {
+	top: 0;
+	right: 10px;
+	border-bottom-style: solid;
+	border-top: none;
+	border-left-color: transparent;
+	border-right-color: transparent;
+}
+
+div.tipsy.tipsy-s > div.tipsy-arrow {
+	bottom: 0;
+	left: 50%;
+	margin-left: -5px;
+	border-top-style: solid;
+	border-bottom: none;
+	border-left-color: transparent;
+	border-right-color: transparent;
+}
+
+div.tipsy.tipsy-sw > div.tipsy-arrow {
+	bottom: 0;
+	left: 10px;
+	border-top-style: solid;
+	border-bottom: none;
+	border-left-color: transparent;
+	border-right-color: transparent;
+}
+
+div.tipsy.tipsy-se > div.tipsy-arrow {
+	bottom: 0;
+	right: 10px;
+	border-top-style: solid;
+	border-bottom: none;
+	border-left-color: transparent;
+	border-right-color: transparent;
+}
+
+div.tipsy.tipsy-e > div.tipsy-arrow {
+	right: 0;
+	top: 50%;
+	margin-top: -5px;
+	border-left-style: solid;
+	border-right: none;
+	border-top-color: transparent;
+	border-bottom-color: transparent;
+}
+
+div.tipsy.tipsy-w > div.tipsy-arrow {
+	left: 0;
+	top: 50%;
+	margin-top: -5px;
+	border-right-style: solid;
+	border-left: none;
+	border-top-color: transparent;
+	border-bottom-color: transparent;
+}

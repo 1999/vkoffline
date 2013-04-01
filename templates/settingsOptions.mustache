@@ -1,0 +1,25 @@
+<form>
+	{{#keysets}}
+		<section class="keyset">
+			<header>{{{header}}}</header>
+
+			{{#radio}}
+				{{#items}}
+					<label>
+						<input type="radio" name="{{name}}" value="{{value}}"{{#active}} checked{{/active}}/>
+						{{title}}
+					</label>
+				{{/items}}
+			{{/radio}}
+
+			{{#range}}
+				<input type="range" value="{{value}}" name="{{name}}" min="{{min}}" max="{{max}}" step="{{step}}"/>
+				{{#info}}
+					<output class="range-info"></output>
+				{{/info}}
+			{{/range}}
+		</section>
+	{{/keysets}}
+
+	<button type="submit">{{saveBtnText}}</button>
+</form>

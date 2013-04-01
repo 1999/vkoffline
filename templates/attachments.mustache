@@ -1,0 +1,39 @@
+{{#attachments}}
+	{{#photo}}
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment photo{{#noimage}} hidden{{/noimage}}" id="{{id}}">
+			<img width="{{width}}" height="{{height}}" alt="" src="{{src}}"/>
+		</section>
+	{{/photo}}
+
+	{{#video}}
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment video hidden" id="{{id}}">
+			<iframe class="video" frameborder="0" src="" seamless="true"></iframe>
+			<span class="description"></span>
+		</section>
+	{{/video}}
+
+	{{#audio}}
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment audio hidden" id="{{id}}">
+			<audio src="" preload="metadata" controls/>
+			<span class="description"></span>
+		</section>
+	{{/audio}}
+
+	{{#doc}}
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment doc link{{#nolink}} hidden{{/nolink}}" id="{{id}}">
+			<a href="{{url}}" download="{{fileName}}">{{title}}</a>
+			<span class="description">{{description}}</span>
+		</section>
+	{{/doc}}
+
+	{{#geopoint}}
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment geopoint{{#nopoint}} hidden{{/nopoint}}" id="{{id}}"></section>
+	{{/geopoint}}
+
+	{{#link}}
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment link">
+			<a href="{{url}}">{{title}}</a>
+			<span class="description">{{{description}}}</span>
+		</section>
+	{{/link}}
+{{/attachments}}

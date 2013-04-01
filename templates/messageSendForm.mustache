@@ -1,0 +1,45 @@
+<form class="reply{{#face2face}} face2face{{/face2face}}">
+	{{#face2face}}
+		<input name="subject" maxlength="255" placeholder="{{subjectText}}"/>
+	{{/face2face}}
+
+	<ul class="selectable">
+	{{#types}}
+		<li class="{{type}}{{#active}} active{{/active}} {{#inactive}}inactive{{/inactive}}" data-type="{{type}}">
+			<span title="{{messageTypeText}}"></span>
+		</li>
+	{{/types}}
+	</ul>
+
+	<section class="manage text">
+		<textarea autofocus required>{{savedMessageText}}</textarea>
+		<input x-webkit-speech/>
+	</section>
+
+	<section class="manage attachments hidden">
+		<input type="file" multiple/>
+	</section>
+
+	<section class="manage audio waiting hidden">
+		<p>{{waitForImplementationText}}</p>
+		<ul>
+			<li><a target='_blank' href='http://code.google.com/p/chromium/issues/detail?id=113676'>issue #113676</a></li>
+			<li><a target='_blank' href='http://code.google.com/p/chromium/issues/detail?id=112367'>issue #112367</a></li>
+		</ul>
+	</section>
+
+	<section class="manage video waiting hidden">
+		<p>{{waitForImplementationText}}</p>
+		<ul>
+			<li><a target='_blank' href='http://code.google.com/p/chromium/issues/detail?id=113676'>issue #113676</a></li>
+			<li><a target='_blank' href='http://code.google.com/p/chromium/issues/detail?id=112367'>issue #112367</a></li>
+		</ul>
+	</section>
+
+	<section class="captcha"></section>
+	<button class="send">{{sendBtnText}}</button>
+
+	{{^isChat}}
+		<button class="close" type="button">{{closeBtnText}}</button>
+	{{/isChat}}
+</form>

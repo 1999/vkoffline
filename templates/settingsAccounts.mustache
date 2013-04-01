@@ -1,0 +1,14 @@
+{{#users}}
+	<section data-uid="{{id}}">
+		<img width="40" height="40" alt="" src="{{avatarSrc}}"/>
+
+		<span title="{{deleteAccountText}}" class="icon delete"></span>
+		<span title="{{updateTokenText}}" class="icon update"></span>
+		<span title="{{switchAccountText}}" class="icon switch{{#active}} active{{/active}}"></span>
+
+		<section class="data">
+			<section class="fio">{{fio}}</section>
+			<section class="id">#{{id}}</section>
+		</section>
+	</section>
+{{/users}}

@@ -1,0 +1,40 @@
+{{! Основа для этого шаблона - halfSections}}
+
+<section class="open" data-mid="{{mid}}"{{#id}} data-did="{{id}}"{{/id}}>
+	<img width="32" height="32" alt="" src="{{avatarSrc}}" data-uid="{{uid}}"/>
+	<section class="manage">
+		{{#trash}}
+			<span class="print" title="{{printText}}"></span>
+			<span class="restore" title="{{restoreText}}"></span>
+			<span class="delete" title="{{deleteText}}"></span>
+		{{/trash}}
+
+		{{^trash}}
+			<span class="print" title="{{printText}}"></span>
+			<span class="reply" title="{{replyText}}"></span>
+			<span class="delete" title="{{deleteText}}"></span>
+		{{/trash}}
+	</section>
+	<section class="data">
+		<section class="from">{{fio}}</section>
+		<section class="date">{{humanDate}}</section>
+
+		{{^trash}}
+			{{#important}}
+				<span class="important active" title="{{importantText}}"></span>
+			{{/important}}
+
+			{{^important}}
+				<span class="important"></span>
+			{{/important}}
+		{{/trash}}
+
+		<section class="text">{{{text}}}</section>
+
+		{{> attachments}}
+
+		{{^trash}}
+			<textarea placeholder="{{startTyping}}" class="fake"></textarea>
+		{{/trash}}
+	</section>
+</section>

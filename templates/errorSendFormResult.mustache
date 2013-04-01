@@ -1,0 +1,17 @@
+<button type="button">{{buttonText}}</button>
+<section class="pre">
+	<p><b>DESCRIPTION</b><br>{{descriptionText}}</p>
+	<p><b>CHROME</b><br>{{chromeVersion}}</p>
+	<p>
+		<b>APPS & EXTENSIONS</b><br>
+		{{#extensionsList}}
+			{{text}}<br>
+		{{/extensionsList}}
+	</p>
+	<p>
+		<b>LOG</b><br>
+		{{#log}}
+			{{text}}<br>
+		{{/log}}
+	</p>
+</section>

@@ -1,0 +1,53 @@
+{
+	"name" : "__MSG_appName__ DEV",
+	"version" : "4.7",
+	"description" : "__MSG_appDescription__",
+	"default_locale" : "ru",
+	"icons" : {
+		"128" : "pic/icon128.png",
+		"48" : "pic/icon48.png",
+		"16" : "pic/icon16.png"
+	},
+	"app" : {
+		"launch" : {
+			"local_path" : "main.html"
+		}
+	},
+	"manifest_version" : 2,
+	"content_security_policy" : "script-src 'self' https://api-maps.yandex.ru https://ssl.google-analytics.com; object-src 'self'",
+	"web_accessible_resources": [
+		"pic/icon48.png", "pic/smile.png"
+	],
+	"background": {
+		"scripts": [
+			"js/app.js",
+			"js/utils.js",
+			"js/soundManager.js",
+			"js/storageManager.js",
+			"js/accountsManager.js",
+			"js/databaseManager.js",
+			"js/settingsManager.js",
+			"js/logManager.js",
+			"js/cacheManager.js",
+			"js/reqManager.js",
+			"js/migrationManager.js",
+			"js/backend.js",
+			"js/counter.js"
+		]
+	},
+	"offline_enabled" : true,
+	"minimum_chrome_version" : "22",
+	"permissions" : [
+		"background",
+		"unlimitedStorage",
+		"tabs",
+		"notifications",
+		"*://*.vk.com/*",
+		"*://*.userapi.com/*",
+		"*://*.vk.me/*"
+	],
+	"optional_permissions" : [
+		"management",
+		"clipboardWrite"
+	]
+}

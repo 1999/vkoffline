@@ -635,8 +635,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
 						self._longPollData[currentUserId] = data.response;
 						self._longPollInit(currentUserId);
-					}, function(errCode) {
+					}, function (errCode) {
 						delete self._longPollXhrIds[currentUserId];
+
+						switch (errCode) {
+							case ReqManager.ABORT:
+							case ReqManager.ACCESS_DENIED:
+								return;
+						}
+
 						window.setTimeout(self.init.bind(self), 5000, currentUserId, self._tags[currentUserId]);
 					});
 				},

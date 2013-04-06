@@ -2,10 +2,13 @@
 **VK Offline** - это legacy packaged app для браузеров, работающих на базе Chromium (Google Chrome, Яндекс.Браузер, Chromium ит.д.). VK Offline можно установить из [Chrome Web Store](https://chrome.google.com/webstore/detail/vkontakte-offline/jinklgkideaicpdgmomlckebafjfibjk) или со [страницы разработчика](http://staypositive.ru/vkofflineapp-promo).
 
 ## Как начать разрабатывать
-Склонируйте репозиторий к себе на компьютер, после чего установите [Grunt](http://gruntjs.com/), перейдите в консоль и выполните комаду ```npm install```.
+ * Склонируйте репозиторий к себе на компьютер
+ * Установите [node.js](http://nodejs.org/download/)
+ * Установите [Grunt](http://gruntjs.com/)
+ * ```npm install```
 
 ## Зачем в проекте grunt?
- * Для сборки файлов из одного файла locales.json: ```grunt i18n```
+ * Для сборки файлов локализации из одного файла locales.json: ```grunt i18n```
  * Для сборки Vanilla JS шаблонов для Hogan.js: ```grunt templates```
  * Для релизной сборки: ```grunt release```
 

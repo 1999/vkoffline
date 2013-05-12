@@ -5,6 +5,9 @@ module.exports = function (grunt) {
 	});
 
 	grunt.registerTask('release', 'Builds a release ZIP package for CWS', function () {
+		grunt.task.requires('i18n');
+		grunt.task.requires('templates');
+
  		var done = this.async();
  		var exec = require('child_process').exec;
 

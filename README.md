@@ -5,12 +5,12 @@
  * Склонируйте репозиторий к себе на компьютер
  * Установите [node.js](http://nodejs.org/download/)
  * Установите [Grunt](http://gruntjs.com/)
- * ```npm install```
+ * ```npm install && grunt```
 
 ## Зачем в проекте grunt?
  * Для сборки файлов локализации из одного файла locales.json: ```grunt i18n```
  * Для сборки Vanilla JS шаблонов для Hogan.js: ```grunt templates```
- * Для релизной сборки: ```grunt release```
+ * Для релизной сборки: ```grunt i18n templates release```
 
 ## FAQ
  * **Как мне добавить локализацию?**

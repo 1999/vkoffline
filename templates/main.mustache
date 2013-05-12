@@ -7,7 +7,7 @@
 			{{/accounts}}
 		</section>
 		<span class="fio">{{activeAccountFio}}</span>
-		<span class="network-status {{^offline}}online{{/offline}}{{#offline}}offline{{/offline}}"></span>
+		<span class="network-status {{^offline}}online{{/offline}}{{#offline}}offline{{/offline}}{{#tokenExpired}} tokenexpired{{/tokenExpired}}"></span>
 	</section>
 </section>
 

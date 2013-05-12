@@ -629,7 +629,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				_getCredentials: function(currentUserId) {
 					var self = this;
 
-					ReqManager.apiMethod("messages.getLongPollServer", function(data) {
+					ReqManager.apiMethod("messages.getLongPollServer", function (data) {
 						if (AccountsManager.currentUserId !== currentUserId)
 							return;
 
@@ -637,6 +637,9 @@ document.addEventListener("DOMContentLoaded", function () {
 						self._longPollInit(currentUserId);
 					}, function (errCode) {
 						delete self._longPollXhrIds[currentUserId];
+
+						if (errCode === ReqManager.ACCESS_DENIED)
+							CacheManager.isTokenExpired = true;
 
 						switch (errCode) {
 							case ReqManager.ABORT:
@@ -1211,6 +1214,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				// инициализация кэша URL аватарок
 				CacheManager.init(AccountsManager.currentUserId, "avatars");
+				CacheManager.init(AccountsManager.currentUserId, "isTokenExpired", false);
 
 				// инициализируем БД
 				DatabaseManager.initUser(currentUserId, App.INIT_TAGS, function(tagsInDatabase) {

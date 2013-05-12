@@ -2418,6 +2418,7 @@ var AppUI = {
 				accounts: [],
 				activeAccountFio: (this.AccountsManager.current.fio === "...") ? "#" + this.AccountsManager.currentUserId : this.AccountsManager.current.fio,
 				offline: !navigator.onLine,
+				tokenExpired: this.CacheManager.isTokenExpired,
 				settingsTitle: chrome.i18n.getMessage("options"),
 				alertTitle: chrome.i18n.getMessage("alertIconTitle"),
 				likeTitle: chrome.i18n.getMessage("likeIconTitle").replace("%appname%", App.NAME) + "!",

@@ -19,7 +19,8 @@
 
 var CacheManager = {
 	init: function(currentUserId, keyset, defaultValue) {
-		defaultValue = defaultValue || {};
+		if (defaultValue === undefined)
+			defaultValue = {};
 
 		// сбрасываем весь кэш/геттеры/сеттеры как только видим, что сменился пользователь
 		if (currentUserId !== this._currentUserId) {

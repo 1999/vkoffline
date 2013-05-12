@@ -20,4 +20,4 @@ node_modules
 # builds
 dist
 src/_locales
-src/templates.js
+src/js/templates.js

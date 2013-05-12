@@ -222,7 +222,7 @@ aside > span:hover {
 	background: #bbb;
 }
 
-aside > span.icon.twitter:before { content: "T"; }
+aside > span.icon.github:before { content: "L"; }
 aside > span.icon.like:before { content: "j"; }
 aside > span.icon.alert:before { content: "!"; }
 aside > span.icon.settings:before { content: "7"; }

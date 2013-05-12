@@ -1147,14 +1147,6 @@
 		}
 	},
 	{
-		"key": "twitterIconTitle",
-		"messages": {
-			"en": "Official Twitter with news and updates",
-			"ru": "Официальный Twitter-аккаунт приложения с новостями и обновлениями",
-			"uk": "Офіційний Twitter-акаунт додатку з новинами та оновленнями"
-		}
-	},
-	{
 		"key": "typeCaptchaSymbols",
 		"messages": {
 			"en": "Type these symbols",

@@ -2420,7 +2420,6 @@ var AppUI = {
 				offline: !navigator.onLine,
 				settingsTitle: chrome.i18n.getMessage("options"),
 				alertTitle: chrome.i18n.getMessage("alertIconTitle"),
-				twitterTitle: chrome.i18n.getMessage("twitterIconTitle"),
 				likeTitle: chrome.i18n.getMessage("likeIconTitle").replace("%appname%", App.NAME) + "!",
 				showLike: (tokenUpdatedForUser && appLikedByUser === false)
 			};
@@ -2480,9 +2479,9 @@ var AppUI = {
 				}
 			});
 
-			$("span.icon.twitter").bind("click", function() {
+			$("span.icon.github").bind("click", function() {
 				chrome.tabs.create({
-					url: "https://twitter.com/vkoffline"
+					url: "https://github.com/1999/vkoffline"
 				});
 			});
 

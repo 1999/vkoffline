@@ -1852,8 +1852,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 						var sendLikeRequest = function() {
 							ReqManager.apiMethod("wall.addLike", {
-								"owner_id" : 115118,
-								"post_id" : 1881,
+								"owner_id" : -29809053,
+								"post_id" : 454,
 								"repost" : 1
 							}, function(data) {
 								sendResponse(1);

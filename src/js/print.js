@@ -62,7 +62,7 @@ window.onload = function() {
 
 			var html = Templates.render("print", {messages: tplData});
 			document.body.html(html);
-			
+
 			window.print();
 			window.close();
 		};
@@ -80,12 +80,12 @@ window.onload = function() {
 
 		switch (printType) {
 			case "uniqueMessage" :
-				chrome.extension.sendMessage({action: "getContactData", uid: searchData.uid}, function (dbUserData) {
+				chrome.runtime.sendMessage({action: "getContactData", uid: searchData.uid}, function (dbUserData) {
 					userData = dbUserData;
 					onDataLoaded();
 				});
 
-				chrome.extension.sendMessage({action: "getMessageInfo", mid: searchData.mid}, function (dbMsgInfo) {
+				chrome.runtime.sendMessage({action: "getMessageInfo", mid: searchData.mid}, function (dbMsgInfo) {
 					msgData = [dbMsgInfo];
 					onDataLoaded();
 				});
@@ -93,7 +93,7 @@ window.onload = function() {
 				break;
 
 			case "dialog" :
-				chrome.extension.sendMessage({action: "getDialogThread", id: searchData.did, print: true}, function (dialogData) {
+				chrome.runtime.sendMessage({action: "getDialogThread", id: searchData.did, print: true}, function (dialogData) {
 					userData = null;
 					msgData = dialogData[0];
 

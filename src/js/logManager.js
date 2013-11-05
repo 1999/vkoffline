@@ -26,28 +26,9 @@ var LogManager = new (function() {
 
 	["config", "error", "warn", "log", "info"].forEach(function(methodName) {
 		this[methodName] = function() {
-			var methodArgs = Array.prototype.slice.call(arguments, 0),
-				tabs = chrome.extension.getViews({"type" : "tab"}),
-				consoleMethodName = (methodName !== "config") ? methodName : "info",
-				groupOutputNeeded = false;
-
-			if (levels[SettingsManager.Debug].indexOf(methodName) === -1) {
+			var methodArgs = Array.prototype.slice.call(arguments, 0);
+			if (levels[SettingsManager.Debug].indexOf(methodName) === -1)
 				return;
-			}
-
-			if (typeof methodArgs[0] === "object") {
-				groupOutputNeeded = true;
-			}
-
-			tabs.forEach(function(tab) {
-				if (groupOutputNeeded) {
-					tab.console.group(new Date());
-					tab.console[consoleMethodName](methodArgs[0]);
-					tab.console.groupEnd();
-				} else {
-					tab.console[consoleMethodName](new Date() + " " + methodArgs[0]);
-				}
-			});
 
 			DatabaseManager.log(methodArgs[0], methodName);
 		};

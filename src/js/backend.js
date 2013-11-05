@@ -17,7 +17,7 @@
  * limitations under the License.
  * ========================================================== */
 
-(function (w) {
+(function () {
 	var previewListener = function(request, sender, sendResponse) {
 		if (request.action === "uiDraw") {
 			sendResponse(false);
@@ -25,13 +25,33 @@
 		}
 	};
 
-	w.addEventListener("load", function () {
-		chrome.extension.onMessage.removeListener(previewListener);
-		chrome.extension.sendMessage({action: "ui"});
+	window.addEventListener("load", function () {
+		chrome.runtime.onMessage.removeListener(previewListener);
+		chrome.runtime.sendMessage({action: "ui"});
 	}, false);
 
-	chrome.extension.onMessage.addListener(previewListener);
-})(window);
+	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
+		if (alarmInfo.name === "dayuse") {
+			statSend("Lifecycle", "Dayuse", "Total users", 1);
+			statSend("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
+
+			var appInstallTime = StorageManager.get("app_install_time");
+			if (appInstallTime) {
+				var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
+				statSend("Lifecycle", "Dayuse", "App life time", totalDaysLive);
+			}
+
+			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
+			for (var url in requestsLog) {
+				statSend("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
+			}
+
+			StorageManager.remove("requests");
+		}
+	});
+
+	chrome.runtime.onMessage.addListener(previewListener);
+})();
 
 
 window.onerror = function(msg, url, line) {
@@ -43,19 +63,19 @@ window.onerror = function(msg, url, line) {
 	LogManager.error(msgError);
 };
 
+// запись custom-статистики
+function statSend(category, action, optLabel, optValue) {
+	var argsArray = Array.prototype.map.call(arguments, function (element) {
+		return (typeof element === "string") ? element : JSON.stringify(element);
+	});
+
+	try {
+		window._gaq.push(["_trackEvent"].concat(argsArray));
+	} catch (e) {}
+};
+
 document.addEventListener("DOMContentLoaded", function () {
 	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
-
-	// запись custom-статистики в Яндекс.Метрику
-	var statSend = function (category, action, optLabel, optValue) {
-		var argsArray = Array.prototype.map.call(arguments, function (element) {
-			return (typeof element === "string") ? element : JSON.stringify(element);
-		});
-
-		try {
-			window._gaq.push(["_trackEvent"].concat(argsArray));
-		} catch (e) {}
-	};
 
 	// получение аватарок
 	var fetchPhoto = function (photoUrl, fn) {
@@ -173,6 +193,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		// проверка на обновление версии, уведомление
 		MigrationManager.start(fsLink, function (appState) {
+			chrome.alarms.get("dayuse", function (alarmInfo) {
+				if (!alarmInfo) {
+					chrome.alarms.create("dayuse", {
+						delayInMinutes: 24 * 60,
+						periodInMinutes: 24 * 60
+					});
+				}
+			});
+
 			switch (appState) {
 				case MigrationManager.INSTALLED:
 					statSend("App-Data", "New User");
@@ -219,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function () {
 										}
 									}
 
-									return chrome.extension.sendMessage({action: "ui"});
+									return chrome.runtime.sendMessage({action: "ui"});
 								}
 
 								if (tabData.tabId) {
@@ -241,7 +270,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 			}
 
-			var OAuthTabData = []; // массив открытых вкладок авторизации OAuth		
+			var OAuthTabData = []; // массив открытых вкладок авторизации OAuth
 			var oAuthRequestData; // "new", "add", "update" (варианты получения токена ВКонтакте)
 
 			var updateTokenForUserId = null, // при обновлении токенов нужно запоминать для какого пользователя требовалось обновление
@@ -274,7 +303,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			// устанавливаем обработчики offline-событий
 			window.addEventListener("online", function (e) {
-				chrome.extension.sendMessage({"action" : "onlineStatusChanged", "status" : "online"});
+				chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "online"});
 
 				// на самом деле сеть может быть, а связи с интернетом - нет
 				if (AccountsManager.currentUserId) {
@@ -284,12 +313,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			window.addEventListener("offline", function (e) {
 				ReqManager.abortAll();
-				chrome.extension.sendMessage({"action" : "onlineStatusChanged", "status" : "offline"});
+				chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "offline"});
 			}, false);
 
-			
-			
-			
+
+
+
 			var loadAvatar = function(contactId, fnSuccess, fnFail) {
 				CacheManager.avatars[contactId] = ""; // положение обозначает, что данные загружаются
 
@@ -339,7 +368,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					});
 				}
 			};
-			
+
 
 			var longPollEventsRegistrar = {
 				init: function(currentUserId, tags) {
@@ -373,7 +402,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					LogManager.info(JSON.stringify(res));
-					
+
 					res.updates.forEach(function(data) {
 						switch (data[0]) {
 							case 2 :
@@ -384,7 +413,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									// За это время может произойти ошибка duplicate key
 								} else {
 									DatabaseManager.markAsUnread(data[1], function() {
-										chrome.extension.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
+										chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
 									}, function(isDatabaseError, errMsg) {
 										if (isDatabaseError) {
 											LogManager.error(errMsg);
@@ -397,7 +426,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 							case 3 :
 								DatabaseManager.markAsRead(data[1], function() {
-									chrome.extension.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
+									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
 								}, function(isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
@@ -406,7 +435,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								});
 
 								break;
-							
+
 							case 4 :
 								var uid = (data[7].from !== undefined) ? data[7].from : data[3],
 									mailType = (data[2] & 2) ? "sent" : "inbox",
@@ -449,7 +478,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 									DatabaseManager.insertMessages(currentUserId, {"firstSync" : false, "messages" : [msgData]}, function(msgData) {
 										// обновляем фронтенд
-										chrome.extension.sendMessage({"action" : "messageReceived", "data" : msgData, "userdata" : userData});
+										chrome.runtime.sendMessage({"action" : "messageReceived", "data" : msgData, "userdata" : userData});
 
 										var showNotification = function(avatarUrl) {
 											var img = new Image();
@@ -581,27 +610,27 @@ document.addEventListener("DOMContentLoaded", function () {
 										getUserProfile(currentUserId, parseInt(uid, 10), onUserDataReady);
 									}
 								});
-								
+
 								break;
 
 							case 8 : // пользователь -data[1] онлайн
 								if (SettingsManager.ShowOnline === 1) {
-									chrome.extension.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : true});
+									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : true});
 								}
 
 								break;
 
 							case 9 : // пользователь -data[1] оффлайн (нажал кнопку "выйти" если data[2] === 0, иначе по таймауту)
 								if (SettingsManager.ShowOnline === 1) {
-									chrome.extension.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : false});
+									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : false});
 								}
 
 								break;
 
 							case 61 : // пользователь data[1] начал набирать текст в диалоге
 							case 62 : // пользователь data[1] начал набирать текст в беседе data[2]
-							 	break;
-							
+								break;
+
 							default :
 								LogManager.info([data[0], data]);
 						}
@@ -617,7 +646,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					delete this._longPollXhrIds[currentUserId];
 					if (errorCode === ReqManager.ABORT)
 						return;
-					
+
 					this.init(currentUserId, this._tags[currentUserId]);
 
 					if (AccountsManager.currentUserId === currentUserId) {
@@ -653,7 +682,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				_longPollInit: function(currentUserId) {
 					var domain = this._longPollData[currentUserId].server.replace("vkontakte.ru", "vk.com");
-					
+
 					this._longPollXhrIds[currentUserId] = ReqManager.forceUrlGet("http://" + domain, {
 						"act" : "a_check",
 						"key" : this._longPollData[currentUserId].key,
@@ -668,7 +697,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				_longPollXhrIds: {},
 				_tags: {}
 			};
-		
+
 			/**
 			 * Запрос к API ВКонтакте за пользователями и последующая запись их в БД
 			 *
@@ -767,7 +796,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				getUserProfile(currentUserId, currentUserId, function (currentUserData) {
 					// пробуем сразу же загрузить аватарку активного профиля
 					loadAvatar(currentUserId, function() {
-						chrome.extension.sendMessage({"action" : "avatarLoaded", "uid" : currentUserId});
+						chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : currentUserId});
 					});
 
 					try {
@@ -894,9 +923,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
 						// удаляем из списка обрабатываемых
 						delete uidsProcessing[currentUserId][userDoc.uid];
-						
+
 						syncingData[currentUserId].contacts[1] += 1;
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "syncProgress",
 							userId: currentUserId,
 							type: "contacts",
@@ -975,7 +1004,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								// сбрасываем счетчик синхронизации
 								clearSyncingDataCounters(currentUserId);
 
-								chrome.extension.sendMessage({"action" : "ui", "which" : "user"});
+								chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
 							}
 						}
 
@@ -1037,7 +1066,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					if (typeof callbackFinally === "function") {
 						callbackFinally();
 					}
-					
+
 					return;
 				}
 
@@ -1094,7 +1123,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								// чтобы защититься от этого проверяем, был ли обновлен токен
 								wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
 								if (wallTokenUpdated) {
-									chrome.extension.sendMessage({"action" : "ui", "which" : "user"});
+									chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
 								}
 							}
 						}
@@ -1168,7 +1197,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						if (queryIsOk) {
 							syncingData[currentUserId][mailType][1] += 1;
 
-							chrome.extension.sendMessage({
+							chrome.runtime.sendMessage({
 								"action" : "syncProgress",
 								"userId" : currentUserId,
 								"type" : mailType,
@@ -1196,7 +1225,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 				});
 			};
-			
+
 			/**
 			 * Должен запускаться только в четырех случаях: при старте приложения (то есть при загрузке ОС), при смене аккаунта,
 			 * при добавлении и при удалении аккаунта. При отрисовке UI ничего запускать не нужно - она должна работать с кэшем и событиями.
@@ -1290,7 +1319,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							}
 						});
 
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "appWontWorkWithoutAccessGranted",
 							from: oAuthRequestData,
 							reason: failReason
@@ -1349,7 +1378,7 @@ document.addEventListener("DOMContentLoaded", function () {
 										}
 									});
 
-									chrome.extension.sendMessage({
+									chrome.runtime.sendMessage({
 										action: "ui",
 										which: "syncing"
 									});
@@ -1395,7 +1424,7 @@ document.addEventListener("DOMContentLoaded", function () {
 											}
 										});
 
-										chrome.extension.sendMessage({
+										chrome.runtime.sendMessage({
 											action: "ui",
 											which: "syncing"
 										});
@@ -1424,7 +1453,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									});
 
 									// уведомляем об ошибке
-									chrome.extension.sendMessage({
+									chrome.runtime.sendMessage({
 										action: "tokenUpdatedInsteadOfAccountAdd",
 										uid: userId,
 										fio: AccountsManager.list[userId].fio
@@ -1446,7 +1475,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 								if (newUserGranted) {
 									// уведомляем об ошибке
-									chrome.extension.sendMessage({
+									chrome.runtime.sendMessage({
 										action: "tokenAddedInsteadOfUpdate",
 										uid: userId,
 										token: token
@@ -1456,11 +1485,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
 									if (neededUserTokenUpdated) {
 										statSend("App-Actions", "Account token updated");
-										chrome.extension.sendMessage({
+										chrome.runtime.sendMessage({
 											action: "tokenUpdated"
 										});
 									} else {
-										chrome.extension.sendMessage({
+										chrome.runtime.sendMessage({
 											action: "tokenUpdatedForWrongUser",
 											uid: userId,
 											fio: AccountsManager.list[userId].fio
@@ -1492,8 +1521,8 @@ document.addEventListener("DOMContentLoaded", function () {
 				}
 			});
 
-			
-			chrome.extension.onMessage.addListener(function(request, sender, sendResponse) {
+
+			chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 				var sendAsyncResponse = false;
 
 				switch (request.action) {
@@ -1534,7 +1563,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						}
 
 						// уведомляем фронт
-						chrome.extension.sendMessage({"action" : "ui", "which" : uiType});
+						chrome.runtime.sendMessage({"action" : "ui", "which" : uiType});
 						break;
 
 					case "closeNotification" :
@@ -1542,7 +1571,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							newMessagesNotifications[request.mid].cancel();
 							delete newMessagesNotifications[request.mid];
 						}
-						
+
 						break;
 
 					// NB. Есть баг, когда в некоторых версиях браузера сортировка работает слишком долго. Для определения этого момента в 4.4 внедрено следующее решение:
@@ -1567,7 +1596,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							ReqManager.apiMethod("users.get", {"uids" : contactsIds.join(","), "fields" : "online"}, function(data) {
 								data.response.forEach(function(chunk) {
 									var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
-									chrome.extension.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
+									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
 								});
 							});
 						};
@@ -1652,7 +1681,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					case "loadAvatar" :
 						loadAvatar(request.uid, function() {
-							chrome.extension.sendMessage({"action" : "avatarLoaded", "uid" : request.uid});
+							chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : request.uid});
 						});
 
 						break;
@@ -1681,7 +1710,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							ReqManager.apiMethod("users.get", {"uids" : request.uid, "fields" : "online"}, function(data) {
 								data.response.forEach(function(chunk) {
 									var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
-									chrome.extension.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
+									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
 								});
 							});
 						}
@@ -1752,7 +1781,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									break;
 							}
 						});
-					
+
 						break;
 
 					case "collectLogData":
@@ -1780,7 +1809,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						sendRequest();
 						sendAsyncResponse = true;
 						break;
-				
+
 					case "getDocsUploadServer" :
 						var sendRequest = function() {
 							ReqManager.apiMethod("docs.getUploadServer", sendResponse, function(errCode, errData) {
@@ -1826,7 +1855,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						sendRequest(request);
 						sendAsyncResponse = true;
 						break;
-				
+
 					case "saveMessagesDoc" :
 						var sendRequest = function(requestData) {
 							ReqManager.apiMethod("docs.save", {
@@ -1845,7 +1874,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								}
 							});
 						};
-						
+
 						sendRequest(request);
 						sendAsyncResponse = true;
 						break;
@@ -1898,7 +1927,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								}
 							});
 						};
-						
+
 						sendLikeRequest();
 						sendJoinGroupRequest();
 						break;
@@ -1927,7 +1956,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 								if (postsToStore.length) {
 									StorageManager.set("vkgroupwall_stored_posts", postsToStore);
-									chrome.extension.sendMessage({"action" : "newWallPosts"});
+									chrome.runtime.sendMessage({"action" : "newWallPosts"});
 								}
 
 								// обновляем счетчик следующего запроса к стенке
@@ -2389,7 +2418,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								ReqManager.apiMethod("users.get", {"uids" : uids.join(","), "fields" : "online"}, function(data) {
 									data.response.forEach(function(chunk) {
 										var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
-										chrome.extension.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
+										chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
 									});
 								});
 							}
@@ -2427,7 +2456,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						}, function (tab) {
 							OAuthTabData.push(tab.id);
 						});
-						
+
 						break;
 
 					case "newUserAfterUpdateToken" :
@@ -2468,7 +2497,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									}
 								});
 
-								chrome.extension.sendMessage({"action" : "ui", "which" : "syncing"});
+								chrome.runtime.sendMessage({"action" : "ui", "which" : "syncing"});
 							});
 						});
 
@@ -2524,7 +2553,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									}
 								});
 
-								chrome.extension.sendMessage({"action" : "ui"});
+								chrome.runtime.sendMessage({"action" : "ui"});
 							});
 						};
 
@@ -2544,14 +2573,14 @@ document.addEventListener("DOMContentLoaded", function () {
 						var friendsSyncTime = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
 						delete friendsSyncTime[request.uid];
 						StorageManager.set("friends_sync_time", friendsSyncTime);
-						
+
 						var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
 						delete wallTokenUpdated[request.uid];
 						StorageManager.set("wall_token_updated", wallTokenUpdated);
 
 						StorageManager.remove("perm_inbox_" + request.uid);
 						StorageManager.remove("perm_outbox_" + request.uid);
-						
+
 						if (request.next !== false) {
 							AccountsManager.currentUserId = request.next;
 							startUserSession();
@@ -2591,7 +2620,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								}
 							});
 
-							chrome.extension.sendMessage({"action" : "ui"});
+							chrome.runtime.sendMessage({"action" : "ui"});
 						});
 
 						break;
@@ -2630,7 +2659,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					return true;
 				}
 			});
-		
+
 			// при загрузке приложения...
 			if (AccountsManager.currentUserId) {
 				startUserSession();

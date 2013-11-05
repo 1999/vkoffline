@@ -75,7 +75,7 @@ document.addEventListener("click", function (e) {
 				counterValue;
 
 			if (target.hasClass("active")) {
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "unmarkMessageTag",
 					mid: msgId,
 					tagId: self.CacheManager.tags.important
@@ -91,7 +91,7 @@ document.addEventListener("click", function (e) {
 					}
 				});
 			} else {
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "markMessageTag",
 					mid: msgId,
 					tagId: self.CacheManager.tags.important
@@ -108,7 +108,7 @@ document.addEventListener("click", function (e) {
 				});
 			}
 
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "useImportantTag",
 				type: "mark"
 			});
@@ -199,7 +199,7 @@ document.addEventListener("click", function (e) {
 
 						image.src = requestData[1];
 					} else {
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "getPhotoById",
 							ownerId: requestData[1],
 							id: requestData[2],
@@ -224,7 +224,7 @@ document.addEventListener("click", function (e) {
 					break;
 
 				case "audio":
-					chrome.extension.sendMessage({
+					chrome.runtime.sendMessage({
 						action: "getAudioById",
 						ownerId: requestData[1],
 						id: requestData[2],
@@ -242,7 +242,7 @@ document.addEventListener("click", function (e) {
 					break;
 
 				case "video":
-					chrome.extension.sendMessage({
+					chrome.runtime.sendMessage({
 						action: "getVideoById",
 						ownerId: requestData[1],
 						id: requestData[2],
@@ -261,7 +261,7 @@ document.addEventListener("click", function (e) {
 					break;
 
 				case "doc":
-					chrome.extension.sendMessage({
+					chrome.runtime.sendMessage({
 						action: "getDocById",
 						ownerId: requestData[1],
 						id: requestData[2],
@@ -286,7 +286,7 @@ document.addEventListener("click", function (e) {
 					break;
 
 				case "geopoint":
-					chrome.extension.sendMessage({
+					chrome.runtime.sendMessage({
 						action: "getGeopointById",
 						mid: msgId
 					}, function (pointInfo) {
@@ -312,7 +312,7 @@ document.addEventListener("click", function (e) {
 			Utils.async.parallel({
 				// снимаем отметку с сообщения "удаленное" в БД
 				db: function (callback) {
-					chrome.extension.sendMessage({
+					chrome.runtime.sendMessage({
 						action: "unmarkMessageTag",
 						mid: msgId,
 						tagId: self.CacheManager.tags.trash
@@ -322,7 +322,7 @@ document.addEventListener("click", function (e) {
 				},
 				// восстанавливаем на сервере
 				server: function (callback) {
-					chrome.extension.sendMessage({
+					chrome.runtime.sendMessage({
 						action: "serverRestoreMessage",
 						mid: msgId
 					}, function (ok) {
@@ -345,7 +345,7 @@ document.addEventListener("click", function (e) {
 				tagListItemCounter.text(counterValue - 1);
 
 				// необходимо обновить все счетчики тэгов для сообщения
-				chrome.extension.sendMessage({action: "getMessageInfo", mid: msgId}, function (msgInfo) {
+				chrome.runtime.sendMessage({action: "getMessageInfo", mid: msgId}, function (msgInfo) {
 					var counterValue;
 
 					// добавляем стартовые метки-папки
@@ -374,7 +374,7 @@ document.addEventListener("click", function (e) {
 
 			if (isTrashFolderContents) {
 				if (confirm(chrome.i18n.getMessage("deleteMessageForever"))) {
-					chrome.extension.sendMessage({action: "deleteMessageForever", mid: msgId, serverToo: serverToo}, function () {
+					chrome.runtime.sendMessage({action: "deleteMessageForever", mid: msgId, serverToo: serverToo}, function () {
 						msgSection.remove();
 					});
 				}
@@ -385,7 +385,7 @@ document.addEventListener("click", function (e) {
 			Utils.async.parallel({
 				// помечаем сообщение как удаленное в БД
 				db: function (callback) {
-					chrome.extension.sendMessage({
+					chrome.runtime.sendMessage({
 						action: "markMessageTag",
 						mid: msgId,
 						tagId: self.CacheManager.tags.trash
@@ -396,7 +396,7 @@ document.addEventListener("click", function (e) {
 				// удаляем на сервере
 				server: function (callback) {
 					if (self.SettingsManager.DeleteUser !== 0) {
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "serverDeleteMessage",
 							mid: msgId
 						}, function (ok) {
@@ -429,7 +429,7 @@ document.addEventListener("click", function (e) {
 				tagListItemCounter.text(counterValue + 1);
 
 				// необходимо обновить все счетчики тэгов для сообщения
-				chrome.extension.sendMessage({action: "getMessageInfo", mid: msgId}, function (msgInfo) {
+				chrome.runtime.sendMessage({action: "getMessageInfo", mid: msgId}, function (msgInfo) {
 					var counterValue;
 
 					// добавляем стартовые метки-папки
@@ -548,7 +548,7 @@ document.addEventListener("submit", function (e) {
 						}
 					},
 					log: function (callback) {
-						chrome.extension.sendMessage({action: "collectLogData"}, function (data) {
+						chrome.runtime.sendMessage({action: "collectLogData"}, function (data) {
 							var output = data.map(function (logString) {
 								return {text: logString};
 							});
@@ -601,7 +601,7 @@ document.addEventListener("submit", function (e) {
 						self.SettingsManager[itemName] = (itemName !== "SoundLevel")
 							? itemValue
 							: itemValue / 10;
-						
+
 						break;
 
 					case "radio" :
@@ -634,7 +634,7 @@ document.addEventListener("submit", function (e) {
 			var msgText;
 
 			var sendFn = function() {
-				chrome.extension.sendMessage(sendObj, function (data) {
+				chrome.runtime.sendMessage(sendObj, function (data) {
 					var sentResultCode = data[0];
 					var sentResultData = data[1];
 
@@ -714,10 +714,10 @@ document.addEventListener("submit", function (e) {
 										}, [uid]);
 									}
 								}, 3000);
-								
+
 								form.data("timeoutId", closeTimeoutId);
 							}
-							
+
 							break;
 
 						case 1 : // captcha
@@ -817,7 +817,7 @@ var AppUI = {
 					var moreSection = $(this, "section.more");
 					if (!moreSection)
 						return;
-					
+
 					var goPos = this.scrollHeight - 160;
 					if (this.scrollTop + this.clientHeight > goPos) {
 						moreSection.click();
@@ -851,7 +851,7 @@ var AppUI = {
 					break;
 			}
 
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "fetchContactList",
 				type: sortType,
 				totalShown: startFrom
@@ -927,7 +927,7 @@ var AppUI = {
 			var contents = Templates.render("tourStep", tplData);
 
 			document.body.empty().html(contents);
-			chrome.extension.sendMessage({"action" : "tourWatch", "step" : num});
+			chrome.runtime.sendMessage({"action" : "tourWatch", "step" : num});
 
 			$("section.buttons.in-tour button.tour").bind("click", function (e) {
 				var step = parseInt(this.data("step"), 10);
@@ -937,7 +937,7 @@ var AppUI = {
 			});
 
 			$("section.buttons.in-tour button.access").bind("click", function (e) {
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					"action" : "getOAuthToken",
 					"type" : "new"
 				});
@@ -965,7 +965,7 @@ var AppUI = {
 			});
 
 			// слева показываем подробную информацию о контакте
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "getContactData",
 				uid: uid,
 				includeOnlineStatus: true
@@ -994,7 +994,7 @@ var AppUI = {
 						avatarSrc = self.CacheManager.avatars[uid];
 					}
 				} else {
-					chrome.extension.sendMessage({"action" : "loadAvatar", "uid" : uid});
+					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
 				}
 
 				var linkTitle = (/^id[0-9]+$/.test(userData.other_data.domain))
@@ -1062,7 +1062,7 @@ var AppUI = {
 			});
 
 			// справа показываем диалоги, в которых участвует контакт и активный пользователь
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "getConversationThreadsWithContact",
 				uid: uid
 			}, function (threads) {
@@ -1154,7 +1154,7 @@ var AppUI = {
 							return;
 
 						this.html("&nbsp;").addClass("loading");
-						chrome.extension.sendMessage({"action" : "searchContact", "value" : searchInput.val(), "totalShown" : totalShown}, backendCallback);
+						chrome.runtime.sendMessage({"action" : "searchContact", "value" : searchInput.val(), "totalShown" : totalShown}, backendCallback);
 					});
 
 					leftSection.append(more);
@@ -1214,7 +1214,7 @@ var AppUI = {
 				$$(leftSection, "section[data-uid]").remove();
 
 				leftSection.addClass("loading");
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "searchContact",
 					value: searchInput.val(),
 					totalShown: 0
@@ -1240,7 +1240,7 @@ var AppUI = {
 					var moreSection = $(this, "section.more");
 					if (!moreSection)
 						return;
-					
+
 					var goPos = this.scrollHeight - 160;
 					if (this.scrollTop + this.clientHeight > goPos) {
 						moreSection.click();
@@ -1271,7 +1271,7 @@ var AppUI = {
 				});
 			}
 
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "fetchConversations",
 				totalShown: startFrom
 			}, function (dialogsData) {
@@ -1312,7 +1312,7 @@ var AppUI = {
 			// добавление аккаунта
 			addAccountIcon.bind("click", function () {
 				$$(leftSection, "section.result").remove();
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "getOAuthToken",
 					type: "add"
 				});
@@ -1441,11 +1441,11 @@ var AppUI = {
 					case 0 :
 						notificationsTimeElem.text(chrome.i18n.getMessage('notificationsHide'));
 						break;
-					
+
 					case 12 :
 						notificationsTimeElem.text(chrome.i18n.getMessage('notificationsShow'));
 						break;
-					
+
 					default :
 						notificationsTimeElem.text(value * 5 + ' ' + chrome.i18n.getMessage('second'));
 				}
@@ -1471,7 +1471,7 @@ var AppUI = {
 						avatarSrc = self.CacheManager.avatars[uid];
 					}
 				} else {
-					chrome.extension.sendMessage({"action" : "loadAvatar", "uid" : uid});
+					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
 				}
 
 				switchAccountText = (uid == self.AccountsManager.currentUserId)
@@ -1499,14 +1499,14 @@ var AppUI = {
 					return;
 
 				var uid = this.closestParent("section[data-uid]").data("uid");
-				chrome.extension.sendMessage({"action" : "switchToAccount", "uid" : uid});
+				chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : uid});
 			});
 
 			$$(leftSection, "span.update").bind("click", function () {
 				$$(leftSection, "section.result").remove();
 
 				var uid = this.closestParent("section[data-uid]").data("uid");
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "getOAuthToken",
 					type: "update",
 					uid: uid
@@ -1527,7 +1527,7 @@ var AppUI = {
 				}
 
 				$$(leftSection, "section.result").remove();
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "deleteAccount",
 					uid: uid,
 					next: nextAccountUid
@@ -1589,7 +1589,7 @@ var AppUI = {
 							});
 
 							break;
-							
+
 						case "video" : // видеозапись
 							id = "vid_" + data.owner_id + data.vid;
 
@@ -1598,7 +1598,7 @@ var AppUI = {
 								id: id
 							});
 
-							chrome.extension.sendMessage({
+							chrome.runtime.sendMessage({
 								action: "getVideoById",
 								ownerId: data.owner_id,
 								id: data.vid
@@ -1614,7 +1614,7 @@ var AppUI = {
 							});
 
 							break;
-							
+
 						case "audio": // аудиозапись
 							id = "aud_" + data.owner_id + data.aid;
 
@@ -1623,7 +1623,7 @@ var AppUI = {
 								id: id
 							});
 
-							chrome.extension.sendMessage({
+							chrome.runtime.sendMessage({
 								action: "getAudioById",
 								ownerId: data.owner_id,
 								id: data.aid
@@ -1635,7 +1635,7 @@ var AppUI = {
 
 								$(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
 								$(attachmentArea, "audio").attr("src", audioInfo.url).bind("playing", function () {
-									chrome.extension.sendMessage({
+									chrome.runtime.sendMessage({
 										action: "newsAudioPlaying",
 										id: postData.id,
 										owner_id: data.owner_id,
@@ -1655,7 +1655,7 @@ var AppUI = {
 							});
 
 							break;
-							
+
 						case "doc" : // документ
 							id = "doc_" + data.owner_id + data.did;
 
@@ -1671,7 +1671,7 @@ var AppUI = {
 								tplData.title = data.title;
 								tplData.description = Utils.string.humanFileSize(data.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + data.ext.toUpperCase();
 							} else {
-								chrome.extension.sendMessage({
+								chrome.runtime.sendMessage({
 									action: "getDocById",
 									ownerId: data.owner_id,
 									id: data.did
@@ -1695,9 +1695,9 @@ var AppUI = {
 
 							tplItem.attachments.push(tplData);
 							break;
-							
+
 						default :
-							chrome.extension.sendMessage({
+							chrome.runtime.sendMessage({
 								action: "errorGot",
 								error: "Unsupported attachment type",
 								message: [attachmentData.type, postData.id]
@@ -1708,7 +1708,7 @@ var AppUI = {
 				newsData.push(tplItem);
 
 				seenPostsArray.push(postData.id);
-				chrome.extension.sendMessage({"action" : "newsPostSeen", "id" : postData.id});
+				chrome.runtime.sendMessage({"action" : "newsPostSeen", "id" : postData.id});
 			});
 
 			var newsHTML = Templates.render("news", {news: newsData});
@@ -1717,7 +1717,7 @@ var AppUI = {
 			$(oneSection, "a").bind("click", function () {
 				var id = this.closestParent("section[data-id]").data("id");
 
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "newsLinkClicked",
 					id: id,
 					url: this.attr("href")
@@ -1809,7 +1809,7 @@ var AppUI = {
 				right.empty().addClass("loading").data("dialogId", dialogId);
 			}
 
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "getDialogThread",
 				id: dialogId,
 				from: startFrom
@@ -1950,7 +1950,7 @@ var AppUI = {
 				});
 			}
 
-			chrome.extension.sendMessage({action: "getTagsFrequency"}, function (freq) {
+			chrome.runtime.sendMessage({action: "getTagsFrequency"}, function (freq) {
 				folders.forEach(function (folder) {
 					folder.total = freq[folder.tid] || 0;
 				});
@@ -2025,7 +2025,7 @@ var AppUI = {
 					var moreSection = $(this, "section.more");
 					if (!moreSection)
 						return;
-					
+
 					var goPos = this.scrollHeight - 160;
 					if (this.scrollTop + this.clientHeight > goPos) {
 						moreSection.click();
@@ -2033,11 +2033,11 @@ var AppUI = {
 				}, true);
 
 				if (tagId === self.CacheManager.tags.important) {
-					chrome.extension.sendMessage({"action" : "useImportantTag", "type" : "list"});
+					chrome.runtime.sendMessage({"action" : "useImportantTag", "type" : "list"});
 				}
 			}
 
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "getMessagesByTagId",
 				tagId: tagId,
 				totalShown: startFrom
@@ -2130,7 +2130,7 @@ var AppUI = {
 						}
 
 						this.html("&nbsp;").addClass("loading");
-						chrome.extension.sendMessage({"action" : "searchMail", "params" : params, "value" : searchInput.val(), "totalShown" : totalShown}, backendCallback);
+						chrome.runtime.sendMessage({"action" : "searchMail", "params" : params, "value" : searchInput.val(), "totalShown" : totalShown}, backendCallback);
 					});
 
 					rightSection.append(more);
@@ -2216,7 +2216,7 @@ var AppUI = {
 					return $$(rightSection.removeClass("loading"), "section[data-mid]").remove();
 
 				$$(rightSection.addClass("loading"), "section[data-mid]").remove();
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "searchMail",
 					params: params,
 					value: this.val(),
@@ -2350,7 +2350,7 @@ var AppUI = {
 			});
 
 			var authFn = function (e) {
-				chrome.extension.sendMessage({
+				chrome.runtime.sendMessage({
 					action: "getOAuthToken",
 					type: "new"
 				});
@@ -2372,7 +2372,7 @@ var AppUI = {
 		syncing: function() {
 			var self = this;
 
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "currentSyncValues"
 			}, function (syncingData) {
 				var avatarSrc = "pic/question_th.gif";
@@ -2381,7 +2381,7 @@ var AppUI = {
 						avatarSrc = self.CacheManager.avatars[self.AccountsManager.currentUserId];
 					}
 				} else {
-					chrome.extension.sendMessage({"action" : "loadAvatar", "uid" : self.AccountsManager.currentUserId});
+					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : self.AccountsManager.currentUserId});
 				}
 
 				var tplData = {
@@ -2439,7 +2439,7 @@ var AppUI = {
 						accountData.avatarSrc = this.CacheManager.avatars[uid];
 					}
 				} else {
-					chrome.extension.sendMessage({"action" : "loadAvatar", "uid" : uid});
+					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
 				}
 
 				// текущий пользователь должен быть последним в списке
@@ -2474,7 +2474,7 @@ var AppUI = {
 				var uidClicked = avatarClicked ? parseInt(e.target.data("uid"), 10) : null;
 
 				if (avatarClicked && hasManyAccounts && uidClicked !== self.AccountsManager.currentUserId) {
-					chrome.extension.sendMessage({"action" : "switchToAccount", "uid" : e.target.data("uid")});
+					chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : e.target.data("uid")});
 				} else {
 					self.main("user", true);
 				}
@@ -2518,7 +2518,7 @@ var AppUI = {
 					var appLike = StorageManager.get("app_like", {constructor: Array, strict: true, create: true});
 					var icon = this;
 
-					chrome.extension.sendMessage({action: "addLike"}, function (likeResult) {
+					chrome.runtime.sendMessage({action: "addLike"}, function (likeResult) {
 						switch (likeResult) {
 							case 1 :
 								appLike.push(self.AccountsManager.currentUserId);
@@ -2576,7 +2576,7 @@ var AppUI = {
 				}
 			});
 
-			chrome.extension.sendMessage({"action" : "userUIDrawn"});
+			chrome.runtime.sendMessage({"action" : "userUIDrawn"});
 		}
 	},
 
@@ -2674,7 +2674,7 @@ var AppUI = {
 				avatarSrc = self.CacheManager.avatars[uid];
 			}
 		} else {
-			chrome.extension.sendMessage({"action" : "loadAvatar", "uid" : uid});
+			chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
 		}
 
 		var contactFio = msgData.first_name + " " + msgData.last_name;
@@ -2684,7 +2684,7 @@ var AppUI = {
 		var textHTML = Utils.string.emoji(msgData.body.split("<br>")[0], true);
 		if (searchTerm) {
 			searchTerm = searchTerm.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-			
+
 			var regex = new RegExp(searchTerm, "i");
 			var matches = textHTML.match(regex);
 
@@ -2749,7 +2749,7 @@ var AppUI = {
 		if (this.CacheManager.avatars[userData.uid]) {
 			avatarSrc = this.CacheManager.avatars[userData.uid];
 		} else {
-			chrome.extension.sendMessage({"action" : "loadAvatar", "uid" : userData.uid});
+			chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : userData.uid});
 		}
 
 		return {
@@ -2881,7 +2881,7 @@ var AppUI = {
 		currentMsgSection.addClass("half-loading");
 		$(currentMsgSection, "section.text").text(chrome.i18n.getMessage("pleaseWait") + "...");
 
-		chrome.extension.sendMessage({
+		chrome.runtime.sendMessage({
 			action: "getMessageInfo",
 			mid: msgId
 		}, function (msgInfo) {
@@ -3010,7 +3010,7 @@ var AppUI = {
 				// делаем доп. запросы к API для получения прямых ссылок на вложения
 				switch (requestData[0]) {
 					case "photo":
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "getPhotoById",
 							ownerId: requestData[1],
 							id: requestData[2],
@@ -3034,7 +3034,7 @@ var AppUI = {
 						break;
 
 					case "audio":
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "getAudioById",
 							ownerId: requestData[1],
 							id: requestData[2]
@@ -3051,7 +3051,7 @@ var AppUI = {
 						break;
 
 					case "video":
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "getVideoById",
 							ownerId: requestData[1],
 							id: requestData[2]
@@ -3069,7 +3069,7 @@ var AppUI = {
 						break;
 
 					case "doc" :
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "getDocById",
 							ownerId: requestData[1],
 							id: requestData[2],
@@ -3094,7 +3094,7 @@ var AppUI = {
 						break;
 
 					case "geopoint":
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							action: "getGeopointById",
 							mid: msgId
 						}, function (pointInfo) {
@@ -3114,10 +3114,10 @@ var AppUI = {
 
 			// помечаем сообщение как прочитанное
 			if (msgInfo.status === 0 && (msgInfo.tags & self.CacheManager.tags.inbox))
-				chrome.extension.sendMessage({action: "markAsRead", mid: msgInfo.mid});
+				chrome.runtime.sendMessage({action: "markAsRead", mid: msgInfo.mid});
 
 			// закрываем уведомление
-			chrome.extension.sendMessage({action: "closeNotification", mid: msgInfo.mid});
+			chrome.runtime.sendMessage({action: "closeNotification", mid: msgInfo.mid});
 		});
 	},
 
@@ -3172,7 +3172,7 @@ var AppUI = {
 				avatarSrc = this.CacheManager.avatars[msgSenderUid];
 			}
 		} else {
-			chrome.extension.sendMessage({"action" : "loadAvatar", "uid" : msgSenderUid});
+			chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : msgSenderUid});
 		}
 
 		var html = Templates.render("userSpeech", {
@@ -3283,9 +3283,9 @@ var AppUI = {
 					progressBar = $("<progress>").attr("max", fileData.size),
 					isImage = (/^image\/(jpe?g|gif|bmp|png)$/.test(fileData.type)),
 					getServerDataAction = (isImage) ? "getMessagesUploadServer" : "getDocsUploadServer";
-				
+
 				// @todo обработчики 3 фэйлов: не получилось получить сервер, фэйл аплоада, фэйл сохранения
-				chrome.extension.sendMessage({"action" : getServerDataAction}, function (data) {
+				chrome.runtime.sendMessage({"action" : getServerDataAction}, function (data) {
 					if (!data)
 						return;
 
@@ -3314,12 +3314,12 @@ var AppUI = {
 							closeErrorBtn = $("<span>").addClass("close").bind("click", function() {
 								this.closestParent("section.file").remove();
 							});
-							
+
 							info.addClass("error").html(errorText).prepend(closeErrorBtn);
 							progressBar.remove();
 
 							// уведомляем GA
-							chrome.extension.sendMessage({
+							chrome.runtime.sendMessage({
 								action: "errorGot",
 								error: "Failed to upload file",
 								message: "Failed parsing response: " + parseExceptionMessage
@@ -3333,12 +3333,12 @@ var AppUI = {
 							closeErrorBtn = $("<span>").addClass("close").bind("click", function() {
 								this.closestParent("section.file").remove();
 							});
-							
+
 							info.addClass("error").html(errorText).prepend(closeErrorBtn);
 							progressBar.remove();
 
 							// уведомляем GA
-							chrome.extension.sendMessage({
+							chrome.runtime.sendMessage({
 								action: "errorGot",
 								error: "Failed to upload file",
 								message: "Failed storing file: " + uploadRes.error
@@ -3348,7 +3348,7 @@ var AppUI = {
 						}
 
 						uploadRes.action = (isImage) ? "saveMessagesPhoto" : "saveMessagesDoc";
-						chrome.extension.sendMessage(uploadRes, function (data) {
+						chrome.runtime.sendMessage(uploadRes, function (data) {
 							if (!data)
 								return;
 
@@ -3398,12 +3398,12 @@ var AppUI = {
 						closeErrorBtn = $("<span>").addClass("close").bind("click", function() {
 							this.closestParent("section.file").remove();
 						});
-						
+
 						info.addClass("error").html(errorText).prepend(closeErrorBtn);
 						progressBar.remove();
 
 						// уведомляем GA
-						chrome.extension.sendMessage({"action" : "errorGot", "error" : "Failed to upload file", "message" : "Failed to perform request"});
+						chrome.runtime.sendMessage({"action" : "errorGot", "error" : "Failed to upload file", "message" : "Failed to perform request"});
 					}, false);
 
 					xhr.upload.onprogress = function(e) {
@@ -3526,7 +3526,7 @@ var AppUI = {
 			}
 
 			// статистика
-			chrome.extension.sendMessage({
+			chrome.runtime.sendMessage({
 				action: "DNDhappened",
 				num: args[0].length
 			});
@@ -3554,7 +3554,7 @@ var AppUI = {
 			if (timeoutId) {
 				window.clearTimeout(timeoutId);
 				form.removeData("timeoutId");
-			}	
+			}
 
 			timeoutId = window.setTimeout(function () {
 				StorageManager.set(saveMessageKey, self.val());
@@ -3575,7 +3575,7 @@ var AppUI = {
 			replyAreaTextarea.val(newWords);
 			this.val("");
 
-			chrome.extension.sendMessage({"action" : "speechChange"});
+			chrome.runtime.sendMessage({"action" : "speechChange"});
 
 			// dispatch fake keyup event
 			var evt = document.createEvent("KeyboardEvent");
@@ -3640,7 +3640,7 @@ var AppUI = {
 			return;
 
 		this.removeClass("new");
-		chrome.extension.sendMessage({
+		chrome.runtime.sendMessage({
 			action: "markAsRead",
 			mid: msgId
 		});

@@ -107,7 +107,7 @@ var AccountsManager = (function () {
 			tokens[userId].fio = value;
 			writeData();
 
-			chrome.extension.sendMessage({"action" : "accountFioLoaded"});
+			chrome.runtime.sendMessage({"action" : "accountFioLoaded"});
 		},
 
 		/**

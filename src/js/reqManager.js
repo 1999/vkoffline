@@ -97,6 +97,13 @@ var ReqManager = {
 	 * @param {Function} fnFail принимает {Integer} код ошибки 1 (нет соединения), 2 (not json), 3 (response.error !== undefined, not auth problem), 4 (timeout), 5 (abort), 6 (oauth revoke)
 	 */
 	_perform: function(params, fnSuccess, fnFail) {
+		if (params.url.indexOf("a_check") === -1) {
+			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
+			requestsLog[params.url] = requestsLog[params.url] || 0;
+			requestsLog[params.url] += 1;
+			StorageManager.set("requests", requestsLog);
+		}
+
 		var self = this,
 			xhrId = params.url.replace(/[^a-z0-9]/g, "") + "_" + Math.random(),
 			url = params.url,
@@ -164,13 +171,13 @@ var ReqManager = {
 
 		if (errorCode === this.NO_INTERNET || errorCode === this.TIMEOUT) {
 			// уведомление о работе сети
-			chrome.extension.sendMessage({"action" : "networkDown"});
+			chrome.runtime.sendMessage({"action" : "networkDown"});
 		}
 
 		if (typeof this._callbacksOnFail[xhrId] === "function") {
 			this._callbacksOnFail[xhrId](errorCode);
 		}
-		
+
 		this._finalize(xhrId);
 	},
 
@@ -182,18 +189,18 @@ var ReqManager = {
 			errMethod = "";
 
 		// уведомление о работе сети
-		chrome.extension.sendMessage({"action" : "networkUp"});
+		chrome.runtime.sendMessage({"action" : "networkUp"});
 
 		try {
 			res = JSON.parse(xhr.responseText.replace(/[\x00-\x1f]/, ""));
 		} catch (e) {
 			this._statSendFn("Custom-Errors", "Exception error", e.message);
 			LogManager.error("[" + xhrId + "] Not a JSON response: " + xhr.responseText + "");
-			
+
 			if (typeof this._callbacksOnFail[xhrId] === "function") {
 				this._callbacksOnFail[xhrId](this.NOT_JSON);
 			}
-			
+
 			this._finalize(xhrId);
 			return;
 		}
@@ -221,17 +228,17 @@ var ReqManager = {
 			switch (res.error.error_code) {
 				case 5 :
 					LogManager.error("Access denied for request with params: " + JSON.stringify(errDataParams));
-					chrome.extension.sendMessage({"action" : "tokenStatus", "expired" : true});
+					chrome.runtime.sendMessage({"action" : "tokenStatus", "expired" : true});
 
 					if (typeof this._callbacksOnFail[xhrId] === "function") {
 						this._callbacksOnFail[xhrId](this.ACCESS_DENIED);
 					}
-					
+
 					break;
 
 				case 14 :
 					LogManager.warn("XHR response has error code 14 (captcha). Params: " + JSON.stringify(errDataParams));
-					chrome.extension.sendMessage({"action" : "tokenStatus", "expired" : false});
+					chrome.runtime.sendMessage({"action" : "tokenStatus", "expired" : false});
 
 					if (typeof this._callbacksOnFail[xhrId] === "function") {
 						this._callbacksOnFail[xhrId](this.CAPTCHA, {
@@ -244,7 +251,7 @@ var ReqManager = {
 
 				default :
 					LogManager.warn("XHR response has error field with code " + res.error.error_code + ". Params: " + JSON.stringify(errDataParams));
-					chrome.extension.sendMessage({"action" : "tokenStatus", "expired" : false});
+					chrome.runtime.sendMessage({"action" : "tokenStatus", "expired" : false});
 
 					if (typeof this._callbacksOnFail[xhrId] === "function") {
 						this._callbacksOnFail[xhrId](this.RESPONSE_ERROR, {
@@ -252,17 +259,17 @@ var ReqManager = {
 							"msg" : res.error.error_msg
 						});
 					}
-					
+
 					break;
 			}
 		} else {
-			chrome.extension.sendMessage({"action" : "tokenStatus", "expired" : false});
-			
+			chrome.runtime.sendMessage({"action" : "tokenStatus", "expired" : false});
+
 			if (typeof this._callbacksOnSuccess[xhrId] === "function") {
 				this._callbacksOnSuccess[xhrId](res);
 			}
 		}
-		
+
 		this._finalize(xhrId);
 	},
 

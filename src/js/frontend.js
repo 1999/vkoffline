@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		var AccountsManager = backend.AccountsManager;
 		var CacheManager = backend.CacheManager;
 
-		chrome.extension.onMessage.addListener(function (request, sender, sendResponse) {
+		chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 			var sendAsyncResponse = false;
 
 			switch (request.action) {
@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							}
 						}, 8000);
 					}
-					
+
 					break;
 
 				case "tokenUpdatedInsteadOfAccountAdd" :
@@ -150,7 +150,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							warnSection.remove();
 						}
 					}, 8000);
-					
+
 					break;
 
 				case "tokenAddedInsteadOfUpdate" :
@@ -167,7 +167,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					});
 
 					continueBtn = $("<button>").text(chrome.i18n.getMessage("yes")).bind("click", function() {
-						chrome.extension.sendMessage({
+						chrome.runtime.sendMessage({
 							"action" : "newUserAfterUpdateToken",
 							"uid" : request.uid,
 							"token" : request.token
@@ -224,7 +224,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				case "newWallPosts" :
 					var newsIcon = $("aside > span.news");
 					AppUI.updateNewsIcon(newsIcon);
-					
+
 					break;
 
 				case "errorLogAttaching" :
@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					} else {
 						progressElem.remove();
 					}
-					
+
 					break;
 
 				case "onlineStatusChanged" :
@@ -265,7 +265,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							networkStatusElem.removeClass("tokenexpired");
 						}
 					}
-					
+
 					break;
 
 				case "ui" : // user, guest, syncing, migrating, migrated
@@ -403,7 +403,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 
 		// при загрузке страницы спрашиваем бэкенд, что нужно отрисовывать
-		chrome.extension.sendMessage({"action" : "uiDraw"}, function (backendWindowLoaded) {
+		chrome.runtime.sendMessage({"action" : "uiDraw"}, function (backendWindowLoaded) {
 			if (!backendWindowLoaded) {
 				AppUI.main("backendLoading");
 			}

@@ -65,12 +65,28 @@ window.onerror = function(msg, url, line) {
 
 // запись custom-статистики
 function statSend(category, action, optLabel, optValue) {
-	var argsArray = Array.prototype.map.call(arguments, function (element) {
-		return (typeof element === "string") ? element : JSON.stringify(element);
-	});
+	var args = [];
+
+	for (var i = 0, len = Math.min(arguments.length, 4); i < len; i++) {
+        if (i === 3) {
+            if (typeof optValue === "boolean") {
+                optValue = Number(optValue);
+            } else if (typeof optValue !== "number") {
+                optValue = parseInt(optValue, 10) || 0;
+            }
+
+            args.push(optValue);
+        } else {
+            if (typeof arguments[i] !== "string") {
+                args.push(JSON.stringify(arguments[i]));
+            } else {
+                args.push(arguments[i]);
+            }
+        }
+    }
 
 	try {
-		window._gaq.push(["_trackEvent"].concat(argsArray));
+		window._gaq.push(["_trackEvent"].concat(args));
 	} catch (e) {}
 };
 

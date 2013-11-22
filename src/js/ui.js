@@ -1714,15 +1714,19 @@ var AppUI = {
 			var newsHTML = Templates.render("news", {news: newsData});
 			oneSection.html(newsHTML);
 
-			$(oneSection, "a").bind("click", function () {
-				var id = this.closestParent("section[data-id]").data("id");
+			var link_ = $(oneSection, "a");
 
-				chrome.runtime.sendMessage({
-					action: "newsLinkClicked",
-					id: id,
-					url: this.attr("href")
+			if (link_) {
+				link_.bind("click", function () {
+					var id = this.closestParent("section[data-id]").data("id");
+
+					chrome.runtime.sendMessage({
+						action: "newsLinkClicked",
+						id: id,
+						url: this.attr("href")
+					});
 				});
-			});
+			}
 
 			// добавляем ID постов в список просмотренных
 			StorageManager.set("vkgroupwall_synced_posts", seenPostsArray);

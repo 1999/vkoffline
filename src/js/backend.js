@@ -2670,6 +2670,22 @@ document.addEventListener("DOMContentLoaded", function () {
 					case "DNDhappened" :
 						statSend("App-Actions", "DND", request.num);
 						break;
+
+					case "needsListenContestMenu":
+						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+						if (seenPosts.indexOf(465) !== -1) {
+							sendResponse(0);
+							return;
+						}
+
+						likes.isLiked
+						type: post
+						owner_id:
+						item_id
+
+						response.copied
+
+						break;
 				}
 
 				if (sendAsyncResponse) {

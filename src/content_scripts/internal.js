@@ -3,13 +3,35 @@
 
     var CONTEST_URL = "14300_27";
     var L_MENU_ID = "l_listen_contest";
+    var MUTATION_LISTENER_TIMEOUT = 500;
 
-    // notification shown -> stop
-    // no show after -> like notification shown
+    var mutationThrottlerId;
+
+
+    chrome.runtime.sendMessage({action: "needsListenContestMenu"}, function (resCode) {
+        if (resCode === 0)
+            return;
+
+        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(function () {
+            if (mutationThrottlerId) {
+                window.clearTimeout(mutationThrottlerId)
+            }
+
+            mutationThrottlerId = window.setTimeout(mutationListener, MUTATION_LISTENER_TIMEOUT);
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+
+    });
+
     // is liked -> like notification shown
     // dont show counter if shown once
 
-    var observer = new (window.MutationObserver || window.WebKitMutationObserver)(function (mutations) {
+    function mutationListener() {
         var isAuthorized = (document.getElementById("myprofile") !== null);
         if (!isAuthorized)
             return;
@@ -45,10 +67,5 @@
         }
 
         delete sessionStorage.listenContest;
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+    }
 })();

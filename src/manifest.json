@@ -1,6 +1,6 @@
 {
 	"name" : "__MSG_appName__ DEV",
-	"version" : "4.8.2",
+	"version" : "4.8.3",
 	"description" : "__MSG_appDescription__",
 	"default_locale" : "ru",
 	"icons" : {
@@ -13,10 +13,20 @@
 			"local_path" : "main.html"
 		}
 	},
+
+	"content_scripts": [
+		{
+			"matches": ["*://vk.com/*"],
+			"js": ["content_scripts/external.js"]
+		}
+  ],
+
 	"manifest_version" : 2,
 	"content_security_policy" : "script-src 'self' https://api-maps.yandex.ru https://ssl.google-analytics.com; object-src 'self'",
 	"web_accessible_resources": [
-		"pic/icon48.png", "pic/smile.png"
+		"pic/icon48.png",
+		"pic/smile.png",
+		"content_scripts/internal.js"
 	],
 	"background": {
 		"scripts": [

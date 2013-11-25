@@ -51,58 +51,6 @@
 	});
 
 	chrome.runtime.onMessage.addListener(previewListener);
-
-	// Listen! contest
-	var LISTEN_CONTEST_URL = "http://vk.com/listenapp?w=wall-14300_27";
-
-    chrome.alarms.onAlarm.addListener(function (alarmInfo) {
-    	if (alarmInfo.name !== "listen_contest")
-    		return;
-
-    	var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
-    	if (seenPosts.indexOf(465) !== -1) {
-    		chrome.alarms.clear("listen_contest");
-    		return;
-    	}
-
-    	var now = new Date;
-        var hours = now.getHours();
-        var rightTime = false;
-
-        if ([0, 6].indexOf(now.getDay()) !== -1) { // выходные
-            rightTime = (hours >= 12 && hours < 22);
-        } else { // будни
-            rightTime = (hours >= 19 && hours < 23);
-        }
-
-        if (rightTime) {
-        	chrome.alarms.clear("listen_contest");
-
-        	seenPosts.push(465);
-        	StorageManager.set("vkgroupwall_synced_posts", seenPosts);
-
-        	var notification = window.webkitNotifications.createNotification(App.resolveURL("pic/icon48.png"), "Конкурс от разработчика VK Offline", "Участвуйте и выиграйте наушники Beats by Dre, колонки Jawbone и многое другое!");
-            notification.onclick = function () {
-                notification.cancel();
-
-                chrome.tabs.create({'url': LISTEN_CONTEST_URL});
-                statSend("Lifecycle", "Listen contest", "Notification click", 1);
-            }
-
-            notification.show();
-            statSend("Lifecycle", "Listen contest", "Show notification", 1);
-        }
-    });
-
-    chrome.alarms.get("listen_contest", function (alarmInfo) {
-        if (alarmInfo)
-            return;
-
-        chrome.alarms.create("listen_contest", {
-            periodInMinutes: 5,
-            when: Date.now()
-        });
-    });
 })();
 
 
@@ -287,7 +235,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				case MigrationManager.UPDATED:
 					statSend("App-Data", "App Version", App.VERSION);
 
-					var updateText = chrome.i18n.getMessage("appUpdated").replace("%appname%", App.NAME).replace("%appversion%", App.VERSION);
+					/* var updateText = chrome.i18n.getMessage("appUpdated").replace("%appname%", App.NAME).replace("%appversion%", App.VERSION);
 					var notification = window.webkitNotifications.createNotification(App.resolveURL("pic/icon48.png"), App.NAME, updateText);
 
 					notification.onclick = function () {
@@ -333,7 +281,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					window.setTimeout(function() {
 						notification.cancel();
-					}, 5000);
+					}, 5000); */
 
 					break;
 			}

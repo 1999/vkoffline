@@ -234,6 +234,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case MigrationManager.UPDATED:
 					statSend("App-Data", "App Version", App.VERSION);
+					chrome.alarms.clear("listen_contest");
 
 					/* var updateText = chrome.i18n.getMessage("appUpdated").replace("%appname%", App.NAME).replace("%appversion%", App.VERSION);
 					var notification = window.webkitNotifications.createNotification(App.resolveURL("pic/icon48.png"), App.NAME, updateText);

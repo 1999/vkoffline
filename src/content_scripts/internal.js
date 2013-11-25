@@ -8,7 +8,6 @@
     // no show after -> like notification shown
     // is liked -> like notification shown
     // dont show counter if shown once
-    // clear alarms on update
 
     var observer = new (window.MutationObserver || window.WebKitMutationObserver)(function (mutations) {
         var isAuthorized = (document.getElementById("myprofile") !== null);

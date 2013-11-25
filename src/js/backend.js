@@ -2673,18 +2673,35 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					case "needsListenContestMenu":
 						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+						var preventShowCounter = (localStorage.getItem("preventShowContestCounter") !== null);
+
 						if (seenPosts.indexOf(465) !== -1) {
 							sendResponse(0);
 							return;
 						}
 
-						likes.isLiked
-						type: post
-						owner_id:
-						item_id
+						ReqManager.apiMethod("likes.isLiked", {
+							access_token: AccountsManager.current.token,
+							v: "5.4",
+							type: "post",
+							owner_id: -14300,
+							item_id: 27
+						}, function (res) {
+							if (res.copied) {
+								sendResponse(0);
+								return;
+							}
 
-						response.copied
+							sendResponse(preventShowCounter ? 1 : 2);
+						}, function (errCode) {
+							sendResponse(preventShowCounter ? 1 : 2);
+						});
 
+						sendAsyncResponse = true;
+						break;
+
+					case "preventShowListenContestCounter":
+						localStorage.setItem("preventShowContestCounter", 1);
 						break;
 				}
 

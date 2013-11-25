@@ -3,33 +3,29 @@
 
     var CONTEST_URL = "14300_27";
     var L_MENU_ID = "l_listen_contest";
-    var MUTATION_LISTENER_TIMEOUT = 500;
-
-    var mutationThrottlerId;
-
+    var l_MENU_COUNTER_ID = "left_listen_contest_cunter";
+    var showCode = 0;
 
     chrome.runtime.sendMessage({action: "needsListenContestMenu"}, function (resCode) {
+        showCode = resCode;
+
         if (resCode === 0)
             return;
 
-        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(function () {
-            if (mutationThrottlerId) {
-                window.clearTimeout(mutationThrottlerId)
-            }
-
-            mutationThrottlerId = window.setTimeout(mutationListener, MUTATION_LISTENER_TIMEOUT);
-        });
+        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(mutationListener);
 
         observer.observe(document.body, {
             childList: true,
             subtree: true
         });
-
-
     });
 
-    // is liked -> like notification shown
-    // dont show counter if shown once
+    window.setInterval(function () {
+        chrome.runtime.sendMessage({action: "needsListenContestMenu"}, function (resCode) {
+            showCode = resCode;
+            mutationListener;
+        });
+    }, 60000);
 
     function mutationListener() {
         var isAuthorized = (document.getElementById("myprofile") !== null);
@@ -37,17 +33,27 @@
             return;
 
         var menuSettingsItem = document.getElementById("l_set");
-        var isMenuElementInserted = (document.getElementById(L_MENU_ID) !== null);
+        var menuElem = document.getElementById(L_MENU_ID);
+        var isMenuElementInserted = (menuElem !== null);
+
+        if (showCode === 0) {
+            menuElem.parentNode.removeChild(menuElem);
+            return;
+        }
 
         if (!isMenuElementInserted) {
+            var counterElemHTML = (showCode === 2) ? [
+                '<span class="left_count_pad" id="' + l_MENU_COUNTER_ID + '">',
+                    '<span class="left_count_wrap fl_r">',
+                        '<span class="inl_bl left_count">+1</span>',
+                    '</span>',
+                '</span>'
+            ].join("") : "";
+
             var menuElementHTML = [
                 '<li id="' + L_MENU_ID + '">',
                     '<a href="/wall-14300_27" onclick="sessionStorage.listenContest = 1; return showWiki({w: \'wall-14300_27\'}, false, event);" class="left_row">',
-                        '<span class="left_count_pad">',
-                            '<span class="left_count_wrap fl_r">',
-                                '<span class="inl_bl left_count">+1</span>',
-                            '</span>',
-                        '</span>',
+                        counterElemHTML,
                         '<span class="left_label inl_bl">Конкурс Listen!</span>',
                     '</a>',
                 '</li>'
@@ -64,6 +70,13 @@
         if (sessionStorage.listenContest == 1) {
             var advBlockHTML = '<div class="group_block_module">Информация о конкурсе показана с помощью приложения VK Offline для Google Chrome. Если вы больше не хотите ее видеть, нажмите <abbr>здесь</abbr>.</div>';
             document.getElementById("wl_post_body").insertAdjacentHTML("beforebegin", advBlockHTML);
+
+            var counterElem = document.getElementById(l_MENU_COUNTER_ID);
+            if (counterElem) {
+                counterElem.parentNode.removeChild(counterElem);
+            }
+
+            chrome.runtime.sendMessage({action: "preventShowListenContestCounter"});
         }
 
         delete sessionStorage.listenContest;

@@ -21,16 +21,11 @@
 		}
 	],
 
-	"externally_connectable": {
-		"matches": ["*://vk.com/*"]
-	},
-
 	"manifest_version" : 2,
 	"content_security_policy" : "script-src 'self' https://api-maps.yandex.ru https://ssl.google-analytics.com; object-src 'self'",
 	"web_accessible_resources": [
 		"pic/icon48.png",
-		"pic/smile.png",
-		"content_scripts/internal.js"
+		"pic/smile.png"
 	],
 	"background": {
 		"scripts": [

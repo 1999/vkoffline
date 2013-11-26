@@ -1539,73 +1539,6 @@ document.addEventListener("DOMContentLoaded", function () {
 			});
 
 
-			chrome.runtime.onMessageExternal.addListener(function (request, sender, sendResponse) {
-				var sendAsyncResponse = false;
-
-				if (!sender || !/^https?:\/\/vk\.com\//.test(sender.url))
-					return;
-
-				switch (request.action) {
-					case "listenContestNeedsMenu":
-						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
-						var preventShowCounter = (localStorage.getItem("preventShowContestCounter") !== null);
-
-						if (seenPosts.indexOf(465) !== -1) {
-							sendResponse(0);
-							return;
-						}
-
-						if (!AccountsManager.currentUserId) {
-							sendResponse(preventShowCounter ? 1 : 2);
-							return;
-						}
-
-						ReqManager.apiMethod("likes.isLiked", {
-							access_token: AccountsManager.current.token,
-							v: "5.4",
-							type: "post",
-							owner_id: -14300,
-							item_id: 27
-						}, function (res) {
-							if (res.response.copied) {
-								sendResponse(0);
-							} else {
-								sendResponse(preventShowCounter ? 1 : 2);
-							}
-						}, function (errCode) {
-							sendResponse(preventShowCounter ? 1 : 2);
-						});
-
-						sendAsyncResponse = true;
-						break;
-
-					case "listenContestPreventShowCounter":
-						localStorage.setItem("preventShowContestCounter", 1);
-						break;
-
-					case "listenContestPreventAds":
-						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
-						seenPosts.push(465);
-						StorageManager.set("vkgroupwall_synced_posts", seenPosts);
-
-						statSend("Lifecycle", "Listen contest", "Ad haters", 1);
-						break;
-
-					case "listenContestAdvClick":
-						statSend("Lifecycle", "Listen contest", "Ad click", 1);
-						break;
-
-					case "listenContestAdvShow":
-						statSend("Lifecycle", "Listen contest", "Ad show", 1);
-						break;
-				}
-
-				if (sendAsyncResponse) {
-					return true;
-				}
-			});
-
-
 			chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 				var sendAsyncResponse = false;
 
@@ -2736,6 +2669,59 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					case "DNDhappened" :
 						statSend("App-Actions", "DND", request.num);
+						break;
+
+					case "listenContestNeedsMenu":
+						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+						var preventShowCounter = (localStorage.getItem("preventShowContestCounter") !== null);
+
+						if (seenPosts.indexOf(465) !== -1) {
+							sendResponse(0);
+							return;
+						}
+
+						if (!AccountsManager.currentUserId) {
+							sendResponse(preventShowCounter ? 1 : 2);
+							return;
+						}
+
+						ReqManager.apiMethod("likes.isLiked", {
+							access_token: AccountsManager.current.token,
+							v: "5.4",
+							type: "post",
+							owner_id: -14300,
+							item_id: 27
+						}, function (res) {
+							if (res.response.copied) {
+								sendResponse(0);
+							} else {
+								sendResponse(preventShowCounter ? 1 : 2);
+							}
+						}, function (errCode) {
+							sendResponse(preventShowCounter ? 1 : 2);
+						});
+
+						sendAsyncResponse = true;
+						break;
+
+					case "listenContestPreventShowCounter":
+						localStorage.setItem("preventShowContestCounter", 1);
+						break;
+
+					case "listenContestPreventAds":
+						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+						seenPosts.push(465);
+						StorageManager.set("vkgroupwall_synced_posts", seenPosts);
+
+						statSend("Lifecycle", "Listen contest", "Ad haters", 1);
+						break;
+
+					case "listenContestAdvClick":
+						statSend("Lifecycle", "Listen contest", "Ad click", 1);
+						break;
+
+					case "listenContestAdvShow":
+						statSend("Lifecycle", "Listen contest", "Ad show", 1);
 						break;
 				}
 

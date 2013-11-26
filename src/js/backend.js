@@ -1540,6 +1540,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 			chrome.runtime.onMessageExternal.addListener(function (request, sender, sendResponse) {
+				var sendAsyncResponse = false;
+
 				if (!sender || !/^https?:\/\/vk\.com\//.test(sender.url))
 					return;
 
@@ -1565,12 +1567,11 @@ document.addEventListener("DOMContentLoaded", function () {
 							owner_id: -14300,
 							item_id: 27
 						}, function (res) {
-							if (res.copied) {
+							if (res.response.copied) {
 								sendResponse(0);
-								return;
+							} else {
+								sendResponse(preventShowCounter ? 1 : 2);
 							}
-
-							sendResponse(preventShowCounter ? 1 : 2);
 						}, function (errCode) {
 							sendResponse(preventShowCounter ? 1 : 2);
 						});
@@ -1597,6 +1598,10 @@ document.addEventListener("DOMContentLoaded", function () {
 					case "listenContestAdvShow":
 						statSend("Lifecycle", "Listen contest", "Ad show", 1);
 						break;
+				}
+
+				if (sendAsyncResponse) {
+					return true;
 				}
 			});
 

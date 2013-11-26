@@ -31,7 +31,7 @@
             console.log("Res code is " + resCode);
 
             showCode = resCode;
-            mutationListener;
+            mutationListener();
         });
     }, 60000);
 

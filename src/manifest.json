@@ -19,7 +19,11 @@
 			"matches": ["*://vk.com/*"],
 			"js": ["content_scripts/external.js"]
 		}
-  ],
+	],
+
+	"externally_connectable": {
+		"matches": ["*://vk.com/*"]
+	},
 
 	"manifest_version" : 2,
 	"content_security_policy" : "script-src 'self' https://api-maps.yandex.ru https://ssl.google-analytics.com; object-src 'self'",

@@ -2,11 +2,12 @@
     "use strict";
 
     var CONTEST_URL = "14300_27";
+    var EXTENSION_ID = "kpdalhfolccbjbaohmiajkmhobdjkice";
     var L_MENU_ID = "l_listen_contest";
     var l_MENU_COUNTER_ID = "left_listen_contest_cunter";
     var showCode = 0;
 
-    chrome.runtime.sendMessage({action: "needsListenContestMenu"}, function (resCode) {
+    chrome.runtime.sendMessage(EXTENSION_ID, {action: "listenContestNeedsMenu"}, function (resCode) {
         showCode = resCode;
 
         if (resCode === 0)
@@ -21,7 +22,7 @@
     });
 
     window.setInterval(function () {
-        chrome.runtime.sendMessage({action: "needsListenContestMenu"}, function (resCode) {
+        chrome.runtime.sendMessage(EXTENSION_ID, {action: "listenContestNeedsMenu"}, function (resCode) {
             showCode = resCode;
             mutationListener;
         });
@@ -68,7 +69,7 @@
 
         // wiki box was opened from adv
         if (sessionStorage.listenContest == 1) {
-            var advBlockHTML = '<div class="group_block_module">Информация о конкурсе показана с помощью приложения VK Offline для Google Chrome. Если вы больше не хотите ее видеть, нажмите <abbr>здесь</abbr>.</div>';
+            var advBlockHTML = '<div class="group_block_module">Информация о конкурсе показана с помощью приложения VK Offline для Google Chrome. Если вы больше не хотите ее видеть, нажмите <a href="javascript:;" onclick="return false">здесь</a>.</div>';
             document.getElementById("wl_post_body").insertAdjacentHTML("beforebegin", advBlockHTML);
 
             var counterElem = document.getElementById(l_MENU_COUNTER_ID);
@@ -76,7 +77,7 @@
                 counterElem.parentNode.removeChild(counterElem);
             }
 
-            chrome.runtime.sendMessage({action: "preventShowListenContestCounter"});
+            chrome.runtime.sendMessage(EXTENSION_ID, {action: "listenContestPreventShowCounter"});
         }
 
         delete sessionStorage.listenContest;

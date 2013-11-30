@@ -65,11 +65,18 @@ var App = {
 		return (this.CHROME_WEBSTORE_ID !== this.ID);
 	},
 
+	// [ID группы, ignorePostsBeforeId]
+	get VK_ADV_GROUP() {
+		return this.DEBUG ? [38283081, 27] : [29809053, 465];
+	},
+
+	// Google Analytics
+	get GA_STAT_ID() {
+		return this.DEBUG ? "UA-20919085-6" : "UA-20919085-5";
+	},
+
 	VK_ID: 2438161, /* ID приложения ВКонтакте */
 	VK_APP_SCOPE: ['friends', 'messages', 'offline', 'photos', 'audio', 'video', 'docs', 'wall', 'groups'], // OAuth-scope для приложения ВКонтакте
-	VK_ADV_GROUP: (this.DEBUG) ? [38283081, 27] : [29809053, 465], // [ID группы, ignorePostsBeforeId]
-	GA_STAT_ID: (this.DEBUG) ? "UA-20919085-6" : "UA-20919085-5", // Google Analytics
-
 	FRIENDS_UPDATE_TIMEOUT: 86400, // промежуток между обновлениями списка друзей в секундах
 
 	resolveURL: function (path) {

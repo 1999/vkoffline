@@ -1954,18 +1954,21 @@ document.addEventListener("DOMContentLoaded", function () {
 							groupWallSyncTime = parseInt(StorageManager.get("vkgroupwall_sync_time"), 10) || 0,
 							nextRequestTimeout, syncWallFn;
 
-						syncWallFn = function() {
+						// проверяем, чтобы не было слишком частых запросов
+						nextRequestTimeout = Math.max((milliSecondsTimeout - Math.abs(Date.now() - groupWallSyncTime)), 0);
+
+						window.setTimeout(function () {
 							ReqManager.apiMethod("wall.get", {
-								"access_token" : null, // объявления получать обязательно, поэтому ходим без токенов
-								"owner_id" : (0 - App.VK_ADV_GROUP[0]),
-								"count" : 5,
-								"filter" : "owner" // перестраховка
-							}, function(data) {
+								access_token: null, // объявления получать обязательно, поэтому ходим без токенов
+								owner_id: (0 - App.VK_ADV_GROUP[0]),
+								count: 5,
+								filter: "owner" // перестраховка
+							}, function (data) {
 								var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true}),
 									postsToStore = [];
 
-								data.response.forEach(function (post, index) {
-									if (!index || seenPosts.indexOf(post.id) !== -1 || App.VK_ADV_GROUP[1] >= post.id)
+								data.response.slice(1).forEach(function (post) {
+									if (seenPosts.indexOf(post.id) !== -1 || App.VK_ADV_GROUP[1] >= post.id)
 										return;
 
 									postsToStore.push(post);
@@ -1989,18 +1992,8 @@ document.addEventListener("DOMContentLoaded", function () {
 										break;
 								}
 							});
-						};
+						}, nextRequestTimeout);
 
-						// проверяем, чтобы не было слишком частых запросов
-						if (groupWallSyncTime > 0) {
-							nextRequestTimeout = Math.max((milliSecondsTimeout - Math.abs(Date.now() - groupWallSyncTime)), 0);
-							if (nextRequestTimeout > 0) {
-								window.setTimeout(syncWallFn, nextRequestTimeout);
-								return;
-							}
-						}
-
-						syncWallFn();
 						break;
 
 					case "getDocById" :

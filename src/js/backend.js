@@ -2668,7 +2668,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
 						var preventShowCounter = (localStorage.getItem("preventShowContestCounter") !== null);
 
-						if (seenPosts.indexOf(465) !== -1) {
+						if (seenPosts.indexOf(466) !== -1) {
 							sendResponse(0);
 							return;
 						}
@@ -2703,7 +2703,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					case "listenContestPreventAds":
 						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
-						seenPosts.push(465);
+						seenPosts.push(466);
 						StorageManager.set("vkgroupwall_synced_posts", seenPosts);
 
 						statSend("Lifecycle", "Listen contest", "Ad haters", 1);

@@ -2706,7 +2706,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						seenPosts.push(466);
 						StorageManager.set("vkgroupwall_synced_posts", seenPosts);
 
-						statSend("Lifecycle", "Listen contest", "Ad haters", 1);
+						statSend("Lifecycle", "Listen contest", "Ad haters once", 1);
 						break;
 
 					case "listenContestAdvClick":

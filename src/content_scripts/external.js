@@ -59,6 +59,7 @@
                 wikiAd.parentNode.removeChild(wikiAd);
             }
 
+            preventAd.parentNode.removeChild(preventAd);
             return;
         }
 

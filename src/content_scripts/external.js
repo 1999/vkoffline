@@ -126,4 +126,63 @@
 
         delete sessionStorage.listenContest;
     }
+
+    // listen to audio in Listen! app ad
+    chrome.storage.sync.get("preventListenAudioAd", function (records) {
+        if (records.preventListenAudioAd)
+            return;
+
+        var mutationTimeoutId;
+
+        function mutationAudioListener() {
+            if (mutationTimeoutId)
+                window.clearTimeout(mutationTimeoutId);
+
+            mutationTimeoutId = window.setTimeout(function () {
+                if (location.pathname !== "/audio")
+                    return;
+
+                var msgData;
+                var searchQueryFound = false;
+
+                if (location.search.length) {
+                    msgData = {};
+
+                    location.search.substr(1).split("&").forEach(function (param) {
+                        param = param.split("=", 2);
+
+                        if (param[0] === "q" && param[1]) {
+                            msgData.type = "search";
+                            msgData.search = param[1];
+                        } else if (param[0] === "performer") {
+                            msgData.performer = Boolean(param[1]);
+                        }
+                    });
+                } else {
+                    msgData = {
+                        type: "current"
+                    };
+                }
+
+                if (!msgData.type)
+                    return;
+
+                chrome.runtime.sendMessage("bggaejdaachpiaibkedeoadbglgdjpab", msgData, function (canPlayThisStuff) {
+                    if (canPlayThisStuff) {
+                        // ...
+                    }
+                });
+            }, 500);
+        }
+
+        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(mutationAudioListener);
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        // run on page load
+        mutationAudioListener();
+    });
 })();

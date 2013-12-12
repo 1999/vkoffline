@@ -1540,20 +1540,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 			chrome.runtime.onMessageExternal.addListener(function (request, sender, sendResponse) {
-				console.log(sender);
+				if (!sender || !/^https?:\/\/vk\.com\//.test(sender.url))
+					return;
 
 				switch (request.action) {
 					case "listenContestNeedsMenu":
-						if (!AccountsManager.currentUserId) {
-							sendResponse(2);
-							return;
-						}
-
 						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
 						var preventShowCounter = (localStorage.getItem("preventShowContestCounter") !== null);
 
 						if (seenPosts.indexOf(465) !== -1) {
 							sendResponse(0);
+							return;
+						}
+
+						if (!AccountsManager.currentUserId) {
+							sendResponse(2);
 							return;
 						}
 
@@ -1585,6 +1586,16 @@ document.addEventListener("DOMContentLoaded", function () {
 						var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
 						seenPosts.push(465);
 						StorageManager.set("vkgroupwall_synced_posts", seenPosts);
+
+						statSend("Lifecycle", "Listen contest", "Ad haters", 1);
+						break;
+
+					case "listenContestAdvClick":
+						statSend("Lifecycle", "Listen contest", "Ad click", 1);
+						break;
+
+					case "listenContestAdvShow":
+						statSend("Lifecycle", "Listen contest", "Ad show", 1);
 						break;
 				}
 			});

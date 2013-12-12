@@ -1,11 +1,8 @@
 (function () {
     "use strict";
 
-    // бесит, что каунтер через минуту слетает
-    // плохо, что ID забит руками
-
     var CONTEST_URL = "14300_27";
-    var EXTENSION_ID = "kpdalhfolccbjbaohmiajkmhobdjkice";
+    var EXTENSION_ID = document.getElementById("listen_contest_external").dataset.appId;
     var L_MENU_ID = "l_listen_contest";
     var l_MENU_COUNTER_ID = "left_listen_contest_counter";
     var WIKIBOX_AD_ID = "listen_contest_wikiad";

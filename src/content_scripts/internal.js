@@ -19,9 +19,9 @@
         if (resCode === 0)
             return;
 
-        window.ListenContestObserver = new (window.MutationObserver || window.WebKitMutationObserver)(mutationListener);
+        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(mutationListener);
 
-        ListenContestObserver.observe(document.body, {
+        observer.observe(document.body, {
             childList: true,
             subtree: true
         });
@@ -111,7 +111,6 @@
 
     window.preventAd = function () {
         chrome.runtime.sendMessage(EXTENSION_ID, {action: "listenContestPreventAds"});
-        ListenContestObserver.disconnect();
         showCode = 0;
 
         var menuElem = document.getElementById(L_MENU_ID);
@@ -124,10 +123,5 @@
         if (wikiAd) {
             wikiAd.parentNode.removeChild(wikiAd);
         }
-
-        ListenContestObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
     }
 })();

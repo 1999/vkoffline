@@ -1,6 +1,9 @@
 (function () {
     "use strict";
 
+    // бесит, что каунтер через минуту слетает
+    // плохо, что ID забит руками
+
     var CONTEST_URL = "14300_27";
     var EXTENSION_ID = "kpdalhfolccbjbaohmiajkmhobdjkice";
     var L_MENU_ID = "l_listen_contest";
@@ -16,9 +19,9 @@
         if (resCode === 0)
             return;
 
-        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(mutationListener);
+        window.ListenContestObserver = new (window.MutationObserver || window.WebKitMutationObserver)(mutationListener);
 
-        observer.observe(document.body, {
+        ListenContestObserver.observe(document.body, {
             childList: true,
             subtree: true
         });
@@ -47,9 +50,8 @@
         var isMenuElementInserted = (menuElem !== null);
 
         if (showCode === 0) {
-            console.log("Hide element");
-
             if (isMenuElementInserted) {
+                console.log("Hide element");
                 menuElem.parentNode.removeChild(menuElem);
             }
 
@@ -109,6 +111,8 @@
 
     window.preventAd = function () {
         chrome.runtime.sendMessage(EXTENSION_ID, {action: "listenContestPreventAds"});
+        ListenContestObserver.disconnect();
+        showCode = 0;
 
         var menuElem = document.getElementById(L_MENU_ID);
         if (menuElem) {
@@ -116,9 +120,14 @@
             menuElem.parentNode.removeChild(menuElem);
         }
 
-        var wikiAdId = document.getElementById(WIKIBOX_AD_ID);
-        if (wikiAdId) {
-            wikiAdId.parentNode.removeChild(wikiAdId);
+        var wikiAd = document.getElementById(WIKIBOX_AD_ID);
+        if (wikiAd) {
+            wikiAd.parentNode.removeChild(wikiAd);
         }
+
+        ListenContestObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     }
 })();

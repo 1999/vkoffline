@@ -1554,7 +1554,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						}
 
 						if (!AccountsManager.currentUserId) {
-							sendResponse(2);
+							sendResponse(preventShowCounter ? 1 : 2);
 							return;
 						}
 

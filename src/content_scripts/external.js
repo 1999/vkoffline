@@ -2,187 +2,143 @@
 (function () {
     "use strict";
 
-    var CONTEST_URL = "14300_27";
-    var L_MENU_ID = "l_listen_contest";
-    var l_MENU_COUNTER_ID = "left_listen_contest_counter";
-    var WIKIBOX_AD_ID = "listen_contest_wikiad";
-    var PREVENT_AD_ID = "preventAd";
-    var showCode = 0;
+    var LISTEN_APP_ID = "nhpdcfndackfenecoefcmphfjhdnaedi";
+    var AD_URL = "14300_286";
+    var LEFT_MENU_ID = "l_listen_app";
+    var LEFT_MENU_COUNTER_ID = "left_listen_app_cnt";
+    var DOM_PREVENT_ELEM_ID = "prevent_listen_tmp";
+    var STORAGE_KEY_PREVENT = "prevent_listen_app_ad";
+    var STORAGE_KEY_SEEN = "prevent_listen_app_seen";
+    var WIKIBOX_AD_ID = "listen_app_wikiad";
+    var TIMEOUT_DEBOUNCE_MS = 500;
+
+    var debounceTimeoutId;
 
     console.log("Check needs for showing menu element");
-    chrome.runtime.sendMessage({action: "listenContestNeedsMenu"}, function (resCode) {
-        console.log("Res code is " + resCode);
-        showCode = resCode;
 
-        if (resCode === 0)
+    // mutation observer
+    function mutatoDebounce() {
+        if (debounceTimeoutId)
+            window.clearTimeout(debounceTimeoutId);
+
+        debounceTimeoutId = window.setTimeout(mutatoInternal, TIMEOUT_DEBOUNCE_MS);
+    }
+
+    function mutatoInternal() {
+        var menuSettingsItem = document.getElementById("l_set");
+        if (!menuSettingsItem)
             return;
 
-        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(mutationListener);
+        processWikiBox();
+        processPreventDOMItem();
 
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    });
+        chrome.runtime.sendMessage(LISTEN_APP_ID, {action: "isAlive"}, function (isAlive) {
+            var menuItemLeft = document.getElementById(LEFT_MENU_ID);
 
-    window.setInterval(function () {
-        console.log("Re-check needs for showing menu element");
+            if (isAlive) {
+                if (menuItemLeft) {
+                    menuItemLeft.parentNode.removeChild(menuItemLeft);
+                }
 
-        chrome.runtime.sendMessage({action: "listenContestNeedsMenu"}, function (resCode) {
-            console.log("Res code is " + resCode);
+                // в зависимости от URL показать ad
+            } else {
+                var keys = {};
+                keys[STORAGE_KEY_SEEN] = false;
+                keys[STORAGE_KEY_PREVENT] = false;
 
-            showCode = resCode;
-            mutationListener();
-        });
-    }, 60000);
-
-    function mutationListener() {
-        var isAuthorized = (document.getElementById("myprofile") !== null);
-        if (!isAuthorized) {
-            console.log("Not authorized");
-            return;
-        }
-
-        var preventAd = document.getElementById(PREVENT_AD_ID);
-        if (preventAd) {
-            chrome.runtime.sendMessage({action: "listenContestPreventAds"});
-            showCode = 0;
-
-            var menuElem = document.getElementById(L_MENU_ID);
-            if (menuElem) {
-                console.log("Remove menu advertisement element");
-                menuElem.parentNode.removeChild(menuElem);
+                chrome.storage.sync.get(keys, function (records) {
+                    if (records[STORAGE_KEY_PREVENT]) {
+                        if (menuItemLeft) {
+                            menuItemLeft.parentNode.removeChild(menuItemLeft);
+                        }
+                    } else {
+                        appendMenuItem(!records[STORAGE_KEY_SEEN]);
+                    }
+                });
             }
+        });
+    }
 
-            var wikiAd = document.getElementById(WIKIBOX_AD_ID);
-            if (wikiAd) {
-                wikiAd.parentNode.removeChild(wikiAd);
-            }
-
-            preventAd.parentNode.removeChild(preventAd);
-            return;
-        }
+    function appendMenuItem(withCnt) {
+        console.log("Insert menu element");
 
         var menuSettingsItem = document.getElementById("l_set");
-        var menuElem = document.getElementById(L_MENU_ID);
-        var isMenuElementInserted = (menuElem !== null);
+        var menuItemLeft = document.getElementById(LEFT_MENU_ID);
+        var menuItemLeftCnt = document.getElementById(LEFT_MENU_COUNTER_ID);
 
-        if (showCode === 0) {
-            if (isMenuElementInserted) {
-                console.log("Hide element");
-                menuElem.parentNode.removeChild(menuElem);
+        var counterElemHTML = withCnt ? [
+            '<span class="left_count_pad" id="' + LEFT_MENU_COUNTER_ID + '">',
+                '<span class="left_count_wrap fl_r">',
+                    '<span class="inl_bl left_count">+1</span>',
+                '</span>',
+            '</span>'
+        ].join("") : "";
+
+        if (menuItemLeft) {
+            if (withCnt && !menuItemLeftCnt) {
+                menuItemLeft.firstChild.insertAdjacentHTML("afterbegin", counterElemHTML);
+            } else if (!withCnt && menuItemLeftCnt) {
+                menuItemLeftCnt.parentNode.removeChild(menuItemLeftCnt);
             }
-
-            return;
-        }
-
-        if (!isMenuElementInserted) {
-            console.log("Insert menu element");
-
-            var counterElemHTML = (showCode === 2) ? [
-                '<span class="left_count_pad" id="' + l_MENU_COUNTER_ID + '">',
-                    '<span class="left_count_wrap fl_r">',
-                        '<span class="inl_bl left_count">+1</span>',
-                    '</span>',
-                '</span>'
-            ].join("") : "";
+        } else {
+            var menuElementTitle = withCnt ? "Моя Реклама" : "Приложение Listen!";
 
             var menuElementHTML = [
-                '<li id="' + L_MENU_ID + '">',
-                    '<a href="/wall-14300_27" onclick="sessionStorage.listenContest = 1; return showWiki({w: \'wall-14300_27\'}, false, event);" class="left_row">',
+                '<li id="' + LEFT_MENU_ID + '">',
+                    '<a href="/wall-' + AD_URL + '" onclick="sessionStorage.listenAd = 1; return showWiki({w: \'wall-' + AD_URL + '\'}, false, event);" class="left_row">',
                         counterElemHTML,
-                        '<span class="left_label inl_bl">Конкурс Listen!</span>',
+                        '<span class="left_label inl_bl">' + menuElementTitle + '</span>',
                     '</a>',
                 '</li>'
             ].join("");
 
             menuSettingsItem.insertAdjacentHTML("afterend", menuElementHTML);
-            chrome.runtime.sendMessage({action: "listenContestAdvShow"});
         }
+    }
 
+    function processWikiBox() {
         var wikiBox = document.getElementById("wk_box");
-        if (!wikiBox || location.href.indexOf(CONTEST_URL) === -1)
+        if (!wikiBox || location.href.indexOf(AD_URL) === -1)
             return;
 
         // wiki box was opened from adv
-        if (sessionStorage.listenContest == 1) {
+        if (sessionStorage.listenAd == 1) {
             console.log("Wiki box was opened via advertisement");
-            chrome.runtime.sendMessage({action: "listenContestAdvClick"});
+
+            var records = {};
+            records[STORAGE_KEY_SEEN] = true;
+            chrome.storage.sync.set(records);
 
             var advHTML = (!/^en/i.test(navigator.language))
-                ? 'Информация о конкурсе показана с помощью приложения VK Offline для Google Chrome. Если вы больше не хотите ее видеть, нажмите <a href="javascript:;" onclick="el = document.createElement(\'span\'); el.id = \'' + PREVENT_AD_ID + '\'; document.body.appendChild(el); return false;">здесь</a>.'
-                : 'Contest advertisement is shown by VK Offline app for Google Chrome. If you don\'t want to see it again, click <a href="javascript:;" onclick="el = document.createElement(\'span\'); el.id = \'' + PREVENT_AD_ID + '\'; document.body.appendChild(el); return false;">here</a>.';
+                ? 'Информация о Listen! для Google Chrome показана с помощью приложения VK Offline. Если вы больше не хотите ее видеть, нажмите <a href="javascript:;" onclick="el = document.createElement(\'span\'); el.id = \'' + DOM_PREVENT_ELEM_ID + '\'; document.body.appendChild(el); ad = document.getElementById(\'' + WIKIBOX_AD_ID + '\'); ad.parentNode.removeChild(ad); return false;">здесь</a>.'
+                : 'This advertisement is shown by VK Offline app for Google Chrome. If you don\'t want to see it again, click <a href="javascript:;" onclick="el = document.createElement(\'span\'); el.id = \'' + DOM_PREVENT_ELEM_ID + '\'; document.body.appendChild(el); ad = document.getElementById(\'' + WIKIBOX_AD_ID + '\'); ad.parentNode.removeChild(ad); return false;">here</a>.';
 
-            var advBlockHTML = '<div class="left_box" id="' + WIKIBOX_AD_ID + '" style="text-align: left">' + advHTML + '</div>';
+            var advBlockHTML = '<div style="border: 1px dotted; text-align: left" class="left_box" id="' + WIKIBOX_AD_ID + '" style="text-align: left">' + advHTML + '</div>';
             document.getElementById("wl_post_body").insertAdjacentHTML("beforebegin", advBlockHTML);
-
-            var counterElem = document.getElementById(l_MENU_COUNTER_ID);
-            if (counterElem) {
-                counterElem.parentNode.removeChild(counterElem);
-            }
-
-            chrome.runtime.sendMessage({action: "listenContestPreventShowCounter"});
         }
 
-        delete sessionStorage.listenContest;
+        delete sessionStorage.listenAd;
     }
 
-    // listen to audio in Listen! app ad
-    chrome.storage.sync.get("preventListenAudioAd", function (records) {
-        if (records.preventListenAudioAd)
+    function processPreventDOMItem() {
+        var preventElem = document.getElementById(DOM_PREVENT_ELEM_ID);
+        if (!preventElem)
             return;
 
-        var mutationTimeoutId;
+        var records = {};
+        records[STORAGE_KEY_PREVENT] = true;
+        chrome.storage.sync.set(records);
 
-        function mutationAudioListener() {
-            if (mutationTimeoutId)
-                window.clearTimeout(mutationTimeoutId);
+        preventElem.parentNode.removeChild(preventElem);
+    }
 
-            mutationTimeoutId = window.setTimeout(function () {
-                if (location.pathname !== "/audio")
-                    return;
+    var observer = new (window.MutationObserver || window.WebKitMutationObserver)(mutatoDebounce);
 
-                var msgData;
-                var searchQueryFound = false;
-
-                if (location.search.length) {
-                    msgData = {};
-
-                    location.search.substr(1).split("&").forEach(function (param) {
-                        param = param.split("=", 2);
-
-                        if (param[0] === "q" && param[1]) {
-                            msgData.type = "search";
-                            msgData.search = param[1];
-                        } else if (param[0] === "performer") {
-                            msgData.performer = Boolean(param[1]);
-                        }
-                    });
-                } else {
-                    msgData = {
-                        type: "current"
-                    };
-                }
-
-                if (!msgData.type)
-                    return;
-
-                chrome.runtime.sendMessage("bggaejdaachpiaibkedeoadbglgdjpab", msgData, function (canPlayThisStuff) {
-                    if (canPlayThisStuff) {
-                        // ...
-                    }
-                });
-            }, 500);
-        }
-
-        var observer = new (window.MutationObserver || window.WebKitMutationObserver)(mutationAudioListener);
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
-        // run on page load
-        mutationAudioListener();
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
     });
+
+    // run on page load
+    mutatoDebounce();
 })();

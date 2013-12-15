@@ -2,7 +2,7 @@
 (function () {
     "use strict";
 
-    var LISTEN_APP_ID = "nhpdcfndackfenecoefcmphfjhdnaedi";
+    var LISTEN_APP_ID = "bggaejdaachpiaibkedeoadbglgdjpab";
     var AD_URL = "14300_286";
     var LEFT_MENU_ID = "l_listen_app";
     var LEFT_MENU_LAUNCH_ID = "l_listen_app_launch";

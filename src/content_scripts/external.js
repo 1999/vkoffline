@@ -1,4 +1,3 @@
-
 (function () {
     "use strict";
 
@@ -193,7 +192,7 @@
     }
 
     function processAudioSearch() {
-        if (location.pathname !== "/audio")
+        if (location.pathname !== "/audio" && !/^\/audios[\d]+/.test(location.pathname))
             return;
 
         chrome.storage.sync.get(STORAGE_KEY_PREVENT_AUDIO, function (records) {

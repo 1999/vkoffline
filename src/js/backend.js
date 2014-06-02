@@ -500,6 +500,9 @@ document.addEventListener("DOMContentLoaded", function () {
 										var showNotification = function(avatarUrl) {
 											var img = new Image();
 											img.onload = function() {
+												if (!window.webkitNotifications)
+													return;
+
 												var canvas = document.createElement("canvas"),
 													notificationTimeoutId = null;
 
@@ -839,6 +842,9 @@ document.addEventListener("DOMContentLoaded", function () {
 					if (bDate[0] !== nowDay || bDate[1] !== nowMonth)
 						return;
 
+					if (!window.webkitNotifications)
+						return;
+
 					// show notification
 					msg = chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME);
 					notification = window.webkitNotifications.createNotification(App.resolveURL("pic/smile.png"), App.NAME, msg);
@@ -891,6 +897,9 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					var showBirthdayNotification = function (userId, avatarUrl, userFio, msg) {
+						if (!window.webkitNotifications)
+							return;
+
 						var img = new Image();
 						img.onload = function () {
 							var canvas = document.createElement("canvas");

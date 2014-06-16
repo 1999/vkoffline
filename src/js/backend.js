@@ -93,6 +93,19 @@ function statSend(category, action, optLabel, optValue) {
 document.addEventListener("DOMContentLoaded", function () {
 	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
 
+	// notification click handlers
+	var notificationHandlers = {};
+	var noop = function () {}
+	chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
+		if (!notificationHandlers[notificationId])
+			return;
+
+		chrome.notifications.clear(notificationId, noop);
+		notificationHandlers[notificationId]();
+
+		delete notificationHandlers[notificationId];
+	});
+
 	// получение аватарок
 	function fetchPhoto(photoUrl, fn) {
 		var xhr = new XMLHttpRequest();
@@ -105,6 +118,44 @@ document.addEventListener("DOMContentLoaded", function () {
 		}, false);
 
 		xhr.send();
+	}
+
+	/**
+	 * Показать chrome.notification
+	 *
+	 * @param {Object} data
+	 * @param {String} data.title
+	 * @param {String} data.message
+	 * @param {String} data.icon
+	 * @param {Function} data.onclick
+	 */
+	function showChromeNotification(data) {
+		// Linux? Didn't hear
+		// @see https://developer.chrome.com/extensions/notifications
+		if (!chrome.notifications)
+			return;
+
+		chrome.notifications.create(notificationId, {
+			type: 'basic',
+			iconUrl: data.icon,
+			title: data.title,
+			message: data.message,
+			isClickable: true
+		}, function (notificationId) {
+			if (data.onclick) {
+				notificationHandlers[notificationId] = data.onclick;
+			}
+
+			if (data.sound) {
+				SoundManager.play(data.sound);
+			}
+
+			if (data.timeout) {
+				setTimeout(function () {
+					chrome.notifications.clear(notificationId, noop);
+				}, data.timeout * 1000);
+			}
+		});
 	}
 
 	/**
@@ -842,43 +893,42 @@ document.addEventListener("DOMContentLoaded", function () {
 					if (bDate[0] !== nowDay || bDate[1] !== nowMonth)
 						return;
 
-					if (!window.webkitNotifications)
-						return;
+					showChromeNotification({
+						title: App.NAME,
+						message: chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME),
+						icon: App.resolveURL("pic/smile.png"),
+						sound: "message",
+						onclick: function () {
+							statSend("App-Actions", "BD notification click");
 
-					// show notification
-					msg = chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME);
-					notification = window.webkitNotifications.createNotification(App.resolveURL("pic/smile.png"), App.NAME, msg);
+							// закрываем все вкладки с приложением
+							findFrontendTabs(function (chromeWindowsExist, tabsList) {
+								var appFrontendUrl = App.resolveURL("main.html");
 
-					notification.onclick = function () {
-						statSend("App-Actions", "BD notification click");
-						notification.cancel();
-
-						// закрываем все вкладки с приложением
-						findFrontendTabs(function (chromeWindowsExist, tabsList) {
-							var appFrontendUrl = App.resolveURL("main.html");
-
-							if (!chromeWindowsExist)
-								return chrome.windows.create({"url" : appFrontendUrl});
-
-							if (!tabsList.length)
-								return chrome.tabs.create({"url" : appFrontendUrl});
-
-							// фокусируем первый таб приложения в списке
-							chrome.windows.update(tabsList[0].windowId, {"focused" : true});
-							if (tabsList[0].type === "tab") {
-								try {
-									chrome.tabs.update(tabsList[0].tabId, {"active" : true});
-								} catch (e) {
-									chrome.tabs.update(tabsList[0].tabId, {"selected" : true});
+								if (!chromeWindowsExist) {
+									chrome.windows.create({"url" : appFrontendUrl});
+									return;
 								}
-							}
-						});
-					};
 
-					SoundManager.play("message");
+								if (!tabsList.length) {
+									chrome.tabs.create({"url" : appFrontendUrl});
+									return;
+								}
+
+								// фокусируем первый таб приложения в списке
+								chrome.windows.update(tabsList[0].windowId, {"focused" : true});
+								if (tabsList[0].type === "tab") {
+									try {
+										chrome.tabs.update(tabsList[0].tabId, {"active" : true});
+									} catch (e) {
+										chrome.tabs.update(tabsList[0].tabId, {"selected" : true});
+									}
+								}
+							});
+						}
+					});
+
 					statSend("App-Data", "Show BD notification");
-
-					notification.show();
 				});
 
 				ReqManager.apiMethod("friends.get", {fields: "first_name,last_name,sex,domain,bdate,photo,contacts"}, function (data) {

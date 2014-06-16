@@ -18,12 +18,12 @@
  * ========================================================== */
 
 (function () {
-	var previewListener = function(request, sender, sendResponse) {
+	function previewListener(request, sender, sendResponse) {
 		if (request.action === "uiDraw") {
 			sendResponse(false);
 			return true;
 		}
-	};
+	}
 
 	window.addEventListener("load", function () {
 		chrome.runtime.onMessage.removeListener(previewListener);
@@ -94,7 +94,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
 
 	// получение аватарок
-	var fetchPhoto = function (photoUrl, fn) {
+	function fetchPhoto(photoUrl, fn) {
 		var xhr = new XMLHttpRequest();
 		xhr.open("GET", photoUrl, true);
 		xhr.responseType = "blob";
@@ -105,7 +105,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		}, false);
 
 		xhr.send();
-	};
+	}
 
 	/**
 	 * Нахождение табов фронтенда
@@ -113,7 +113,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	 *		{Boolean} есть ли открытые окна Chrome
 	 *		{Array} массив открытых вкладок
 	 */
-	var findFrontendTabs = function (callback) {
+	function findFrontendTabs(callback) {
 		chrome.windows.getAll({populate: true}, function (windows) {
 			var foundAppTabs = [];
 			var appFrontendUrl = App.resolveURL("main.html");
@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			callback(true, foundAppTabs);
 		});
-	};
+	}
 
 	// записываем дату установки
 	if (StorageManager.get("app_install_time") === null)

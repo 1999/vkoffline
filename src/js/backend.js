@@ -127,7 +127,10 @@ document.addEventListener("DOMContentLoaded", function () {
 	 * @param {String} data.title
 	 * @param {String} data.message
 	 * @param {String} data.icon
-	 * @param {Function} data.onclick
+	 * @param {String} [data.id]
+	 * @param {String} [data.sound]
+	 * @param {Number} [data.timeout]
+	 * @param {Function} [data.onclick]
 	 */
 	function showChromeNotification(data) {
 		// Linux? Didn't hear
@@ -135,7 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		if (!chrome.notifications)
 			return;
 
-		chrome.notifications.create(notificationId, {
+		chrome.notifications.create(data.id || (Math.random() + ''), {
 			type: 'basic',
 			iconUrl: data.icon,
 			title: data.title,
@@ -344,8 +347,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			var updateTokenForUserId = null, // при обновлении токенов нужно запоминать для какого пользователя требовалось обновление
 				syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
 				cachedUIDs = [],
-				uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...},
-				newMessagesNotifications = {}; // объект вида {msgId1: уведомление1, msgId2: уведомление2, ...)
+				uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...}
 
 			var clearSyncingDataCounters = function(userId) {
 				if (syncingData[userId] !== undefined) {
@@ -471,7 +473,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					LogManager.info(JSON.stringify(res));
 
-					res.updates.forEach(function(data) {
+					res.updates.forEach(function (data) {
 						switch (data[0]) {
 							case 2 :
 								if (data[2] & 128) {
@@ -548,114 +550,6 @@ document.addEventListener("DOMContentLoaded", function () {
 										// обновляем фронтенд
 										chrome.runtime.sendMessage({"action" : "messageReceived", "data" : msgData, "userdata" : userData});
 
-										var showNotification = function(avatarUrl) {
-											var img = new Image();
-											img.onload = function() {
-												if (!window.webkitNotifications)
-													return;
-
-												var canvas = document.createElement("canvas"),
-													notificationTimeoutId = null;
-
-												canvas.setAttribute("width", 50);
-												canvas.setAttribute("height", 50);
-												Utils.misc.drawCanvasImageCentered(canvas.getContext("2d"), img, 50, 50);
-
-												var fio = userData.first_name + " " + userData.last_name,
-													notification = window.webkitNotifications.createNotification(canvas.toDataURL(), fio, msgData.body.replace(/<br>/gm, "\n"));
-
-												notification.onclick = function() {
-													LogManager.config("Clicked notification with message #" + msgData.mid);
-													notification.cancel();
-
-													if (notificationTimeoutId !== null) {
-														window.clearTimeout(notificationTimeoutId);
-														notificationTimeoutId = null;
-													}
-
-													// показываем окно приложения
-													findFrontendTabs(function(chromeWindowsExist, tabsList) {
-														var appFrontendUrl = App.resolveURL("main.html");
-
-														if (chromeWindowsExist === false) {
-															chrome.windows.create({"url" : appFrontendUrl});
-															return;
-														}
-
-														if (tabsList.length === 0) {
-															chrome.tabs.create({"url" : appFrontendUrl});
-															return;
-														}
-
-														// показываем первый по важности таб
-														chrome.windows.update(tabsList[0].windowId, {"focused" : true});
-														if (tabsList[0].type === "tab") {
-															try {
-																chrome.tabs.update(tabsList[0].tabId, {"active" : true});
-															} catch (e) {
-																chrome.tabs.update(tabsList[0].tabId, {"selected" : true});
-															}
-														}
-													});
-												};
-
-												// play sound
-												SoundManager.play("message");
-
-												if (SettingsManager.NotificationsTime === 0) {
-													return;
-												}
-
-												// TODO необходимость заключается в том, чтобы не показывать уведомления, когда в браузере активен таб с приложением
-												// для этого нужно по URL определять тип открытого таба. Сейчас это невозможно или же придется ради этого отслеживать
-												// все изменения в chrome.tabs
-
-												// ищем открытые вкладки ВКонтакте
-												chrome.windows.getAll({"populate" : true}, function(windows) {
-													var vkTabFound = false,
-														appTabActive = false,
-														appFrontendUrl = App.resolveURL("main.html");
-
-													windows.forEach(function(windowElem) {
-														windowElem.tabs.forEach(function(tab) {
-															if (/^https?:\/\/vk\.com\//.test(tab.url)) {
-																vkTabFound = true;
-															}
-
-															if (windowElem.focused && tab.active && tab.url.indexOf(appFrontendUrl) === 0) {
-																appTabActive = true;
-															}
-														});
-													});
-
-													if (SettingsManager.ShowWhenVK === 0 && vkTabFound) {
-														return;
-													}
-
-													// не показываем уведомления, когда активен таб приложения
-													if (appTabActive) {
-														return;
-													}
-
-													LogManager.config("Open notification with message #" + msgData.mid);
-													notification.show();
-
-													newMessagesNotifications[msgData.mid] = notification;
-
-													if (SettingsManager.NotificationsTime === 12) {
-														return;
-													}
-
-													// добавлTяем закрытие уведомления через определенное время
-													notificationTimeoutId = window.setTimeout(function() {
-														notification.cancel();
-													}, SettingsManager.NotificationsTime * 5 * 1000);
-												});
-											};
-
-											img.src = avatarUrl;
-										};
-
 										if (mailType === "inbox") {
 											if (CacheManager.avatars[msgData.uid] !== undefined && CacheManager.avatars[msgData.uid].length) {
 												showNotification(CacheManager.avatars[msgData.uid]);
@@ -666,6 +560,75 @@ document.addEventListener("DOMContentLoaded", function () {
 													showNotification(App.resolveURL("pic/question_th.gif"));
 												});
 											}
+										}
+
+										function showNotification(avatarUrl) {
+											if (SettingsManager.NotificationsTime === 0)
+												return;
+
+											// ищем открытые вкладки ВКонтакте
+											chrome.windows.getAll({populate: true}, function (windows) {
+												var vkTabFound = false;
+												var appTabActive = false;
+												var appFrontendUrl = App.resolveURL("main.html");
+
+												windows.forEach(function (windowElem) {
+													windowElem.tabs.forEach(function (tab) {
+														if (/^https?:\/\/vk\.com\//.test(tab.url)) {
+															vkTabFound = true;
+														}
+
+														if (windowElem.focused && tab.active && tab.url.indexOf(appFrontendUrl) === 0) {
+															appTabActive = true;
+														}
+													});
+												});
+
+												if (SettingsManager.ShowWhenVK === 0 && vkTabFound)
+													return;
+
+												// не показываем уведомления, когда активен таб приложения
+												if (appTabActive)
+													return;
+
+												showChromeNotification({
+													title: fio,
+													message: msgData.body.replace(/<br>/gm, "\n"),
+													icon: avatarUrl,
+													sound: "message",
+													timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
+													onclick: function () {
+														LogManager.config("Clicked notification with message #" + msgData.mid);
+
+														// показываем окно приложения
+														findFrontendTabs(function (chromeWindowsExist, tabsList) {
+															var appFrontendUrl = App.resolveURL("main.html");
+
+															if (chromeWindowsExist === false) {
+																chrome.windows.create({"url" : appFrontendUrl});
+																return;
+															}
+
+															if (tabsList.length === 0) {
+																chrome.tabs.create({"url" : appFrontendUrl});
+																return;
+															}
+
+															// показываем первый по важности таб
+															chrome.windows.update(tabsList[0].windowId, {"focused" : true});
+															if (tabsList[0].type === "tab") {
+																try {
+																	chrome.tabs.update(tabsList[0].tabId, {"active" : true});
+																} catch (e) {
+																	chrome.tabs.update(tabsList[0].tabId, {"selected" : true});
+																}
+															}
+														});
+													}
+												});
+
+												LogManager.config("Open notification with message #" + msgData.mid);
+											});
 										}
 									});
 								};
@@ -1168,7 +1131,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				reqData.offset = syncingData[currentUserId][mailType][1];
 				reqData.access_token = userDataForRequest.token;
-				reqData.count = 100;
+				reqData.count = 200;
 				reqData.preview_length = 0;
 				if (mailType === "sent") {
 					reqData.out = 1;
@@ -1642,10 +1605,10 @@ document.addEventListener("DOMContentLoaded", function () {
 						chrome.runtime.sendMessage({"action" : "ui", "which" : uiType});
 						break;
 
-					case "closeNotification" :
-						if (newMessagesNotifications[request.mid] !== undefined) {
-							newMessagesNotifications[request.mid].cancel();
-							delete newMessagesNotifications[request.mid];
+					case "closeNotification":
+						if (notificationHandlers[request.mid]) {
+							chrome.notifications.clear(request.mid, noop);
+							delete notificationHandlers[request.mid];
 						}
 
 						break;

@@ -671,7 +671,7 @@ document.addEventListener("submit", function (e) {
 								$(form, "textarea").val("").focus();
 
 								// скроллим ниже
-								form.scrollIntoView();
+								dataContainer.scrollTop = dataContainer.scrollHeight;
 							} else {
 								// удаляем кнопки у формы
 								$$(form, "button").remove();
@@ -2657,6 +2657,7 @@ var AppUI = {
 		userSpeechSection.append(msgContents);
 
 		$$(userSpeechSection, "section.msg").bind("mouseover", self._chatMessageMouseOverListener);
+		chatContainer.scrollTop = chatContainer.scrollHeight;
 	},
 
 	/**

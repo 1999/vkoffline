@@ -1,0 +1,20 @@
+{
+  "name": "vkoffline",
+  "version": "0.0.0",
+  "homepage": "https://github.com/1999/vkoffline",
+  "authors": [
+    "Dmitry Sorin <info@staypositive.ru>"
+  ],
+  "dependencies": {
+    "tipsy": "git@github.com:1999/tipsy.git"
+  },
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

@@ -16,36 +16,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * ========================================================== */
-
-var SoundManager = new (function() {
-	var buffers = {},
-		available = ["message", "error", "clear", "sent"],
-		context, fallback;
+var SoundManager = (function () {
+	var buffers = {};
+	var availableSounds = ["message", "error", "clear", "sent"];
+	var context;
 
 	try {
-		context = new (webkitAudioContext || AudioContext)();
+		context = new (AudioContext || webkitAudioContext)();
 	} catch (e) {
 		// for instance this is unavailable in chromium13/mac
 	}
 
-	fallback = function(type) {
+	function fallback(type) {
 		buffers[type] = new Audio();
 		buffers[type].src = App.resolveURL("sound/" + type + ".mp3");
-	};
-	
-	// создаем буферы звуков
-	available.forEach(function (type) {
-		if (!context)
-			return fallback(type);
+	}
 
-		var xhr = new XMLHttpRequest();
+	// создаем буферы звуков
+	availableSounds.forEach(function (type) {
+		if (!context) {
+			return fallback(type);
+		}
+
+		var xhr = new XMLHttpRequest;
 		xhr.open("GET", App.resolveURL("sound/" + type + ".mp3"), true);
 		xhr.responseType = "arraybuffer";
 
 		xhr.addEventListener("load", function () {
 			context.decodeAudioData(xhr.response, function (buffer) {
 				buffers[type] = buffer;
-		    }, function () {
+			}, function () {
 		    	fallback(type);
 		    });
 		}, false);
@@ -57,34 +57,38 @@ var SoundManager = new (function() {
 		xhr.send();
 	});
 
-	this.play = function (type, volume) {
-		var source, gainNode;
+	return {
+		play: function SoundManager_play(type, volume) {
+			if (availableSounds.indexOf(type) === -1) {
+				throw new Error("No such sound available: " + type);
+			}
 
-		if (available.indexOf(type) === -1)
-			throw new Error("No such sound available: " + type);
+			// буферы еще не загружены
+			if (!buffers[type]) {
+				return;
+			}
 
-		// буферы еще не загружены
-		if (!buffers[type])
-			return;
+			if (volume === 0) {
+				return;
+			}
 
-		if (volume === 0)
-			return;
+			volume = volume || SettingsManager.SoundLevel;
 
-		volume = volume || SettingsManager.SoundLevel;
+			if (buffers[type] instanceof HTMLAudioElement) {
+				buffers[type].volume = volume;
+				buffers[type].play();
+			} else {
+				var gainNode = context.createGain();
+				gainNode.gain.value = volume;
 
-		if (buffers[type] instanceof HTMLAudioElement) {
-			buffers[type].volume = volume;
-			buffers[type].play();
-		} else {
-			gainNode = context.createGainNode();
-			gainNode.gain.value = volume;
+				var source = context.createBufferSource();
+				source.buffer = buffers[type];
 
-			source = context.createBufferSource();
-			source.buffer = buffers[type];
-			source.connect(gainNode);
-			gainNode.connect(context.destination);
-			
-			source.noteOn(0);
+				source.connect(gainNode);
+				gainNode.connect(context.destination);
+
+				source.start(0);
+			}
 		}
 	};
-});
+})();

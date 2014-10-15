@@ -6,7 +6,6 @@
     "Dmitry Sorin <info@staypositive.ru>"
   ],
   "dependencies": {
-    "tipsy": "git://github.com:1999/tipsy.git",
     "sklad": "1.0.0"
   },
   "license": "MIT",

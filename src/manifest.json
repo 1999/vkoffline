@@ -29,6 +29,7 @@
 	],
 	"background": {
 		"scripts": [
+			"bower_components/sklad/sklad.js",
 			"js/app.js",
 			"js/utils.js",
 			"js/soundManager.js",

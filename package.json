@@ -1,14 +1,15 @@
 {
-	"name": "vkoffline",
-	"version": "1.0.0",
-	"private": true,
-	"dependencies": {
-		"hogan.js": "2.0.x"
-	},
-	"devDependencies": {
-		"grunt": "0.4.x"
-	},
-	"engines": {
-		"node": ">=0.8"
-	}
+  "name": "vkoffline",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "grunt-cli": "^0.1.13",
+    "hogan.js": "2.0.x"
+  },
+  "devDependencies": {
+    "grunt": "0.4.x"
+  },
+  "engines": {
+    "node": ">=0.8"
+  }
 }

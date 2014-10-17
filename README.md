@@ -32,7 +32,7 @@ VK Offline работает на Chromium 22 версии и выше. Если 
 Приложение использует технологию [Google Voice Search](http://en.wikipedia.org/wiki/Google_Voice_Search), которая на данный момент не поддерживает украинский язык.
 
 ## IndexedDB schema
-Each user's data is stored inside database 'db_{userId}'. Database contains 4 object stores:
+Each user's data is stored inside database `db_{userId}`. Database contains 3 object stores:
 
  * contacts (keyPath: "uid")
    * {Number} uid
@@ -40,6 +40,9 @@ Each user's data is stored inside database 'db_{userId}'. Database contains 4 ob
    * {String} last_name
    * {String} other_data
    * {String} notes
+   * {String} photo
+   * {String} bdate
+   * {Number} sex
    * {Number} last_message_ts - cached timestamp of the last message from contact; cache TTL is 5 minutes
    * {Number} messages_num - cached number of messages got from contact; cache TTL is 1 hour
  * messages (keyPath: "mid")
@@ -59,6 +62,9 @@ Each user's data is stored inside database 'db_{userId}'. Database contains 4 ob
    * {String} title
    * {Object} picture
    * {Number} last_message_ts - servers as an index
+
+There's also a special database `meta` with (currently) only one object store:
+
  * log (autoIncrement: true)
    * {String} data
    * {Number} ts - timestamp of record (Date.now() by default)

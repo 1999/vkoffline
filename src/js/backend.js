@@ -279,11 +279,9 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 	}
 
-	// записываем дату установки
-	if (StorageManager.get("app_install_time") === null)
-		StorageManager.set("app_install_time", Date.now());
+	MigrationManager.start();
+	return;
 
-	// начинаем работу с БД и ФС
 	Utils.async.parallel({
 		fs: function (callback) {
 			(window.webkitRequestFileSystem || window.requestFileSystem)(window.PERSISTENT, 0, function (windowFsLink) {
@@ -299,22 +297,31 @@ document.addEventListener("DOMContentLoaded", function () {
 			});
 		},
 		db: function (callback) {
-			var dbLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
-			dbLink.transaction(function (tx) {
-				tx.executeSql("CREATE TABLE IF NOT EXISTS log (data TEXT, ts INTEGER, level TEXT)", [], function () {
-					callback(null, dbLink);
-				}, function (tx, err) {
-					statSend("Critical-Errors", "Database Log Error", err.message);
-					callback(err);
-				});
+			DatabaseManager.initMeta(callback);
+		},
+		// 4.11 - это последняя legacy packaged app версия приложения
+		// ее предназначение - сконвертировать данные в новые, поддерживаемые в Chrome Packaged Apps
+		// LocalStorage -> chrome.storage.local, WebDatabase -> IndexedDB
+		// Также задача заставлять пользователей обновить апп до 5
+		migration: function (callback) {
+			var migrationsKey = "migration_411";
+
+			chrome.storage.local.get(migrationsKey, function (records) {
+				console.log(records[migrationsKey] || false);
+				callback(records[migrationsKey] || false);
 			});
 		}
 	}, function readyToGo(err, results) {
-		var dbLink = results.db;
 		var fsLink = results.fs;
+		var hasMigrationRun = results.migration;
 
-		// инициализируем менеджер работы с БД
-		DatabaseManager.init(dbLink);
+		console.log(hasMigrationRun);
+		return;
+
+		// записываем дату установки
+		// if (StorageManager.get("app_install_time") === null)
+		// 	StorageManager.set("app_install_time", Date.now());
+
 		ReqManager.init(statSend);
 		LogManager.config("App started");
 

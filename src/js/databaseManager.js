@@ -2,7 +2,7 @@
  * Database Manager (VK Offline Chrome app)
  * https://github.com/1999/vkoffline
  * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
+ * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,94 +18,300 @@
  * ========================================================== */
 
 var DatabaseManager = {
-	init: function(dbLink) {
-		this._dbLink = dbLink;
+	dropEverything: function (uids, callback) {
+		var promises = uids.map(function (uid) {
+			return ["contacts", "messages", "chats"].map(function (objStorePrefix) {
+				return new Promise(function (resolve, reject) {
+					sklad.deleteDatabase(objStorePrefix + '_' + uid, function (err) {
+						if (err) {
+							reject(err);
+						} else {
+							resolve();
+						}
+					});
+				});
+			});
+		});
+
+		Promise.all(_.flatten(promises)).then(function () {
+			callback();
+		}, function (err) {
+			callback(err);
+		});
 	},
 
-	/**
-	 * @param {Integer} userId
-	 * @param {Array} i18nTerms массив обязательных тэгов ["inbox", "sent", "attachments", "important", "trash", "outbox", "drafts"]
-	 * @param {Function} fnDatabaseReady принимает {Object} объект вида {tagId1: term1, tagId2: term2, ...}
-	 * @param {Function} fnFail принимает {String} текст ошибки
-	 * @return {Void}
-	 */
-	initUser: function(userId, i18nTerms, fnDatabaseReady, fnFail) {
-		var self = this;
-		this._userId = userId;
+	migrateWebDatabase: function (uids, callback) {
+		var that = this;
+		var webDatabaseLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
 
-		if (this._cachedInitTags[userId] !== undefined) {
-			fnDatabaseReady(this._cachedInitTags[userId]);
-			return;
-		}
-		
-		this._dbLink.transaction(function(tx) {
-			var initPartsExecuted = 0,
-				databaseTags = {};
+		function getAllWebDatabaseData(table, uid) {
+			return new vow.Promise(function (resolve, reject) {
+				webDatabaseLink.readTransaction(function (tx) {
+					tx.executeSql("SELECT rowid, * FROM " + table + "_" + uid + " ORDER BY rowid", [], function (tx, resultSet) {
+						var totalRecords = resultSet.rows.length;
+						var output = [];
 
-			var fn = function() {
-				initPartsExecuted += 1;
-				if (initPartsExecuted !== 3) {
-					return;
-				}
-
-				// проверяем, чтобы все дефолтовые метки существовали
-				var tagsExistInDatabase = true;
-				i18nTerms.forEach(function(tagName) {
-					if (databaseTags[tagName] === undefined) {
-						tagsExistInDatabase = false;
-					}
-				});
-
-				if (tagsExistInDatabase === false) {
-					fnFail("Not all config default tags exist in the database");
-					return;
-				}
-
-				self._cachedInitTags[userId] = databaseTags;
-				fnDatabaseReady(databaseTags);
-			};
-
-			tx.executeSql('CREATE TABLE IF NOT EXISTS contacts_' + userId + '(uid INTEGER UNIQUE, first_name TEXT, last_name TEXT, other_data TEXT, notes TEXT)', [], fn, function(tx, err) {
-				fnFail(err.message);
-			});
-			
-			tx.executeSql('CREATE TABLE IF NOT EXISTS pm_' + userId + '(mid INTEGER UNIQUE, uid INTEGER, date INTEGER, title TEXT, body TEXT, other_data TEXT, status INTEGER, attachments TEXT, chatid INTEGER, tags INTEGER NOT NULL)', [], fn, function(tx, err) {
-				fnFail(err.message);
-			});
-
-			tx.executeSql("CREATE TABLE IF NOT EXISTS tags_" + userId + "(id INTEGER PRIMARY KEY NOT NULL, tag TEXT UNIQUE)", [], function(tx) {
-				tx.executeSql("SELECT id, tag FROM tags_" + userId + " ORDER BY id", [], function(tx, resultSet) {
-					var i, item;
-
-					if (resultSet.rows.length) {
-						for (i = 0; i < resultSet.rows.length; i++) {
-							item = resultSet.rows.item(i);
-							databaseTags[item.tag] = item.id;
+						for (var i = 0; i < totalRecords; i++) {
+							output.push(resultSet.rows.item(i));
 						}
 
-						fn();
-					} else { // первый запуск
-						i18nTerms.forEach(function(tagName, index) {
-							tx.executeSql("INSERT INTO tags_" + userId + " (id, tag) VALUES (?, ?)", [Math.pow(2, index), tagName], function(tx, resultSet) {
-								databaseTags[tagName] = resultSet.insertId;
-
-								if (Object.keys(databaseTags).length === i18nTerms.length) {
-									fn();
-								}
-							}, function(tx, err) {
-								fn(err.message);
-							});
-						});
-					}
-				}, function(tx, err) {
-					fnFail(err.message);
+						resolve(output);
+					}, function (tx, err) {
+						reject(err.message);
+					});
 				});
 			});
+		}
+
+		function validateJSONString(data, constr) {
+			var someData;
+			try {
+				someData = JSON.parse(data);
+				if (!(someData instanceof constr)) {
+					throw new Error("Invalid");
+				}
+			} catch (ex) {
+				someData = new constr;
+			}
+
+			return someData;
+		}
+
+		function migrateUserData(uid) {
+			var that = this;
+
+			return new Promise(function (resolve, reject) {
+				that.initUser(uid, function () {
+					Promise.all([
+						getAllWebDatabaseData("contacts", uid),
+						getAllWebDatabaseData("pm", uid)
+					]).then(function (res) {
+						var fetchedContacts = res[0];
+						var fetchedMessages = res[1];
+
+						var contacts = {};
+						var messages = {};
+						var chats = {};
+
+						fetchedContacts.forEach(function (record) {
+							var otherData = validateJSONString(record.other_data, Object);
+
+							contacts[record.uid] = {
+								uid: Number(record.uid),
+								first_name: record.first_name,
+								last_name: record.last_name,
+								notes: record.notes,
+								last_message_ts: 0,
+								messages_num: 0
+							};
+
+							if (otherData.photo) {
+								contacts[record.uid].photo = otherData.photo;
+							}
+
+							if (otherData.bdate) {
+								contacts[record.uid].bdate = otherData.bdate;
+							}
+
+							if (otherData.sex) {
+								contacts[record.uid].sex = Number(otherData.sex) || 0;
+							}
+						});
+
+						fetchedMessages.forEach(function (record) {
+							var chatId = record.chatid ? record.chatid : "0_" + record.uid;
+							var userId = Number(record.uid);
+							var lastChatMessageDate = chats[chatId] ? chats[chatId].last_message_ts : 0;
+
+							chats[chatId] = chats[chatId] || {};
+							chats[chatId].title = record.title;
+							chats[chatId].last_message_ts = Math.max(record.date, lastChatMessageDate);
+
+							if (record.chatid) {
+								chats[chatId].chat_id = Number(record.chatid);
+							}
+
+							chats[chatId].participants = chats[chatId].participants || [];
+							if (chats[chatId].participants.indexOf(userId) === -1) {
+								chats[chatId].participants.push(userId);
+							}
+
+							var attachments = validateJSONString(record.attachments, Array);
+							var tags = [];
+
+							App.INIT_TAGS.forEach(function (tag, i) {
+								if (record.tags & Math.pow(2, i)) {
+									tags.push(tag);
+								}
+							});
+
+							messages[record.mid] = {
+								mid: Number(record.mid),
+								uid: Number(record.uid),
+								title: record.title,
+								body: record.body,
+								date: record.date,
+								read: Boolean(record.status),
+								attachments: attachments,
+								tags: tags
+							};
+
+							// * {Number} chat - primary key from `chats` object store
+						});
+
+						var chatsMap = {};
+						var chatRecords = Object.keys(chats).map(function (chatId, index) {
+							chatsMap[chatId] = index;
+							return chats[chatId];
+						});
+
+						console.log(chatsMap);
+
+						// that._conn[uid].insert("chats", chatRecords)
+					}, reject);
+				}, reject);
+			});
+		}
+
+		var promises = uids.map(function (uid) {
+			return migrateUserData.call(that, uid);
+		});
+
+		Promise.all(promises).then(function () {
+			callback();
+		}, function (err) {
+			callback(err);
+		});
+	},
+
+	initMeta: function (callback) {
+		sklad.open('meta', {
+			version: 1,
+			migrations: {
+				'1': function () {
+
+				}
+			}
+		}, function (err, conn) {
+			if (err) {
+				throw new Error(err.name + ': ' + err.message);
+			}
+
+			this._meta = conn;
+			callback();
 		});
 	},
 
 	/**
-	 * 
+	 * @param {Integer} userId
+	 * @param {Function} fnSuccess
+	 * @param {Function} fnFail принимает {String} текст ошибки
+	 * @return {Void}
+	 */
+	initUser: function(userId, fnSuccess, fnFail) {
+		var that = this;
+
+		sklad.open('db_' + userId, {
+			version: 1,
+			migrations: {
+				'1': function (database) {
+					var contactsStore = database.createObjectStore("contacts", {keyPath: "uid"});
+					objStore.createIndex("last_message", "last_message_ts");
+					objStore.createIndex("messages_num", "messages_num");
+
+					var messagesStore = database.createObjectStore("messages", {keyPath: "mid"});
+					messagesStore.createIndex("tag", "tags", {multiEntry: true});
+
+					var chatsStore = database.createObjectStore("chats", {autoIncrement: true});
+					chatsStore.createIndex("contact", "participants", {multiEntry: true});
+					chatsStore.createIndex("last_message", "last_message_ts");
+				}
+			}
+		}, function (err, conn) {
+			if (err) {
+				fnFail(err.name + ': ' + err.message);
+			} else {
+				that._conn[userId] = conn;
+				fnSuccess();
+			}
+		});
+
+		// var self = this;
+		// this._userId = userId;
+
+		// if (this._cachedInitTags[userId] !== undefined) {
+		// 	fnDatabaseReady(this._cachedInitTags[userId]);
+		// 	return;
+		// }
+
+		// this._dbLink.transaction(function(tx) {
+		// 	var initPartsExecuted = 0,
+		// 		databaseTags = {};
+
+		// 	var fn = function() {
+		// 		initPartsExecuted += 1;
+		// 		if (initPartsExecuted !== 3) {
+		// 			return;
+		// 		}
+
+		// 		// проверяем, чтобы все дефолтовые метки существовали
+		// 		var tagsExistInDatabase = true;
+		// 		i18nTerms.forEach(function(tagName) {
+		// 			if (databaseTags[tagName] === undefined) {
+		// 				tagsExistInDatabase = false;
+		// 			}
+		// 		});
+
+		// 		if (tagsExistInDatabase === false) {
+		// 			fnFail("Not all config default tags exist in the database");
+		// 			return;
+		// 		}
+
+		// 		self._cachedInitTags[userId] = databaseTags;
+		// 		fnDatabaseReady(databaseTags);
+		// 	};
+
+		// 	tx.executeSql('CREATE TABLE IF NOT EXISTS contacts_' + userId + '(uid INTEGER UNIQUE, first_name TEXT, last_name TEXT, other_data TEXT, notes TEXT)', [], fn, function(tx, err) {
+		// 		fnFail(err.message);
+		// 	});
+
+		// 	tx.executeSql('CREATE TABLE IF NOT EXISTS pm_' + userId + '(mid INTEGER UNIQUE, uid INTEGER, date INTEGER, title TEXT, body TEXT, other_data TEXT, status INTEGER, attachments TEXT, chatid INTEGER, tags INTEGER NOT NULL)', [], fn, function(tx, err) {
+		// 		fnFail(err.message);
+		// 	});
+
+		// 	tx.executeSql("CREATE TABLE IF NOT EXISTS tags_" + userId + "(id INTEGER PRIMARY KEY NOT NULL, tag TEXT UNIQUE)", [], function(tx) {
+		// 		tx.executeSql("SELECT id, tag FROM tags_" + userId + " ORDER BY id", [], function(tx, resultSet) {
+		// 			var i, item;
+
+		// 			if (resultSet.rows.length) {
+		// 				for (i = 0; i < resultSet.rows.length; i++) {
+		// 					item = resultSet.rows.item(i);
+		// 					databaseTags[item.tag] = item.id;
+		// 				}
+
+		// 				fn();
+		// 			} else { // первый запуск
+		// 				i18nTerms.forEach(function(tagName, index) {
+		// 					tx.executeSql("INSERT INTO tags_" + userId + " (id, tag) VALUES (?, ?)", [Math.pow(2, index), tagName], function(tx, resultSet) {
+		// 						databaseTags[tagName] = resultSet.insertId;
+
+		// 						if (Object.keys(databaseTags).length === i18nTerms.length) {
+		// 							fn();
+		// 						}
+		// 					}, function(tx, err) {
+		// 						fn(err.message);
+		// 					});
+		// 				});
+		// 			}
+		// 		}, function(tx, err) {
+		// 			fnFail(err.message);
+		// 		});
+		// 	});
+		// });
+	},
+
+	/**
+	 *
 	 */
 	dropUser: function(userId) {
 		this._dbLink.transaction(function(tx) {
@@ -193,7 +399,7 @@ var DatabaseManager = {
 	getConversations: function(startFrom, trashTagId, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isMultiChatRegExp = /^[\d]+$/;
-		
+
 		this._dbLink.readTransaction(function(tx) {
 			// выборка участников тредов
 			var fetchParticipants = function(dialogId, callback) {
@@ -402,7 +608,7 @@ var DatabaseManager = {
 
 	/**
 	 * Внесение и обновление контактов
-	 * 
+	 *
 	 * @param {Array} data массив из массивов вида [uid, firstName, lastName, otherData, oldNames, notes]
 	 * @param {Function} fnSuccess (optional) принимает {Object} данные пользователя
 	 * @param {Function} fnFail (optional) принимает {Integer} UID и {String} текст ошибки
@@ -419,7 +625,7 @@ var DatabaseManager = {
 				fnAfterwards();
 			}
 		};
-		
+
 		this._dbLink.transaction(function(tx) {
 			var columns = ["uid", "first_name", "last_name", "other_data", "notes"];
 
@@ -448,7 +654,7 @@ var DatabaseManager = {
 
 	/**
 	 * Внесение сообщений
-	 * 
+	 *
 	 * @param {Integer} currentUserId ID аккаунта, для которого заносятся сообщения
 	 * @param {Object} data объект с ключами: {Boolean} firstSync первая синхронизация или нет, {Array} messages массив сообщений-объектов с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags)
 	 * @param {Function} fnSuccess принимает {Object} данные сообщения (копия элемента массива из первого параметра), {Boolean} занесено ли сообщение в БД
@@ -485,7 +691,7 @@ var DatabaseManager = {
 				fnAfterwards.apply(null, executedStatements);
 			}
 		};
-		
+
 		this._dbLink.transaction(function(tx) {
 			data.messages.forEach(function(msgData) {
 				var databasePlaces = [],
@@ -925,5 +1131,8 @@ var DatabaseManager = {
 
 	_dbLink: null,
 	_userId: null,
-	_cachedInitTags: {}
+	_cachedInitTags: {},
+
+	_conn: {},
+	_meta: null
 };

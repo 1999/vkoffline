@@ -16,7 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * ========================================================== */
-
 var Utils = {
 	async: {
 		/**
@@ -174,7 +173,7 @@ var Utils = {
 					? pluralForms[0]
 					: pluralForms[1];
 			}
-			
+
 			if (number%10 == 1 && number%100 != 11) {
 				return pluralForms[0];
 			}
@@ -193,20 +192,20 @@ var Utils = {
 				hours = tsDate.getHours(),
 				minutes = tsDate.getMinutes(),
 				monthes = chrome.i18n.getMessage('monthesCut').split('|');
-				
+
 			if (diff < 60)
 				return chrome.i18n.getMessage('justNow');
-			
+
 			if (diff < 60*60) {
 				diff = Math.floor(diff/60);
 				return diff + ' ' + Utils.string.plural(diff, chrome.i18n.getMessage('minutesAgo').split('|')) + ' ' + chrome.i18n.getMessage('ago');
 			}
-			
+
 			if (diff < 24*60*60) {
 				diff = Math.floor(diff/60/60);
 				return diff + ' ' + Utils.string.plural(diff, chrome.i18n.getMessage('hoursAgo').split('|')) + ' ' + chrome.i18n.getMessage('ago');
 			}
-			
+
 			return (diff < 3*24*60*60)
 				? tsDate.getDate() + ' ' + monthes[tsDate.getMonth()] + ' ' + tsDate.getFullYear() + ' ' + chrome.i18n.getMessage('dayAndTimeSeparator') + ' ' + ((hours < 10) ? '0' + hours : hours) + ':' + ((minutes < 10) ? '0' + minutes : minutes)
 				: tsDate.getDate() + ' ' + monthes[tsDate.getMonth()] + ' ' + tsDate.getFullYear();
@@ -215,10 +214,10 @@ var Utils = {
 		humanFileSize: function (size) {
 			if (size < 1024)
 				return '1 ' + chrome.i18n.getMessage('kb');
-			
+
 			if (size < 1024*1024)
 				return Math.round(size/1024) + ' ' + chrome.i18n.getMessage('kb');
-			
+
 			return Math.round(size/1024/1024) + ' ' + chrome.i18n.getMessage('mb');
 		},
 
@@ -301,19 +300,19 @@ var Utils = {
 					srcH = imgHeight;
 					dstX = 0;
 					dstW = canvas.width;
-				
+
 					if (imgHeight > canvas.height) {
 						collapseLevel = imgHeight / canvas.height;
-					
+
 						srcW = canvas.width * collapseLevel;
 						srcX = Math.round( ( (imgWidth/collapseLevel - canvas.width) / 2) * collapseLevel);
-					
+
 						dstY = 0;
 						dstH = canvas.height;
 					} else {
 						srcW = canvas.width;
 						srcX = Math.round( (imgWidth - canvas.width) / 2);
-					
+
 						dstY = Math.round( (canvas.height - imgHeight) / 2);
 						dstH = imgHeight;
 					}
@@ -322,24 +321,24 @@ var Utils = {
 					srcW = imgWidth;
 					dstY = 0;
 					dstH = canvas.height;
-				
+
 					if (imgWidth > canvas.width) {
 						collapseLevel = imgWidth / canvas.width;
-					
+
 						srcH = canvas.height * collapseLevel;
 						srcY = Math.round( ( (imgHeight/collapseLevel - canvas.height) / 2) * collapseLevel);
-					
+
 						dstX = 0;
 						dstW = canvas.width;
 					} else {
 						srcH = canvas.height;
 						srcY = Math.round( (imgHeight - canvas.height) / 2);
-					
+
 						dstX = Math.round( (canvas.width - imgWidth) / 2);
 						dstW = imgWidth;
 					}
 				}
-				
+
 				ctx2d.drawImage(dataImage, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
 			}
 		}

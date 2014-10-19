@@ -40,7 +40,7 @@ var DatabaseManager = {
 		});
 	},
 
-	migrateWebDatabase: function (uids, callback) {
+	migrateWebDatabase: function DatabaseManager_migrateWebDatabase(uids, callback) {
 		var that = this;
 		var webDatabaseLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
 
@@ -157,7 +157,7 @@ var DatabaseManager = {
 
 							messages[record.mid] = {
 								mid: Number(record.mid),
-								uid: Number(record.uid),
+								uid: userId,
 								title: record.title,
 								body: record.body,
 								date: record.date,
@@ -166,6 +166,9 @@ var DatabaseManager = {
 								tags: tags,
 								chatId: chatId
 							};
+
+							contacts[userId].messages_num += 1;
+							contacts[userId].last_message_ts = Math.max(contacts[userId].last_message_ts, record.date);
 						});
 
 						var chatsList = []; // list to insert into IndexedDB
@@ -205,8 +208,12 @@ var DatabaseManager = {
 								"contacts": _.values(contacts),
 								"messages": _.values(messages)
 							}, function (err, insertedKeys) {
-								console.log(err, insertedKeys);
-								// pass
+								if (err) {
+									reject(err.name + ": " + err.message);
+									return;
+								}
+
+								resolve();
 							});
 						});
 					}, reject);

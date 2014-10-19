@@ -77,8 +77,10 @@ var DatabaseManager = {
 			return someData;
 		}
 
+		// FIXME: user can exist but no tables
 		function migrateUserData(uid) {
 			var that = this;
+			var currentUserId = Number(uid);
 
 			return new Promise(function (resolve, reject) {
 				that.initUser(uid, function () {
@@ -119,7 +121,8 @@ var DatabaseManager = {
 						});
 
 						fetchedMessages.forEach(function (record) {
-							var chatId = record.chatid ? record.chatid : "0_" + record.uid;
+							var isMultiChat = Boolean(record.chatid);
+							var chatId = isMultiChat ? record.chatid : "0_" + record.uid;
 							var userId = Number(record.uid);
 							var lastChatMessageDate = chats[chatId] ? chats[chatId].last_message_ts : 0;
 
@@ -127,13 +130,20 @@ var DatabaseManager = {
 							chats[chatId].title = record.title;
 							chats[chatId].last_message_ts = Math.max(record.date, lastChatMessageDate);
 
-							if (record.chatid) {
+							if (isMultiChat) {
 								chats[chatId].chat_id = Number(record.chatid);
 							}
 
 							chats[chatId].participants = chats[chatId].participants || [];
-							if (chats[chatId].participants.indexOf(userId) === -1) {
-								chats[chatId].participants.push(userId);
+							if (isMultiChat) {
+								if (userId !== currentUserId && chats[chatId].participants.indexOf(userId) === -1) {
+									chats[chatId].participants.push(userId);
+								}
+							} else {
+								// there should be only one person in chat
+								if (!chats[chatId].participants.length) {
+									chats[chatId].participants.push(userId);
+								}
 							}
 
 							var attachments = validateJSONString(record.attachments, Array);
@@ -153,21 +163,52 @@ var DatabaseManager = {
 								date: record.date,
 								read: Boolean(record.status),
 								attachments: attachments,
-								tags: tags
+								tags: tags,
+								chatId: chatId
 							};
-
-							// * {Number} chat - primary key from `chats` object store
 						});
 
-						var chatsMap = {};
-						var chatRecords = Object.keys(chats).map(function (chatId, index) {
-							chatsMap[chatId] = index;
-							return chats[chatId];
+						var chatsList = []; // list to insert into IndexedDB
+						var chatsMap = {}; // map of `chatId -> index` values
+
+						Object.keys(chats).forEach(function (chatId) {
+							chatsList.push(chats[chatId]);
+							chatsMap[chatId] = chatsList.length - 1;
 						});
 
-						console.log(chatsMap);
+						// insert chats first
+						that._conn[uid].insert({
+							"chats": chatsList
+						}, function (err, insertedKeys) {
+							if (err) {
+								reject(err.name + ": " + err.message);
+								return;
+							}
 
-						// that._conn[uid].insert("chats", chatRecords)
+							// update messages' string `chatId` into numeric `chat`
+							_.forIn(messages, function (msg, key) {
+								var currentStringChatId = msg.chatId;
+								var chatInsertedKeyIndex = chatsMap[currentStringChatId];
+								var chatNumericId = insertedKeys.chats[chatInsertedKeyIndex];
+
+								if (chatNumericId === undefined && key < 100) {
+									console.log(msg.chatId);
+									console.log(chatsMap[currentStringChatId]);
+									console.log(insertedKeys[chatInsertedKeyIndex], insertedKeys);
+								}
+
+								msg.chat = chatNumericId;
+								delete msg.chatId;
+							});
+
+							that._conn[uid].insert({
+								"contacts": _.values(contacts),
+								"messages": _.values(messages)
+							}, function (err, insertedKeys) {
+								console.log(err, insertedKeys);
+								// pass
+							});
+						});
 					}, reject);
 				}, reject);
 			});
@@ -213,11 +254,11 @@ var DatabaseManager = {
 
 		sklad.open('db_' + userId, {
 			version: 1,
-			migrations: {
+			migration: {
 				'1': function (database) {
 					var contactsStore = database.createObjectStore("contacts", {keyPath: "uid"});
-					objStore.createIndex("last_message", "last_message_ts");
-					objStore.createIndex("messages_num", "messages_num");
+					contactsStore.createIndex("last_message", "last_message_ts");
+					contactsStore.createIndex("messages_num", "messages_num");
 
 					var messagesStore = database.createObjectStore("messages", {keyPath: "mid"});
 					messagesStore.createIndex("tag", "tags", {multiEntry: true});
@@ -228,6 +269,7 @@ var DatabaseManager = {
 				}
 			}
 		}, function (err, conn) {
+			console.log(err, conn);
 			if (err) {
 				fnFail(err.name + ': ' + err.message);
 			} else {

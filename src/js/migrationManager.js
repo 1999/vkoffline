@@ -136,7 +136,7 @@ var MigrationManager = (function () {
 			var uids = getUsersList();
 
 			if (legacyMigrationStatus === LAST_LEGACY_MIGRATION_STATUS_FINISHED) {
-				callback(true);
+				callback();
 				return;
 			}
 
@@ -162,82 +162,5 @@ var MigrationManager = (function () {
 
 			runLegacyMigration(uids, callback);
 		}
-	};
-
-
-
-	var STORAGE_KEY = "changelog_notified";
-	var appVersionsHistory = StorageManager.get(STORAGE_KEY, {constructor: Array, strict: true, create: true});
-	var lastErrorObj = null;
-
-	/**
-	 * Нужно ли запустить шаг миграции
-	 *
-	 * @param {String} appVersion
-	 * @return {Boolean}
-	 */
-	var migrationStepNeeded = function (appVersion) {
-		return (appVersionsHistory.length && appVersionsHistory.indexOf(appVersion) === -1);
-	};
-
-	// используем массив, поскольку важен порядок запуска скриптов миграции
-	var migrateData = [
-		{
-			version: "4.7",
-			task: function (callback) {
-				var ids = [];
-				for (var uid in self.AccountsManager.list)
-					ids.push(uid);
-
-				StorageManager.remove("friends_sync_time");
-				DatabaseManager.updateMessagesOnMigrate(ids, callback);
-			}
-		}
-	];
-
-	return {
-		/**
-		 * @param {DOMFileSystem|Null} fsLink
-		 * @param {Function} callback принимает:
-		 *		{Number} произошло ли обновление приложения
-		 */
-		start: function (fsLink, callback) {
-			if (appVersionsHistory.indexOf(App.VERSION) !== -1)
-				return callback(this.UNCHANGED);
-
-			// запуск скриптов миграции
-			var code = appVersionsHistory.length ? this.UPDATED : this.INSTALLED;
-			var failCode = this.UPDATE_FAILED;
-			var tasks = [];
-
-			for (var i = 0; i < migrateData.length; i++) {
-				if (migrationStepNeeded(migrateData[i].version)) {
-					tasks.push(migrateData[i].task);
-				}
-			}
-
-			Utils.async.series(tasks, function (err) {
-				if (err) {
-					lastErrorObj = new Error("Failed to migrate app: " + err);
-					return callback(failCode);
-				}
-
-				// сохраняем, чтобы больше не уведомлять об этой версии
-				appVersionsHistory.push(App.VERSION);
-				StorageManager.set(STORAGE_KEY, appVersionsHistory);
-
-				SoundManager.play("message", Math.max(0.8, SettingsManager.SoundLevel));
-				callback(code);
-			});
-		},
-
-		get lastError() {
-			return lastErrorObj;
-		},
-
-		INSTALLED: 0,
-		UPDATED: 1,
-		UNCHANGED: 2,
-		UPDATE_FAILED: 3
 	};
 })();

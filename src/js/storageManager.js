@@ -18,22 +18,30 @@
  * ========================================================== */
 
 var StorageManager = {
-	set: function(key, value) {
-		if (typeof value !== "string")
-			value = JSON.stringify(value);
+	load: function StorageManager_load(callback) {
+		chrome.storage.local.get(null, function (records) {
+			this._data = records;
+			callback();
+		});
+	},
 
-		localStorage.setItem(key, value);
+	set: function StorageManager_set(key, value) {
+		var storageData = {};
+		storageData[key] = value;
+		chrome.storage.local.set(storageData);
+
+		this._data[key] = value;
 	},
 
 	/**
-	 * Получение данных из LocalStorage, автоматическая валидация
+	 * Получение данных из chrome.storage, автоматическая валидация
 	 * default params: {constructor: String, strict: false, create: false}
 	 * @param {String} key ключ LocalStorage
 	 * @param {Object} params {constructor: {Function} функция-конструктор, strict: {Boolean} проверка на ожидаемый тип данных через instanceof, create: {Boolean} создавать если данных нет}
 	 */
-	get: function(key, params) {
-		var value = localStorage.getItem(key),
-			valueCreated = false;
+	get: function StorageManager_get(key, params) {
+		var value = this._data[key] || null;
+		var valueCreated = false;
 
 		params = params || {};
 		params.constructor = params.constructor || String;
@@ -62,6 +70,9 @@ var StorageManager = {
 	},
 
 	remove: function(key) {
+		// FIXME
 		localStorage.removeItem(key);
-	}
+	},
+
+	_data: {}
 };

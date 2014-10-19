@@ -232,12 +232,14 @@ var DatabaseManager = {
 		});
 	},
 
-	initMeta: function (callback) {
+	initMeta: function DatabaseManager_initMeta(callback) {
+		var that = this;
+
 		sklad.open('meta', {
 			version: 1,
-			migrations: {
-				'1': function () {
-
+			migration: {
+				'1': function (database) {
+					database.createObjectStore("log", {autoIncrement: true});
 				}
 			}
 		}, function (err, conn) {
@@ -245,7 +247,7 @@ var DatabaseManager = {
 				throw new Error(err.name + ': ' + err.message);
 			}
 
-			this._meta = conn;
+			that._meta = conn;
 			callback();
 		});
 	},
@@ -1137,9 +1139,11 @@ var DatabaseManager = {
 	 * @param {String} level
 	 */
 	log: function(data, level) {
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("INSERT INTO log (data, ts, level) VALUES (?, ?, ?)", [data, Date.now(), level]);
-		});
+		this._meta.insert("log", {
+			data: data,
+			ts: Date.now(),
+			level: level
+		}, _.noop);
 	},
 
 	/**

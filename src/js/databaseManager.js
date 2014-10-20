@@ -310,41 +310,35 @@ var DatabaseManager = {
 	 */
 	getContactList: function DatabaseManager_getContactList(outputType, startFrom, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var indexName;
 
 		switch (outputType) {
-			case "alpha" :
-				sql = "SELECT * FROM contacts_" + userId + " ORDER BY first_name, last_name";
-				bindings = [];
+			case "alpha":
+				indexName = "name";
 				break;
 
-			case "lastdate" :
-				sql = "SELECT c.*, pm.date FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid AND pm.tags & ? == 0 GROUP BY c.uid ORDER BY pm.date DESC, c.first_name, c.last_name";
-				bindings = [trashTagId];
+			case "lastdate":
+				indexName = "last_message";
 				break;
 
-			case "messagesnum" :
-				sql = "SELECT c.*, COUNT(pm.rowid) AS total FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid AND pm.tags & ? == 0 GROUP BY c.uid ORDER BY total DESC, c.first_name, c.last_name";
-				bindings = [trashTagId];
+			case "messagesnum":
+				indexName = "messages_num";
 				break;
 		}
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql(sql, bindings, function(tx, resultSet) {
-				var i,
-					total = resultSet.rows.length,
-					processTo = Math.min(startFrom + 30, total),
-					output = [];
+		this._conn[userId].get("contacts", {
+			index: indexName,
+			limit: 30,
+			offset: startFrom
+		}, function (err, data) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
 
-				for (i = startFrom; i < processTo; i++) {
-					output.push(resultSet.rows.item(i));
-				}
-
-				fnSuccess([output, total]);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
-			});
+			fnSuccess(data.map(function (msgData) {
+				return msgData.value;
+			}));
 		});
 	},
 
@@ -374,67 +368,51 @@ var DatabaseManager = {
 	},
 
 	getConversations: function DatabaseManager_getConversations(startFrom, fnSuccess, fnFail) {
-		var userId = this._userId,
-			isMultiChatRegExp = /^[\d]+$/;
+		var that = this;
+		var userId = this._userId;
 
-		this._dbLink.readTransaction(function(tx) {
-			// выборка участников тредов
-			var fetchParticipants = function(dialogId, callback) {
-				var sql = "",
-					bindArgs = [],
-					isMultiChat = isMultiChatRegExp.test(dialogId);
+		function fetchParticipants(uids) {
+			if (uids.indexOf(userId) === -1) {
+				uids.push(userId);
+			}
 
-				if (isMultiChat) {
-					sql = "SELECT c.uid, c.first_name, c.last_name FROM pm_" + userId + " AS pm JOIN contacts_" + userId + " AS c ON pm.uid = c.uid WHERE pm.chatid = ? GROUP BY pm.uid ORDER BY pm.mid DESC";
-					bindArgs = [dialogId];
-				} else {
-					sql = "SELECT uid, first_name, last_name FROM contacts_" + userId + " WHERE uid IN (?, ?) ORDER BY uid";
-					bindArgs = [dialogId.split("_")[1], userId];
-				}
+			var promises = {};
+			uids.forEach(function (uid) {
+				promises[uid] = vow.Promise(function (resolve, reject) {
+					that._conn[uid].get("contacts", {
+						range: IDBKeyRange.only(uid)
+					}, function (err, data) {
+						if (err) {
+							reject(err.name + ": " + err.message);
+							return;
+						}
 
-				tx.executeSql(sql, bindArgs, function(tx, resultSet) {
-					var i, users = [];
-
-					for (i = 0; i < resultSet.rows.length; i++) {
-						users.push(resultSet.rows.item(i));
-					}
-
-					callback(users);
-				}, function(tx, err) {
-					fnFail(err.message);
+						resolve(data.value);
+					});
 				});
-			};
-
-			// выборка тредов
-			tx.executeSql("SELECT \
-							(CASE chatid WHEN 0 THEN (chatid || '_' || uid) ELSE chatid END) AS id, title, date, body, uid, inner.total \
-							FROM pm_" + userId + " AS pm \
-							JOIN \
-								(SELECT (CASE chatid WHEN 0 THEN (chatid || '_' || uid) ELSE chatid END) AS id, MAX(mid) AS maxmid, COUNT(rowid) AS total FROM pm_" + userId + " WHERE tags & ? == 0 GROUP BY id) AS inner \
-								ON inner.id = id AND mid = inner.maxmid \
-							ORDER BY pm.mid DESC", [trashTagId], function(tx, resultSet) {
-				var total = resultSet.rows.length,
-					i, processTo = Math.min(total, startFrom + 30),
-					dialogs = [],
-					dialogItemsNum = processTo - startFrom;
-
-				for (i = startFrom; i < processTo; i++) {
-					(function(dialogData) {
-						fetchParticipants(dialogData.id, function(usersList) {
-							dialogData.participants = usersList;
-							dialogs.push(dialogData);
-
-							if (dialogs.length === dialogItemsNum) {
-								fnSuccess([dialogs, total]);
-							}
-						});
-					})(resultSet.rows.item(i));
-				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
 			});
+
+			return vow.all(promises).then(function (userData) {
+				return userData.map(function (user) {
+					return user.value;
+				});
+			});
+		}
+
+		this._conn[userId].get("chats", {
+			index: "last_message",
+			offset: startFrom,
+			limit: 30
+		}, function (err, data) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			// fetchParticipants()
+			// dialogData.participants = usersList;
+
+			fnSuccess([]);
 		});
 	},
 

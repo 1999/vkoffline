@@ -41,6 +41,8 @@ var DatabaseManager = {
 	},
 
 	migrateWebDatabase: function DatabaseManager_migrateWebDatabase(uids, callback) {
+		console.log("Migrate WebDatabase into IndexedDB");
+
 		var that = this;
 		var webDatabaseLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
 
@@ -188,17 +190,13 @@ var DatabaseManager = {
 								return;
 							}
 
+							console.log("Chats inserted");
+
 							// update messages' string `chatId` into numeric `chat`
-							_.forIn(messages, function (msg, key) {
+							_.forIn(messages, function (msg) {
 								var currentStringChatId = msg.chatId;
 								var chatInsertedKeyIndex = chatsMap[currentStringChatId];
 								var chatNumericId = insertedKeys.chats[chatInsertedKeyIndex];
-
-								if (chatNumericId === undefined && key < 100) {
-									console.log(msg.chatId);
-									console.log(chatsMap[currentStringChatId]);
-									console.log(insertedKeys[chatInsertedKeyIndex], insertedKeys);
-								}
 
 								msg.chat = chatNumericId;
 								delete msg.chatId;
@@ -213,6 +211,9 @@ var DatabaseManager = {
 									return;
 								}
 
+								console.log("Contacts and PM inserted");
+
+								that._conn[uid].close();
 								resolve();
 							});
 						});
@@ -222,6 +223,7 @@ var DatabaseManager = {
 		}
 
 		var promises = uids.map(function (uid) {
+			console.log("UID found: %s", uid);
 			return migrateUserData.call(that, uid);
 		});
 
@@ -268,9 +270,12 @@ var DatabaseManager = {
 					var contactsStore = database.createObjectStore("contacts", {keyPath: "uid"});
 					contactsStore.createIndex("last_message", "last_message_ts");
 					contactsStore.createIndex("messages_num", "messages_num");
+					contactsStore.createIndex("name", ["first_name", "last_name"]);
+					contactsStore.createIndex("fulltext", "fulltext", {multiEntry: true});
 
 					var messagesStore = database.createObjectStore("messages", {keyPath: "mid"});
 					messagesStore.createIndex("tag", "tags", {multiEntry: true});
+					messagesStore.createIndex("fulltext", "fulltext", {multiEntry: true});
 
 					var chatsStore = database.createObjectStore("chats", {autoIncrement: true});
 					chatsStore.createIndex("contact", "participants", {multiEntry: true});
@@ -278,112 +283,33 @@ var DatabaseManager = {
 				}
 			}
 		}, function (err, conn) {
-			console.log(err, conn);
 			if (err) {
 				fnFail(err.name + ': ' + err.message);
 			} else {
 				that._conn[userId] = conn;
+				that._userId = userId;
+
 				fnSuccess();
 			}
 		});
-
-		// var self = this;
-		// this._userId = userId;
-
-		// if (this._cachedInitTags[userId] !== undefined) {
-		// 	fnDatabaseReady(this._cachedInitTags[userId]);
-		// 	return;
-		// }
-
-		// this._dbLink.transaction(function(tx) {
-		// 	var initPartsExecuted = 0,
-		// 		databaseTags = {};
-
-		// 	var fn = function() {
-		// 		initPartsExecuted += 1;
-		// 		if (initPartsExecuted !== 3) {
-		// 			return;
-		// 		}
-
-		// 		// проверяем, чтобы все дефолтовые метки существовали
-		// 		var tagsExistInDatabase = true;
-		// 		i18nTerms.forEach(function(tagName) {
-		// 			if (databaseTags[tagName] === undefined) {
-		// 				tagsExistInDatabase = false;
-		// 			}
-		// 		});
-
-		// 		if (tagsExistInDatabase === false) {
-		// 			fnFail("Not all config default tags exist in the database");
-		// 			return;
-		// 		}
-
-		// 		self._cachedInitTags[userId] = databaseTags;
-		// 		fnDatabaseReady(databaseTags);
-		// 	};
-
-		// 	tx.executeSql('CREATE TABLE IF NOT EXISTS contacts_' + userId + '(uid INTEGER UNIQUE, first_name TEXT, last_name TEXT, other_data TEXT, notes TEXT)', [], fn, function(tx, err) {
-		// 		fnFail(err.message);
-		// 	});
-
-		// 	tx.executeSql('CREATE TABLE IF NOT EXISTS pm_' + userId + '(mid INTEGER UNIQUE, uid INTEGER, date INTEGER, title TEXT, body TEXT, other_data TEXT, status INTEGER, attachments TEXT, chatid INTEGER, tags INTEGER NOT NULL)', [], fn, function(tx, err) {
-		// 		fnFail(err.message);
-		// 	});
-
-		// 	tx.executeSql("CREATE TABLE IF NOT EXISTS tags_" + userId + "(id INTEGER PRIMARY KEY NOT NULL, tag TEXT UNIQUE)", [], function(tx) {
-		// 		tx.executeSql("SELECT id, tag FROM tags_" + userId + " ORDER BY id", [], function(tx, resultSet) {
-		// 			var i, item;
-
-		// 			if (resultSet.rows.length) {
-		// 				for (i = 0; i < resultSet.rows.length; i++) {
-		// 					item = resultSet.rows.item(i);
-		// 					databaseTags[item.tag] = item.id;
-		// 				}
-
-		// 				fn();
-		// 			} else { // первый запуск
-		// 				i18nTerms.forEach(function(tagName, index) {
-		// 					tx.executeSql("INSERT INTO tags_" + userId + " (id, tag) VALUES (?, ?)", [Math.pow(2, index), tagName], function(tx, resultSet) {
-		// 						databaseTags[tagName] = resultSet.insertId;
-
-		// 						if (Object.keys(databaseTags).length === i18nTerms.length) {
-		// 							fn();
-		// 						}
-		// 					}, function(tx, err) {
-		// 						fn(err.message);
-		// 					});
-		// 				});
-		// 			}
-		// 		}, function(tx, err) {
-		// 			fnFail(err.message);
-		// 		});
-		// 	});
-		// });
 	},
 
 	/**
 	 *
 	 */
 	dropUser: function(userId) {
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("DROP TABLE IF EXISTS contacts_" + userId, []);
-			tx.executeSql("DROP TABLE IF EXISTS pm_" + userId, []);
-			tx.executeSql("DROP TABLE IF EXISTS tags_" + userId, []);
-		});
-
-		delete this._cachedInitTags[userId];
+		this._conn[userId].close();
+		sklad.deleteDatabase('db_' + userId, _.noop);
 	},
 
 	/**
 	 * @param {String} outputType - alpha (в алфавитном порядке), lastdate (по дате последнего сообщения), messagesnum (по общему количеству сообщений)
 	 * @param {Integer} startFrom
-	 * @param {Integer} trashTagId
-	 * @param {Function} fnSuccess принимает параметр {Array} массив объектов-контактов и {Integer} общее количество контактов
+	 * @param {Function} fnSuccess принимает {Array} массив объектов-контактов и {Integer} общее количество контактов
 	 * @param {Function} fnFail принимает параметр {String} errorMessage
 	 */
-	getContactList: function(outputType, startFrom, trashTagId, fnSuccess, fnFail) {
-		var userId = this._userId,
-			sql, bindings;
+	getContactList: function DatabaseManager_getContactList(outputType, startFrom, fnSuccess, fnFail) {
+		var userId = this._userId;
 
 		switch (outputType) {
 			case "alpha" :
@@ -447,7 +373,7 @@ var DatabaseManager = {
 		});
 	},
 
-	getConversations: function(startFrom, trashTagId, fnSuccess, fnFail) {
+	getConversations: function DatabaseManager_getConversations(startFrom, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isMultiChatRegExp = /^[\d]+$/;
 
@@ -514,11 +440,10 @@ var DatabaseManager = {
 
 	/**
 	 * @param {Integer} uid
-	 * @param {Integer} trashTagId
 	 * @param {Function} fnSuccess принимает параметр {Array} список объектов
 	 * @param {Function} fnFail принимает параметр {String} errorMessage
 	 */
-	getConversationThreadsWithContact: function(uid, trashTagId, fnSuccess, fnFail) {
+	getConversationThreadsWithContact: function DatabaseManager_getConversationThreadsWithContact(uid, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isMultiChatRegExp = /^[\d]+$/;
 
@@ -589,12 +514,11 @@ var DatabaseManager = {
 	 * Получение сообщений из диалога
 	 *
 	 * @param {String} dialogId идентификатор диалога: [\d]+ в случае чата, 0_[\d]+ в случае переписки один на один
-	 * @param {Integer} trashTagId rowId метки "trash" в таблице tags_%userId%
 	 * @param {Integer|Null} from с какой записи нужно все получить
 	 * @param {Function} fnSuccess принимает аргументы {Array} сообщения, {Integer} количество сообщений в диалоге и {Array} [messageId второго сообщения, messageId пред-предпоследнего сообщения]
 	 * @param {Function} fnFail принимает {String} строка ошибки
 	 */
-	getDialogThread: function(dialogId, trashTagId, from, fnSuccess, fnFail) {
+	getDialogThread: function DatabaseManager_getDialogThread(dialogId, from, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isMultiChat = (/^[\d]+$/.test(dialogId)),
 			sqlWhere = (isMultiChat) ? "m.chatid = ?" : "m.uid = ? AND m.chatid = 0",
@@ -919,11 +843,10 @@ var DatabaseManager = {
 
 	/**
 	 * Получение частоты использования тэгов
-	 * @param {Integer} trashTagId
 	 * @param {Function} fnSuccess принимает {Object} объект freq
 	 * @param {Function} fnFail принимает {String} errorMessage
 	 */
-	getTagsCount: function(trashTagId, fnSuccess, fnFail) {
+	getTagsCount: function(fnSuccess, fnFail) {
 		var userId = this._userId,
 			freq = {}, // объект вида {tagId1: количество1, tagId2: количество2, ...}
 			steps = 0, // сколько запросов выполнено
@@ -973,12 +896,12 @@ var DatabaseManager = {
 
 	/**
 	 * Получение сообщений определенного типа
-	 * @param {Array} tagsIds тэги [нужный тэг, trashTagId]
+	 * @param {String} tag
 	 * @param {Integer} startFrom
 	 * @param {Function} fnSuccess принимает {Array} [{Array} сообщения, {Integer} total]
 	 * @oaram {Function} fnFail принимает {String} errorMessage
 	 */
-	getMessagesByType: function(tagsIds, startFrom, fnSuccess, fnFail) {
+	getMessagesByType: function DatabaseManager_getMessagesByType(tag, startFrom, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isTrashFolder = (tagsIds[0] === tagsIds[1]),
 			sqlAfter = (isTrashFolder) ? "" : " AND m.tags & ? == 0",
@@ -1074,7 +997,7 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает {Array} массив сообщений и {Integer} общее количество найденных сообщений
 	 * @param {Function} fnFail принимает {String} текст ошибки
 	 */
-	searchMail: function(params, searchString, trashTagId, startFrom, fnSuccess, fnFail) {
+	searchMail: function DatabaseManager_searchMail(params, searchString, startFrom, fnSuccess, fnFail) {
 		var userId = this._userId,
 			bindings, sqlWhere;
 
@@ -1184,7 +1107,6 @@ var DatabaseManager = {
 
 	_dbLink: null,
 	_userId: null,
-	_cachedInitTags: {},
 
 	_conn: {},
 	_meta: null

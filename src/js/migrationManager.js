@@ -18,26 +18,34 @@
  * ========================================================== */
 
 var MigrationManager = (function () {
+	/**
+	 * You can restart legacy migration with:
+	 *
+	 * localStorage.removeItem("legacy_migration");
+	 * chrome.storage.local.clear();
+	 * DatabaseManager._conn[115118].close()
+	 * sklad.deleteDatabase('db_115118', console.log.bind(console))
+	 */
 	var LAST_LEGACY_MIGRATION_KEY = "legacy_migration";
 	var LAST_LEGACY_MIGRATION_STATUS_NO = 0;
 	var LAST_LEGACY_MIGRATION_STATUS_STARTED = 1;
 	var LAST_LEGACY_MIGRATION_STATUS_FINISHED = 2;
 
 	var STORAGE_KEYS = [
-		{key: "app_install_time", constructor: Number},
-		{key: "app_like", constructor: Array},
-		{key: "changelog_notified", constructor: Array},
-		{key: "friends_sync_time", constructor: Object},
-		{key_regex: /^message_[\d]+_[\d]+$/, constructor: String},
-		{key_regex: /^perm_(outbox|inbox)_[\d]+$/, constructor: Number},
-		{key: "profile_act", constructor: Number},
-		{key: "request", constructor: Object},
-		{key: "settings", constructor: Object},
-		{key: "token", constructor: Array},
-		{key: "vkgroupwall_stored_posts", constructor: Array},
-		{key: "vkgroupwall_sync_time", constructor: Number},
-		{key: "vkgroupwall_synced_posts", constructor: Array},
-		{key: "wall_token_updated", constructor: Object}
+		{key: "app_install_time", type: "number"},
+		{key: "app_like", type: "array"},
+		{key: "changelog_notified", type: "array"},
+		{key: "friends_sync_time", type: "object"},
+		{key_regex: /^message_[\d]+_[\d]+$/, type: "string"},
+		{key_regex: /^perm_(outbox|inbox)_[\d]+$/, type: "number"},
+		{key: "profile_act", type: "number"},
+		{key: "request", type: "object"},
+		{key: "settings", type: "object"},
+		{key: "token", type: "array"},
+		{key: "vkgroupwall_stored_posts", type: "array"},
+		{key: "vkgroupwall_sync_time", type: "number"},
+		{key: "vkgroupwall_synced_posts", type: "array"},
+		{key: "wall_token_updated", type: "object"}
 	];
 
 	function getUsersList() {
@@ -72,7 +80,9 @@ var MigrationManager = (function () {
 	}
 
 	function migrateLocalStorage() {
+		console.log("Migrate localStorage data into chrome.storage.local");
 		var records = {};
+
 		for (var i = 0; i < localStorage.length; i++) {
 			var key = localStorage.key(i);
 			var value = localStorage.getItem(key);
@@ -82,25 +92,32 @@ var MigrationManager = (function () {
 			}
 
 			_.forEach(STORAGE_KEYS, function (keyData) {
-				if ((keyData.regex && keyData.regex.test(value)) || keyData.key === key) {
+				if ((keyData.key_regex && keyData.key_regex.test(key)) || keyData.key === key) {
 					var returnValue = true;
 
-					if (keyData.constructor === String) {
+					console.log("Search for key: %s", key);
+
+					if (keyData.type === "string") {
 						if (value.length) {
 							records[key] = value;
 							returnValue = false;
+
+							console.log("Value found", value);
 						}
 					} else {
 						try {
 							value = JSON.parse(value);
 						} catch (e) {
+							console.error(e.message);
 							return;
 						}
 
 						// проверка на тип данных
-						if (value instanceof keyData.constructor) {
+						if ((keyData.type === "array" && Array.isArray(value)) || typeof value === keyData.type) {
 							records[key] = value;
 							returnValue = false;
+
+							console.log("Value found", value);
 						}
 					}
 

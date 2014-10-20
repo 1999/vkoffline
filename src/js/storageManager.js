@@ -19,8 +19,10 @@
 
 var StorageManager = {
 	load: function StorageManager_load(callback) {
+		var that = this;
+
 		chrome.storage.local.get(null, function (records) {
-			this._data = records;
+			that._data = records;
 			callback();
 		});
 	},
@@ -54,12 +56,6 @@ var StorageManager = {
 		}
 
 		if (params.strict && params.constructor !== String && valueCreated === false) {
-			try {
-				value = JSON.parse(value);
-			} catch (e) {
-				throw new Error("Wrong storage data type of key \"" + key + "\": " + e.message);
-			}
-
 			// проверка на тип данных
 			if (!(value instanceof params.constructor)) {
 				throw new Error("Wrong storage data type of key \"" + key + "\"");

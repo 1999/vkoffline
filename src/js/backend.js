@@ -423,9 +423,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 		var longPollEventsRegistrar = {
-			init: function(currentUserId, tags) {
-				this._tags[currentUserId] = tags || CacheManager.tags;
-
+			init: function(currentUserId) {
 				// обрываем LP-запрос старого пользователя
 				if (this._longPollXhrIds[currentUserId]) {
 					ReqManager.abort(this._longPollXhrIds[currentUserId]);
@@ -449,7 +447,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					delete this._longPollXhrIds[currentUserId];
 
-					this.init(currentUserId, this._tags[currentUserId]);
+					this.init(currentUserId);
 					return;
 				}
 
@@ -520,13 +518,14 @@ document.addEventListener("DOMContentLoaded", function () {
 								msgData.read_state = (data[2] & 1) ? 0 : 1;
 								msgData.attachments = attachments;
 								msgData.chat_id = (data[7].from !== undefined) ? data[3] - 2000000000 : 0;
-								msgData.tags = self._tags[currentUserId][mailType];
+								msgData.tags = [mailType];
 
 								if (data[7].emoji)
 									msgData.emoji = 1;
 
-								if (attachments.length)
-									msgData.tags |= self._tags[currentUserId].attachments;
+								if (attachments.length) {
+									msgData.tags.push("attachments");
+								}
 
 								DatabaseManager.insertMessages(currentUserId, {"firstSync" : false, "messages" : [msgData]}, function(msgData) {
 									// обновляем фронтенд
@@ -639,11 +638,11 @@ document.addEventListener("DOMContentLoaded", function () {
 				if (errorCode === ReqManager.ABORT)
 					return;
 
-				this.init(currentUserId, this._tags[currentUserId]);
+				this.init(currentUserId);
 
 				if (AccountsManager.currentUserId === currentUserId) {
-					mailSync(currentUserId, "inbox", [this._tags[currentUserId].inbox, this._tags[currentUserId].attachments]);
-					mailSync(currentUserId, "sent", [this._tags[currentUserId].sent, this._tags[currentUserId].attachments]);
+					mailSync(currentUserId, "inbox");
+					mailSync(currentUserId, "sent");
 				}
 			},
 
@@ -668,7 +667,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							return;
 					}
 
-					window.setTimeout(self.init.bind(self), 5000, currentUserId, self._tags[currentUserId]);
+					window.setTimeout(self.init.bind(self), 5000, currentUserId);
 				});
 			},
 
@@ -1019,7 +1018,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		 * дойти до момента, когда внутреннняя функция записи сообщений в БД вернет ошибку DUPLICATE ID. mailSync не должна
 		 * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
 		 */
-		var mailSync = function(currentUserId, mailType, referTagIds) {
+		var mailSync = function(currentUserId, mailType) {
 			var reqData = {},
 				userDataForRequest = AccountsManager.list[currentUserId],
 				compatName = (mailType === "inbox") ? "inbox" : "outbox",
@@ -1103,10 +1102,10 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					msgData.chat_id = msgData.chat_id || 0;
-					msgData.tags = referTagIds[0];
+					msgData.tags = [mailType];
 
 					if (msgData.attachments.length)
-						msgData.tags |= referTagIds[1];
+						msgData.tags.push('attachments');
 
 					// проверяем существует ли пользователь
 					if (uidsProcessing[currentUserId][msgData.uid] === undefined && cachedUIDs.indexOf(msgData.uid) === -1) {
@@ -1147,7 +1146,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						return;
 					}
 
-					window.setTimeout(mailSync, 350, currentUserId, mailType, referTagIds);
+					window.setTimeout(mailSync, 350, currentUserId, mailType);
 				});
 			}, function(errCode, errData) {
 				switch (errCode) {
@@ -1156,7 +1155,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						break;
 
 					default :
-						window.setTimeout(mailSync, 5000, currentUserId, mailType, referTagIds);
+						window.setTimeout(mailSync, 5000, currentUserId, mailType);
 						break;
 				}
 			});
@@ -1182,23 +1181,19 @@ document.addEventListener("DOMContentLoaded", function () {
 			CacheManager.init(AccountsManager.currentUserId, "isTokenExpired", false);
 
 			// инициализируем БД
-			DatabaseManager.initUser(currentUserId, App.INIT_TAGS, function(tagsInDatabase) {
+			DatabaseManager.initUser(currentUserId, function () {
 				if (AccountsManager.currentUserId !== currentUserId)
 					return;
 
 				// сбрасываем счетчики синхронизации
 				clearSyncingDataCounters(AccountsManager.currentUserId);
 
-				// записываем метки в кэш
-				CacheManager.init(AccountsManager.currentUserId, "tags");
-				CacheManager.tags = tagsInDatabase;
-
 				if (navigator.onLine) {
 					friendsSync(AccountsManager.currentUserId);
 					longPollEventsRegistrar.init(AccountsManager.currentUserId);
 
-					mailSync(AccountsManager.currentUserId, "inbox", [tagsInDatabase.inbox, tagsInDatabase.attachments]);
-					mailSync(AccountsManager.currentUserId, "sent", [tagsInDatabase.sent, tagsInDatabase.attachments]);
+					mailSync(AccountsManager.currentUserId, "inbox");
+					mailSync(AccountsManager.currentUserId, "sent");
 				}
 
 				if (typeof callback === "function") {
@@ -1502,7 +1497,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						breakNeeded = true;
 						SettingsManager.SortContacts = 2;
 
-						DatabaseManager.getContactList("alpha", request.totalShown, CacheManager.tags.trash, function(contacts) {
+						DatabaseManager.getContactList("alpha", request.totalShown, function(contacts) {
 							sendResponse(contacts);
 
 							if (SettingsManager.ShowOnline === 1) {
@@ -1514,7 +1509,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						});
 					}, 3000);
 
-					DatabaseManager.getContactList(request.type, request.totalShown, CacheManager.tags.trash, function(contacts) {
+					DatabaseManager.getContactList(request.type, request.totalShown, function(contacts) {
 						if (breakNeeded) {
 							return;
 						}
@@ -1540,7 +1535,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "fetchConversations" :
 					sendAsyncResponse = true;
-					DatabaseManager.getConversations(request.totalShown, CacheManager.tags.trash, sendResponse, function(errMsg) {
+					DatabaseManager.getConversations(request.totalShown, sendResponse, function(errMsg) {
 						sendResponse([[], 0]);
 						LogManager.error(errMsg);
 					});
@@ -1551,7 +1546,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					var from = (request.from !== undefined) ? request.from : null;
 
 					sendAsyncResponse = true;
-					DatabaseManager.getDialogThread(request.id, CacheManager.tags.trash, from, sendResponse, function(errMsg) {
+					DatabaseManager.getDialogThread(request.id, from, sendResponse, function(errMsg) {
 						sendResponse([[], 0]);
 						LogManager.error(errMsg);
 					});
@@ -1580,7 +1575,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getConversationThreadsWithContact" :
 					sendAsyncResponse = true;
-					DatabaseManager.getConversationThreadsWithContact(request.uid, CacheManager.tags.trash, sendResponse, function(errMsg) {
+					DatabaseManager.getConversationThreadsWithContact(request.uid, sendResponse, function(errMsg) {
 						sendResponse([]);
 						LogManager.error(errMsg);
 					});
@@ -2251,7 +2246,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getTagsFrequency" :
 					sendAsyncResponse = true;
-					DatabaseManager.getTagsCount(CacheManager.tags.trash, sendResponse, function(errMsg) {
+					DatabaseManager.getTagsCount(sendResponse, function(errMsg) {
 						LogManager.error(errMsg);
 						statSend("Custom-Errors", "Database error", errMsg);
 
@@ -2262,7 +2257,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getMessagesByTagId" :
 					sendAsyncResponse = true;
-					DatabaseManager.getMessagesByType([request.tagId, CacheManager.tags.trash], request.totalShown, sendResponse, function(errMsg) {
+					DatabaseManager.getMessagesByType(request.tagId, request.totalShown, sendResponse, function(errMsg) {
 						LogManager.error(errMsg);
 						statSend("Custom-Errors", "Database error", errMsg);
 
@@ -2319,7 +2314,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				case "searchMail" :
 					sendAsyncResponse = true;
 
-					DatabaseManager.searchMail(request.params, request.value, CacheManager.tags.trash, request.totalShown, function(correspondence, total) {
+					DatabaseManager.searchMail(request.params, request.value, request.totalShown, function(correspondence, total) {
 						sendResponse([correspondence, total, request.value]);
 					}, function(errMsg) {
 						LogManager.error(errMsg);

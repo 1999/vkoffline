@@ -409,7 +409,15 @@ var DatabaseManager = {
 				return;
 			}
 
-			// fetchParticipants()
+			// calculate all participants and get them
+			var participants = {};
+			data.forEach(function (chatData) {
+				chatData.value.participants.forEach(function (userId) {
+					participants[userId] = true;
+				});
+			});
+
+			fetchParticipants(participants).then().fail();
 			// dialogData.participants = usersList;
 
 			fnSuccess([]);

@@ -18,7 +18,10 @@
  * ========================================================== */
 
 var DatabaseManager = {
-	dropEverything: function (uids, callback) {
+	/**
+	 * Drop every created database in case migration failed
+	 */
+	dropEverything: function DatabaseManager_dropEverything(uids, callback) {
 		var promises = uids.map(function (uid) {
 			return ["contacts", "messages", "chats"].map(function (objStorePrefix) {
 				return new Promise(function (resolve, reject) {
@@ -40,18 +43,26 @@ var DatabaseManager = {
 		});
 	},
 
+	/**
+	 * Migrate all WebDatabases into IndexedDB
+	 */
 	migrateWebDatabase: function DatabaseManager_migrateWebDatabase(uids, callback) {
 		console.log("Migrate WebDatabase into IndexedDB");
+		console.log("UIDS", uids);
 
 		var that = this;
 		var webDatabaseLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
 
 		function getAllWebDatabaseData(table, uid) {
+			console.log("Collect data from %s_%s", table, uid);
+
 			return new vow.Promise(function (resolve, reject) {
 				webDatabaseLink.readTransaction(function (tx) {
 					tx.executeSql("SELECT rowid, * FROM " + table + "_" + uid + " ORDER BY rowid", [], function (tx, resultSet) {
 						var totalRecords = resultSet.rows.length;
 						var output = [];
+
+						console.log("%s records found", totalRecords);
 
 						for (var i = 0; i < totalRecords; i++) {
 							output.push(resultSet.rows.item(i));
@@ -86,6 +97,8 @@ var DatabaseManager = {
 
 			return new Promise(function (resolve, reject) {
 				that.initUser(uid, function () {
+					console.log("User initialized");
+
 					Promise.all([
 						getAllWebDatabaseData("contacts", uid),
 						getAllWebDatabaseData("pm", uid)
@@ -109,13 +122,11 @@ var DatabaseManager = {
 								messages_num: 0
 							};
 
-							if (otherData.photo) {
-								contacts[record.uid].photo = otherData.photo;
-							}
-
-							if (otherData.bdate) {
-								contacts[record.uid].bdate = otherData.bdate;
-							}
+							["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
+								if (otherData[field]) {
+									contacts[record.uid][field] = otherData[field];
+								}
+							});
 
 							if (otherData.sex) {
 								contacts[record.uid].sex = Number(otherData.sex) || 0;
@@ -124,29 +135,14 @@ var DatabaseManager = {
 
 						fetchedMessages.forEach(function (record) {
 							var isMultiChat = Boolean(record.chatid);
-							var chatId = isMultiChat ? record.chatid : "0_" + record.uid;
+							var chatId = isMultiChat ? String(record.chatid) : "0_" + record.uid;
 							var userId = Number(record.uid);
 							var lastChatMessageDate = chats[chatId] ? chats[chatId].last_message_ts : 0;
 
 							chats[chatId] = chats[chatId] || {};
+							chats[chatId].id = chatId;
 							chats[chatId].title = record.title;
 							chats[chatId].last_message_ts = Math.max(record.date, lastChatMessageDate);
-
-							if (isMultiChat) {
-								chats[chatId].chat_id = Number(record.chatid);
-							}
-
-							chats[chatId].participants = chats[chatId].participants || [];
-							if (isMultiChat) {
-								if (userId !== currentUserId && chats[chatId].participants.indexOf(userId) === -1) {
-									chats[chatId].participants.push(userId);
-								}
-							} else {
-								// there should be only one person in chat
-								if (!chats[chatId].participants.length) {
-									chats[chatId].participants.push(userId);
-								}
-							}
 
 							var attachments = validateJSONString(record.attachments, Array);
 							var tags = [];
@@ -173,49 +169,21 @@ var DatabaseManager = {
 							contacts[userId].last_message_ts = Math.max(contacts[userId].last_message_ts, record.date);
 						});
 
-						var chatsList = []; // list to insert into IndexedDB
-						var chatsMap = {}; // map of `chatId -> index` values
-
-						Object.keys(chats).forEach(function (chatId) {
-							chatsList.push(chats[chatId]);
-							chatsMap[chatId] = chatsList.length - 1;
-						});
-
-						// insert chats first
+						// insert data
 						that._conn[uid].insert({
-							"chats": chatsList
+							"chats": _.values(chats),
+							"contacts": _.values(contacts),
+							"messages": _.values(messages)
 						}, function (err, insertedKeys) {
 							if (err) {
 								reject(err.name + ": " + err.message);
 								return;
 							}
 
-							console.log("Chats inserted");
+							console.log("Contacts and PMs inserted");
 
-							// update messages' string `chatId` into numeric `chat`
-							_.forIn(messages, function (msg) {
-								var currentStringChatId = msg.chatId;
-								var chatInsertedKeyIndex = chatsMap[currentStringChatId];
-								var chatNumericId = insertedKeys.chats[chatInsertedKeyIndex];
-
-								msg.chat = chatNumericId;
-								delete msg.chatId;
-							});
-
-							that._conn[uid].insert({
-								"contacts": _.values(contacts),
-								"messages": _.values(messages)
-							}, function (err, insertedKeys) {
-								if (err) {
-									reject(err.name + ": " + err.message);
-									return;
-								}
-
-								console.log("Contacts and PM inserted");
-
-								that._conn[uid].close();
-								resolve();
-							});
+							that._conn[uid].close();
+							resolve();
 						});
 					}, reject);
 				}, reject);
@@ -234,6 +202,9 @@ var DatabaseManager = {
 		});
 	},
 
+	/**
+	 * Create meta database with log object store
+	 */
 	initMeta: function DatabaseManager_initMeta(callback) {
 		var that = this;
 
@@ -279,6 +250,7 @@ var DatabaseManager = {
 
 					var chatsStore = database.createObjectStore("chats", {autoIncrement: true});
 					chatsStore.createIndex("contact", "participants", {multiEntry: true});
+					chatsStore.createIndex("multichat", "chat_id", {unique: true});
 					chatsStore.createIndex("last_message", "last_message_ts");
 				}
 			}
@@ -347,23 +319,19 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает параметр {Object} контакт
 	 * @param {Function} fnFail принимает параметры {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	getContactById: function(currentUserId, uid, fnSuccess, fnFail) {
+	getContactById: function DatabaseManager_getContactById(currentUserId, uid, fnSuccess, fnFail) {
 		var userId = currentUserId;
+		var searchUserId = Number(uid);
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT * FROM contacts_" + userId + " WHERE uid = ?", [uid], function(tx, resultSet) {
-				if (resultSet.rows.length) {
-					if (typeof fnSuccess === "function") {
-						fnSuccess(resultSet.rows.item(0));
-					}
-				} else if (typeof fnFail === "function") {
-					fnFail(false, "No user with ID #" + uid);
-				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
-			});
+		this._conn[userId].get("contacts", {
+			range: IDBKeyRange.only(searchUserId)
+		}, function (err, data) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			fnSuccess(data.value);
 		});
 	},
 
@@ -372,10 +340,6 @@ var DatabaseManager = {
 		var userId = this._userId;
 
 		function fetchParticipants(uids) {
-			if (uids.indexOf(userId) === -1) {
-				uids.push(userId);
-			}
-
 			var promises = {};
 			uids.forEach(function (uid) {
 				promises[uid] = vow.Promise(function (resolve, reject) {
@@ -575,40 +539,63 @@ var DatabaseManager = {
 	 * @param {Function} fnFail (optional) принимает {Integer} UID и {String} текст ошибки
 	 * @param {Function} fnAfterwards (optional)
 	 */
-	replaceContacts: function(userId, data, fnSuccess, fnFail, fnAfterwards) {
-		var callbacksAreFunctions = [(typeof fnSuccess === "function"), (typeof fnFail === "function"), (typeof fnAfterwards === "function")],
-			executedStatements = 0,
-			fn;
+	replaceContacts: function DatabaseManager_replaceContacts(userId, data, fnSuccess, fnFail, fnAfterwards) {
+		var that = this;
+		var callbacksAreFunctions = [(typeof fnSuccess === "function"), (typeof fnFail === "function"), (typeof fnAfterwards === "function")];
+		var executedStatements = 0;
 
-		fn = function() {
+		function fn() {
 			executedStatements += 1;
 			if (executedStatements === data.length && callbacksAreFunctions[2]) {
 				fnAfterwards();
 			}
 		};
 
-		this._dbLink.transaction(function(tx) {
-			var columns = ["uid", "first_name", "last_name", "other_data", "notes"];
+		// it would be faster to insert all contacts using one transaction
+		// but current UI should be updated after each contact is inserted
+		// FIXME: should be changed afterwards
+		data.forEach(function (userData) {
+			var otherData = userData[3];
+			var contact = {
+				uid: Number(userData[0]),
+				first_name: userData[1],
+				last_name: userData[2],
+				notes: "",
+				last_message_ts: 0,
+				messages_num: 0
+			};
 
-			data.forEach(function (userData) {
-				tx.executeSql('INSERT OR REPLACE INTO contacts_' + userId + '(' + columns.join(", ") + ') VALUES(?, ?, ?, ?, ?)', userData, function(tx, resultSet) {
-					if (callbacksAreFunctions[0]) {
-						var userDoc = {};
-						columns.forEach(function(columnName, index) {
-							userDoc[columnName] = userData[index];
-						});
+			if (otherData.photo) {
+				contact.photo = otherData.photo;
+			}
 
-						fnSuccess(userDoc);
-					}
+			if (otherData.bdate) {
+				contact.bdate = otherData.bdate;
+			}
 
-					fn();
-				}, function(tx, err) {
+			if (otherData.sex) {
+				contact.sex = Number(otherData.sex) || 0;
+			}
+
+			if (otherData.domain) {
+				contact.domain = otherData.domain;
+			}
+
+			that._conn[userId].upsert("contacts", contact, function (err, upsertedKey) {
+				if (err) {
 					if (callbacksAreFunctions[1]) {
-						fnFail(userData[0], err.message);
+						fnFail(userData[0], err.name + ": " + err.message);
 					}
 
 					fn();
-				});
+					return;
+				}
+
+				if (callbacksAreFunctions[0]) {
+					fnSuccess(contact);
+				}
+
+				fn();
 			});
 		});
 	},
@@ -616,12 +603,62 @@ var DatabaseManager = {
 	/**
 	 * Внесение сообщений
 	 *
-	 * @param {Integer} currentUserId ID аккаунта, для которого заносятся сообщения
-	 * @param {Object} data объект с ключами: {Boolean} firstSync первая синхронизация или нет, {Array} messages массив сообщений-объектов с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags)
-	 * @param {Function} fnSuccess принимает {Object} данные сообщения (копия элемента массива из первого параметра), {Boolean} занесено ли сообщение в БД
-	 * @param {Function} fnAfterwards принимает {Integer} количество успешно внесенных сообщений и {Integer} количество фэйлов при занесении
+	 * @param {Number} currentUserId ID аккаунта, для которого заносятся сообщения
+	 * @param {Object} data объект с ключами:
+	 *     @param {Boolean} data.firstSync первая синхронизация или нет
+	 *     @param {Array} data.messages массив сообщений-объектов с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags)
+	 * @param {Function} fnSuccess принимает
+	 *     @param {Object} данные сообщения (копия элемента массива из первого параметра)
+	 *     @param {Boolean} занесено ли сообщение в БД
+	 * @param {Function} fnAfterwards принимает
+	 *     @param {Number} количество успешно внесенных сообщений
+	 *     @param {Number} количество фэйлов при занесении
 	 */
 	insertMessages: function(currentUserId, data, fnSuccess, fnAfterwards) {
+		currentUserId = Number(currentUserId);
+
+		// calculate new chats to be inserted / upserted
+		var chats = {};
+		data.forEach(function (msgData) {
+			var chatTempId = msgData.chat_id || "0_" + msgData.uid;
+			var uid = Number(msgData.uid);
+
+			chats[chatTempId] = chats[chatTempId] || {};
+			chats[chatTempId].participants = chats[chatTempId].participants || [];
+
+			if (uid === currentUserId) {
+				return;
+			}
+
+			if (chats[chatTempId].participants.indexOf(uid) === -1) {
+				chats[chatTempId].participants(uid);
+			}
+		});
+
+		// sklad.get("chats", {index: "contact", only: uid}) - once for this method
+		// insert chat
+		// chats[chatId] = chats[chatId] || {};
+							// chats[chatId].title = record.title;
+							// chats[chatId].last_message_ts = Math.max(record.date, lastChatMessageDate);
+
+							// if (isMultiChat) {
+							// 	chats[chatId].chat_id = Number(record.chatid);
+							// }
+
+							// chats[chatId].participants = chats[chatId].participants || [];
+							// if (isMultiChat) {
+							// 	if (userId !== currentUserId && chats[chatId].participants.indexOf(userId) === -1) {
+							// 		chats[chatId].participants.push(userId);
+							// 	}
+							// } else {
+							// 	// there should be only one person in chat
+							// 	if (!chats[chatId].participants.length) {
+							// 		chats[chatId].participants.push(userId);
+							// 	}
+							// }
+
+	// insert message
+
 		var userId = currentUserId,
 			callbacksAreFunctions = [(typeof fnSuccess === "function"), (typeof fnAfterwards === "function")],
 			executedStatements = [0, 0], // сумма хороших запросов и сумма плохих
@@ -679,30 +716,6 @@ var DatabaseManager = {
 					subAfterFn(msgData, false);
 				});
 			});
-		});
-	},
-
-	/**
-	 * Обновление полей "other_data" при миграции на 4.7
-	 * @param {Array} ids
-	 * @param {Function} callback принимает:
-	 *		{String|Null} текст ошибки
-	 */
-	updateMessagesOnMigrate: function (ids, callback) {
-		this._dbLink.transaction(function (tx) {
-			var tasks = {};
-			ids.forEach(function (id) {
-				tasks[id] = function (callback) {
-					tx.executeSql("UPDATE pm_" + id + " SET other_data = ''", [], function (tx, resultSet) {
-						callback();
-					}, function (tx, err) {
-						// как иначе отследить и передать в GA какие-то данные?
-						callback();
-					});
-				};
-			});
-
-			Utils.async.parallel(tasks, callback);
 		});
 	},
 
@@ -1047,7 +1060,7 @@ var DatabaseManager = {
 	 * @param {String} data
 	 * @param {String} level
 	 */
-	log: function(data, level) {
+	log: function DatabaseManager_log(data, level) {
 		this._meta.insert("log", {
 			data: data,
 			ts: Date.now(),
@@ -1061,33 +1074,27 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает {Array} массив записей из лога, готовых к отправке, отсортированных по дате
 	 * @param {Function} fnFail текст ошибки
 	 */
-	collectLogData: function(fnSuccess, fnFail) {
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT * FROM log ORDER BY rowid", [], function(tx, resultSet) {
-				var logRecords = [],
-					i, item, date,
-					timeDiff, timeLast;
+	collectLogData: function DatabaseManager_collectLogData(fnSuccess, fnFail) {
+		this._meta.get("log", function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
 
-				for (i = 0; i < resultSet.rows.length; i++) {
-					item = resultSet.rows.item(i);
-					date = new Date(item.ts);
+			var timeLast = 0;
+			var logRecords = records.map(function (record, i) {
+				var item = record.value;
+				var date = new Date(item.ts);
 
-					if (i === 0) {
-						logRecords.push("[" + date + "] " + item.data);
-					} else {
-						timeDiff = item.ts - timeLast;
-						logRecords.push("[" + date + " +" + timeDiff + "ms] " + item.data);
-					}
+				var timeDiff = item.ts - timeLast;
+				timeLast = item.ts;
 
-					timeLast = item.ts;
-				}
-
-				fnSuccess(logRecords);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				return (i > 0)
+					? "[" + date + " +" + timeDiff + "ms] " + item.data
+					: "[" + date + "] " + item.data;
 			});
+
+			fnSuccess(logRecords);
 		});
 	},
 

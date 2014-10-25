@@ -308,6 +308,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 	}, function readyToGo(err, results) {
 		var fsLink = results.fs;
+		return;
 
 		// записываем дату установки
 		if (StorageManager.get("app_install_time") === null) {
@@ -375,11 +376,11 @@ document.addEventListener("DOMContentLoaded", function () {
 			CacheManager.avatars[contactId] = ""; // положение обозначает, что данные загружаются
 
 			if (fsLink === null) {
-				DatabaseManager.getContactById(AccountsManager.currentUserId, contactId, function(userDoc) {
+				DatabaseManager.getContactById(AccountsManager.currentUserId, contactId, function (userDoc) {
 					var photoGot = false;
 
 					try {
-						CacheManager.avatars[contactId] = JSON.parse(userDoc.other_data).photo;
+						CacheManager.avatars[contactId] = userDoc.photo;
 						photoGot = true;
 					} catch (e) {
 						statSend("Custom-Errors", "Exception error", e.message);
@@ -393,12 +394,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					if (photoGot) {
 						fnSuccess();
 					}
-				}, function(isDatabaseError, errMsg) {
-					if (isDatabaseError) {
-						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
-					}
-
+				}, function (err) {
 					delete CacheManager.avatars[contactId];
 
 					if (typeof fnFail === "function") {
@@ -590,12 +586,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								});
 							};
 
-							DatabaseManager.getContactById(currentUserId, uid, onUserDataReady, function(isDatabaseError, errMsg) {
-								if (isDatabaseError) {
-									LogManager.error(errMsg);
-									statSend("Custom-Errors", "Database error", errMsg);
-								}
-
+							DatabaseManager.getContactById(currentUserId, uid, onUserDataReady, function (err) {
 								// теоретически может измениться currentUserId
 								if (currentUserId === AccountsManager.currentUserId) {
 									getUserProfile(currentUserId, parseInt(uid, 10), onUserDataReady);
@@ -790,23 +781,17 @@ document.addEventListener("DOMContentLoaded", function () {
 					chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : currentUserId});
 				});
 
-				try {
-					currentUserData.other_data = JSON.parse(currentUserData.other_data);
-				} catch (e) {
-					currentUserData.other_data = {};
-				}
-
 				var nowDate = new Date(),
 					nowDay = nowDate.getDate(),
 					nowYear = nowDate.getFullYear(),
 					nowMonth = nowDate.getMonth() + 1,
 					bDate, i, notification, msg;
 
-				if (currentUserData.other_data.bdate === undefined || currentUserData.other_data.bdate.length === 0)
+				if (currentUserData.bdate === undefined || currentUserData.bdate.length === 0)
 					return;
 
 				// разбиваем и преобразуем в числа
-				bDate = currentUserData.other_data.bdate.split(".");
+				bDate = currentUserData.bdate.split(".");
 				for (i = 0; i < bDate.length; i++)
 					bDate[i] = parseInt(bDate[i], 10);
 
@@ -862,17 +847,11 @@ document.addEventListener("DOMContentLoaded", function () {
 						return;
 
 					// показываем уведомление, если у кого-то из друзей ДР
-					try {
-						userDoc.other_data = JSON.parse(userDoc.other_data);
-					} catch (e) {
-						userDoc.other_data = {};
-					}
-
-					if (userDoc.other_data.bdate === undefined || userDoc.other_data.bdate.length === 0)
+					if (userDoc.bdate === undefined || userDoc.bdate.length === 0)
 						return;
 
 					// разбиваем и преобразуем в числа
-					bDate = userDoc.other_data.bdate.split(".");
+					bDate = userDoc.bdate.split(".");
 					for (i = 0; i < bDate.length; i++)
 						bDate[i] = parseInt(bDate[i], 10);
 
@@ -885,8 +864,8 @@ document.addEventListener("DOMContentLoaded", function () {
 						hisHerMatches = i18nBirthDay[0].match(/([^\s]+)-([^\s]+)/),
 						msg, yoNow, notification;
 
-					userDoc.other_data.sex = userDoc.other_data.sex || 0;
-					switch (userDoc.other_data.sex) {
+					userDoc.sex = userDoc.sex || 0;
+					switch (userDoc.sex) {
 						case 1 : // female
 							msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[2]) + "!";
 							break;
@@ -994,7 +973,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				if (currentUserId === userData.uid)
 					AccountsManager.setFio(currentUserId, userData.first_name + " " + userData.last_name);
 
-				dataToReplace.push([userData.uid, userData.first_name, userData.last_name, JSON.stringify(userData), ""]);
+				dataToReplace.push([userData.uid, userData.first_name, userData.last_name, userData]);
 			});
 
 			if (dataToReplace.length === 0) {
@@ -1111,12 +1090,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					if (uidsProcessing[currentUserId][msgData.uid] === undefined && cachedUIDs.indexOf(msgData.uid) === -1) {
 						cachedUIDs.push(msgData.uid);
 
-						DatabaseManager.getContactById(currentUserId, msgData.uid, null, function(isDatabaseError, errMsg) {
-							if (isDatabaseError) {
-								LogManager.error(errMsg);
-								statSend("Custom-Errors", "Database error", errMsg);
-							}
-
+						DatabaseManager.getContactById(currentUserId, msgData.uid, null, function (err) {
 							getUserProfile(currentUserId, msgData.uid);
 						});
 					}
@@ -1584,13 +1558,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getContactData" :
 					sendAsyncResponse = true;
-					DatabaseManager.getContactById(AccountsManager.currentUserId, request.uid, sendResponse, function(isDatabaseError, errorMsg) {
+					DatabaseManager.getContactById(AccountsManager.currentUserId, request.uid, sendResponse, function (err) {
 						sendResponse(null);
-
-						if (isDatabaseError) {
-							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
-						}
 					});
 
 					if (SettingsManager.ShowOnline === 1 && request.includeOnlineStatus) {

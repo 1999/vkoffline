@@ -23,7 +23,7 @@ var MigrationManager = (function () {
 	 *
 	 * localStorage.removeItem("legacy_migration");
 	 * chrome.storage.local.clear();
-	 * DatabaseManager._conn[115118].close()
+	 * DatabaseManager._conn[115118] && DatabaseManager._conn[115118].close()
 	 * sklad.deleteDatabase('db_115118', console.log.bind(console))
 	 */
 	var LAST_LEGACY_MIGRATION_KEY = "legacy_migration";

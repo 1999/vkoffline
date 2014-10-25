@@ -979,13 +979,7 @@ var AppUI = {
 				if (leftHeaderText.text() === "...")
 					leftHeaderText.text(userData.first_name + " " + userData.last_name);
 
-				try {
-					userData.other_data = JSON.parse(userData.other_data);
-				} catch (e) {
-					userData.other_data = {
-						domain: "id" + uid
-					};
-				}
+				var userDomain = userData.domain || "id" + uid;
 
 				// avatar
 				var avatarSrc = "pic/question_th.gif";
@@ -997,18 +991,18 @@ var AppUI = {
 					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
 				}
 
-				var linkTitle = (/^id[0-9]+$/.test(userData.other_data.domain))
-					? "vk.com/" + userData.other_data.domain
-					: "@" + userData.other_data.domain;
+				var linkTitle = (/^id[0-9]+$/.test(userDomain))
+					? "vk.com/" + userDomain
+					: "@" + userDomain;
 
 				// birthday
 				var hasBirthday = false;
 				var birthday = "";
-				if (userData.other_data.bdate && userData.other_data.bdate.length) {
+				if (userData.bdate) {
 					hasBirthday = true;
 
 					var monthes = chrome.i18n.getMessage("monthes").split("|");
-					var splitUserData = userData.other_data.bdate.split(".");
+					var splitUserData = userData.bdate.split(".");
 					var isEnglishLocale = (chrome.i18n.getMessage('@@ui_locale').indexOf('en') !== -1);
 					var part;
 
@@ -1029,23 +1023,23 @@ var AppUI = {
 				// home phone
 				var hasHomePhone = false;
 				var homePhone;
-				if (userData.other_data.home_phone && userData.other_data.home_phone.length) {
+				if (userData.home_phone) {
 					hasHomePhone = true;
-					homePhone = userData.other_data.home_phone;
+					homePhone = userData.home_phone;
 				}
 
 				// mobile phone
 				var hasMobilePhone = false;
 				var mobilePhone;
-				if (userData.other_data.mobile_phone && userData.other_data.mobile_phone.length) {
+				if (userData.mobile_phone) {
 					hasMobilePhone = true;
-					mobilePhone = userData.other_data.mobile_phone;
+					mobilePhone = userData.mobile_phone;
 				}
 
 				var contents = Templates.render("contactInfo", {
 					avatarSrc: avatarSrc,
 					uid: uid,
-					linkToProfile: "http://vk.com/" + userData.other_data.domain,
+					linkToProfile: "http://vk.com/" + userDomain,
 					linkTitle: linkTitle,
 					hasBirthday: hasBirthday,
 					birthdayI18n: Utils.string.ucfirst(chrome.i18n.getMessage("birthdate")),
@@ -2738,17 +2732,12 @@ var AppUI = {
 		}
 
 		var phones = [];
-		var otherData = {};
 
-		try {
-			otherData = JSON.parse(userData.other_data);
-		} catch (e) {}
+		if (userData.home_phone)
+			phones.push(userData.home_phone);
 
-		if (otherData.home_phone && otherData.home_phone.length)
-			phones.push(otherData.home_phone);
-
-		if (otherData.mobile_phone && otherData.mobile_phone.length)
-			phones.push(otherData.mobile_phone);
+		if (userData.mobile_phone)
+			phones.push(userData.mobile_phone);
 
 		var avatarSrc = "pic/question_th.gif";
 		if (this.CacheManager.avatars[userData.uid]) {
@@ -2779,13 +2768,13 @@ var AppUI = {
 		var attachments = [];
 		var msgObj;
 
-		try {
-			msgObj = JSON.parse(msgData.other_data);
-		} catch (e) {}
-
 		msgData.body = Utils.string.replaceLinks(msgData.body);
-		if (msgObj && msgObj.emoji)
-			msgData.body = Utils.string.emoji(msgData.body, true);
+
+		// try {
+		// 	msgObj = JSON.parse(msgData.other_data);
+		// } catch (e) {}
+		// if (msgObj && msgObj.emoji)
+		// 	msgData.body = Utils.string.emoji(msgData.body, true);
 
 		var output = {
 			unread: unread,

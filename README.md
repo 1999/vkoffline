@@ -43,11 +43,14 @@ Each user's data is stored inside database `db_{userId}`. Database contains 3 ob
    * {String} photo
    * {String} bdate
    * {Number} sex
+   * {String} domain
+   * {String} home_phone
+   * {String} mobile_phone
    * {Number} last_message_ts - cached timestamp of the last message from contact; cache TTL is 5 minutes
    * {Number} messages_num - cached number of messages got from contact; cache TTL is 1 hour
  * messages (keyPath: "mid")
    * {Number} mid
-   * {Number} chat - primary key from `chats` object store
+   * {String} chat - key path from `chats` object store
    * {Number} uid
    * {String} title
    * {String} body
@@ -56,11 +59,9 @@ Each user's data is stored inside database `db_{userId}`. Database contains 3 ob
    * {Boolean} read - former {Number} `status` in WebDatabase
    * {Array} attachments - former serialized property in WebDatabase
    * {Object} other_data - former serialized property in WebDatabase
- * chats (autoIncrement: true)
-   * {Array} participants - serves as a multiEntry index
-   * {Number} chat_id
+ * chats (keyPath: "id")
+   * {String} id
    * {String} title
-   * {Object} picture
    * {Number} last_message_ts - servers as an index
 
 There's also a special database `meta` with (currently) only one object store:

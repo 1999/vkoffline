@@ -973,50 +973,41 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает {Object} объект freq
 	 * @param {Function} fnFail принимает {String} errorMessage
 	 */
-	getTagsCount: function(fnSuccess, fnFail) {
-		var userId = this._userId,
-			freq = {}, // объект вида {tagId1: количество1, tagId2: количество2, ...}
-			steps = 0, // сколько запросов выполнено
-			fnAfterwards;
+	getTagsCount: function DatabaseManager_getTagsCount(fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		fnAfterwards = function() {
-			steps += 1;
-			if (steps !== 2) {
+		function countTagOccurrences(tag) {
+			return vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "tag",
+					range: IDBKeyRange.only(tag)
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
+				});
+			});
+		}
+
+		conn.get("messages", {
+			index: "tag",
+			direction: sklad.ASC_UNIQUE
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
 				return;
 			}
 
-			fnSuccess(freq);
-		};
-
-		this._dbLink.readTransaction(function(tx) {
-			// количество всех кроме удаленных
-			tx.executeSql("SELECT t.id, COUNT(m.rowid) AS total \
-							FROM tags_" + userId + " AS t \
-							JOIN pm_" + userId + " AS m ON t.id & m.tags \
-							WHERE t.id != ? AND m.tags & ? == 0 \
-							GROUP BY t.id", [trashTagId, trashTagId], function(tx, resultSet) {
-				var i, item;
-
-				for (i = 0; i < resultSet.rows.length; i++) {
-					item = resultSet.rows.item(i);
-					freq[item.id] = item.total;
-				}
-
-				fnAfterwards();
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+			var promises = {};
+			records.forEach(function (record) {
+				promises[record.key] = countTagOccurrences(record.key);
 			});
 
-			// количество удаленных
-			tx.executeSql("SELECT COUNT(rowid) AS total FROM pm_" + userId + " WHERE tags & ?", [trashTagId], function(tx, resultSet) {
-				freq[trashTagId] = resultSet.rows.item(0).total;
-				fnAfterwards();
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+			vow.all(promises).then(fnSuccess, function (err) {
+				fnFail(err.name + ": " + err.message);
 			});
 		});
 	},

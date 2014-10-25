@@ -2216,7 +2216,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getTagsFrequency" :
 					sendAsyncResponse = true;
-					DatabaseManager.getTagsCount(sendResponse, function(errMsg) {
+					DatabaseManager.getTagsCount(sendResponse, function (errMsg) {
 						LogManager.error(errMsg);
 						statSend("Custom-Errors", "Database error", errMsg);
 

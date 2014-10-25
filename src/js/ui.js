@@ -1920,7 +1920,7 @@ var AppUI = {
 					return;
 
 				folders.push({
-					tid: self.CacheManager.tags[tagName],
+					tag: tagName,
 					title: chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tagName) + "Name"),
 					total: 0
 				});
@@ -1929,33 +1929,21 @@ var AppUI = {
 			// добавляем "удаленные", "важные" и "с вложениями"
 			["trash", "important", "attachments"].forEach(function (tagName) {
 				folders.push({
-					tid: self.CacheManager.tags[tagName],
+					tag: tagName,
 					title: chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tagName) + "Name"),
 					classNames: "custom " + tagName,
 					total: 0
 				});
 			});
 
-			// добавляем кастомные тэги
-			for (var tagName in self.CacheManager.tags) {
-				if (App.INIT_TAGS.indexOf(tagName) !== -1)
-					continue;
-
-				folders.push({
-					tid: self.CacheManager.tags[tagName],
-					title: tagName,
-					total: 0
-				});
-			}
-
 			chrome.runtime.sendMessage({action: "getTagsFrequency"}, function (freq) {
 				folders.forEach(function (folder) {
-					folder.total = freq[folder.tid] || 0;
+					folder.total = freq[folder.tag] || 0;
 				});
 
 				var foldersHTML = Templates.render("mailFolders", {folders: folders});
 				leftSection.html(foldersHTML);
-				$(leftSection, "li[data-tid]").click();
+				$(leftSection, "li[data-tag]").click();
 			});
 		},
 

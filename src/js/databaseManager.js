@@ -626,25 +626,23 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает параметр {Object}
 	 * @param {Function} fnFail принимает параметры {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	getMessageById: function(mid, fnSuccess, fnFail) {
+	getMessageById: function DatabaseManager_getMessageById(mid, fnSuccess, fnFail) {
 		var userId = this._userId;
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT * FROM pm_" + userId + " WHERE mid = ?", [mid], function(tx, resultSet) {
-				if (resultSet.rows.length === 0) {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No message with ID #" + mid);
-					}
+		this._conn[userId].get(mid, {
+			range: IDBKeyRange.only(mid)
+		}, function (err, records) {
+			if (err) {
+				fnFail(true, err.name + ": " + err.message);
+				return;
+			}
 
-					return;
-				}
+			if (!records.length) {
+				fnFail(false, "No message with ID #" + mid);
+				return;
+			}
 
-				fnSuccess(resultSet.rows.item(0));
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
-			});
+			fnSuccess(records[0].value);
 		});
 	},
 

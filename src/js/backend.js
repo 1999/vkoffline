@@ -457,26 +457,22 @@ document.addEventListener("DOMContentLoaded", function () {
 								// В то же время и для исходящих, и для входящих сообщений data[2] === 128, и чтобы определить входящее сообщение или нет, необходимо делать доп. запрос.
 								// За это время может произойти ошибка duplicate key
 							} else {
-								DatabaseManager.markAsUnread(data[1], function() {
+								DatabaseManager.markAsUnread(data[1], function () {
 									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
-								}, function(isDatabaseError, errMsg) {
-									if (isDatabaseError) {
-										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
-									}
+								}, function (errMsg) {
+									LogManager.error(errMsg);
+									statSend("Custom-Errors", "Database error", errMsg);
 								});
 							}
 
 							break;
 
 						case 3 :
-							DatabaseManager.markAsRead(data[1], function() {
+							DatabaseManager.markAsRead(data[1], function () {
 								chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
-							}, function(isDatabaseError, errMsg) {
-								if (isDatabaseError) {
-									LogManager.error(errMsg);
-									statSend("Custom-Errors", "Database error", errMsg);
-								}
+							}, function (errMsg) {
+								LogManager.error(errMsg);
+								statSend("Custom-Errors", "Database error", errMsg);
 							});
 
 							break;
@@ -2394,11 +2390,9 @@ document.addEventListener("DOMContentLoaded", function () {
 					};
 
 					sendReadMessageRequest(request.mid);
-					DatabaseManager.markAsRead(request.mid, null, function(isDatabaseError, errMsg) {
-						if (isDatabaseError) {
-							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
-						}
+					DatabaseManager.markAsRead(request.mid, null, function (errMsg) {
+						LogManager.error(errMsg);
+						statSend("Custom-Errors", "Database error", errMsg);
 					});
 
 					break;

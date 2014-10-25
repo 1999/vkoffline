@@ -839,26 +839,30 @@ var DatabaseManager = {
 	/**
 	 * @param {Integer} msgId
 	 * @param {Function} fnSuccess принимает {Void}
-	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
+	 * @param {Function} fnFail принимает {String} errorMessage
 	 */
-	markAsRead: function(msgId, fnSuccess, fnFail) {
+	markAsRead: function DatabaseManager_markAsRead(msgId, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET status = 1 WHERE mid = ?", [msgId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					if (typeof fnSuccess === "function") {
-						fnSuccess();
-					}
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating status column (mid: " + msgId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(msgId)
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			var message = records[0].value;
+			message.read = true;
+
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess && fnSuccess();
 			});
 		});
 	},
@@ -866,26 +870,30 @@ var DatabaseManager = {
 	/**
 	 * @param {Integer} msgId
 	 * @param {Function} fnSuccess принимает {Void}
-	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
+	 * @param {Function} fnFail принимает {String} errorMessage
 	 */
-	markAsUnread: function(msgId, fnSuccess, fnFail) {
+	markAsUnread: function DatabaseManager_markAsUnread(msgId, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET status = 0 WHERE mid = ?", [msgId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					if (typeof fnSuccess === "function") {
-						fnSuccess();
-					}
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating status column (mid: " + msgId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(msgId)
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			var message = records[0].value;
+			message.read = false;
+
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess && fnSuccess();
 			});
 		});
 	},
@@ -1048,7 +1056,7 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает {Array} [{Array} сообщения, {Integer} total]
 	 * @oaram {Function} fnFail принимает {String} errorMessage
 	 */
-	getMessagesByType: function DatabaseManager_getMessagesByType(tag, startFrom, fnSuccess, fnFail) {
+	getMessagesByType: function(tag, startFrom, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isTrashFolder = (tagsIds[0] === tagsIds[1]),
 			sqlAfter = (isTrashFolder) ? "" : " AND m.tags & ? == 0",
@@ -1144,7 +1152,7 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает {Array} массив сообщений и {Integer} общее количество найденных сообщений
 	 * @param {Function} fnFail принимает {String} текст ошибки
 	 */
-	searchMail: function DatabaseManager_searchMail(params, searchString, startFrom, fnSuccess, fnFail) {
+	searchMail: function(params, searchString, startFrom, fnSuccess, fnFail) {
 		var userId = this._userId,
 			bindings, sqlWhere;
 

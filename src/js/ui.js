@@ -78,7 +78,7 @@ document.addEventListener("click", function (e) {
 				chrome.runtime.sendMessage({
 					action: "unmarkMessageTag",
 					mid: msgId,
-					tagId: self.CacheManager.tags.important
+					tag: "important"
 				}, function (unmarked) {
 					if (unmarked) {
 						target.removeClass("active").removeAttr("title").removeData();
@@ -94,7 +94,7 @@ document.addEventListener("click", function (e) {
 				chrome.runtime.sendMessage({
 					action: "markMessageTag",
 					mid: msgId,
-					tagId: self.CacheManager.tags.important
+					tag: "important"
 				}, function (marked) {
 					if (marked) {
 						target.addClass("active").attr("title", chrome.i18n.getMessage("importantMessage"));
@@ -315,7 +315,7 @@ document.addEventListener("click", function (e) {
 					chrome.runtime.sendMessage({
 						action: "unmarkMessageTag",
 						mid: msgId,
-						tagId: self.CacheManager.tags.trash
+						tag: "trash"
 					}, function (ok) {
 						callback((ok) ? null : "Update database fail");
 					});
@@ -388,7 +388,7 @@ document.addEventListener("click", function (e) {
 					chrome.runtime.sendMessage({
 						action: "markMessageTag",
 						mid: msgId,
-						tagId: self.CacheManager.tags.trash
+						tag: "trash"
 					}, function (ok) {
 						callback((ok) ? null : "Update database fail");
 					});

@@ -62,7 +62,7 @@ var DatabaseManager = {
 						var totalRecords = resultSet.rows.length;
 						var output = [];
 
-						console.log("%s records found", totalRecords);
+						console.log("%s records found in %s", totalRecords, table);
 
 						for (var i = 0; i < totalRecords; i++) {
 							output.push(resultSet.rows.item(i));
@@ -162,7 +162,7 @@ var DatabaseManager = {
 								read: Boolean(record.status),
 								attachments: attachments,
 								tags: tags,
-								chatId: chatId
+								chat: chatId
 							};
 
 							contacts[userId].messages_num += 1;
@@ -231,7 +231,7 @@ var DatabaseManager = {
 	 * @param {Function} fnFail принимает {String} текст ошибки
 	 * @return {Void}
 	 */
-	initUser: function(userId, fnSuccess, fnFail) {
+	initUser: function DatabaseManager_initUser(userId, fnSuccess, fnFail) {
 		var that = this;
 
 		sklad.open('db_' + userId, {
@@ -245,12 +245,13 @@ var DatabaseManager = {
 					contactsStore.createIndex("fulltext", "fulltext", {multiEntry: true});
 
 					var messagesStore = database.createObjectStore("messages", {keyPath: "mid"});
+					messagesStore.createIndex("user_chats", ["uid", "chat"]); // get all chats where user said smth
+					messagesStore.createIndex("chat_participants", ["chat", "uid"]); // get all chat participants
+					messagesStore.createIndex("chat_messages", ["chat", "date"]); // get all chat messages sorted by date
 					messagesStore.createIndex("tag", "tags", {multiEntry: true});
 					messagesStore.createIndex("fulltext", "fulltext", {multiEntry: true});
 
-					var chatsStore = database.createObjectStore("chats", {autoIncrement: true});
-					chatsStore.createIndex("contact", "participants", {multiEntry: true});
-					chatsStore.createIndex("multichat", "chat_id", {unique: true});
+					var chatsStore = database.createObjectStore("chats", {keyPath: "id"});
 					chatsStore.createIndex("last_message", "last_message_ts");
 				}
 			}
@@ -269,7 +270,7 @@ var DatabaseManager = {
 	/**
 	 *
 	 */
-	dropUser: function(userId) {
+	dropUser: function DatabaseManager_dropUser(userId) {
 		this._conn[userId].close();
 		sklad.deleteDatabase('db_' + userId, _.noop);
 	},
@@ -335,56 +336,172 @@ var DatabaseManager = {
 		});
 	},
 
+	/**
+	 * Get chats list ordered descending by date
+	 * Need also to get chats' participants, chat id, title, date & body of the last message, total messages in chat
+	 *
+	 * @param {Number} startFrom
+	 * @param {Function} fnSuccess which invokes {Array} with {Number} total chats number and {Array} chats data
+	 * @param {Function} fnFail
+	 */
 	getConversations: function DatabaseManager_getConversations(startFrom, fnSuccess, fnFail) {
-		var that = this;
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		function fetchParticipants(uids) {
-			var promises = {};
-			uids.forEach(function (uid) {
-				promises[uid] = vow.Promise(function (resolve, reject) {
-					that._conn[uid].get("contacts", {
-						range: IDBKeyRange.only(uid)
-					}, function (err, data) {
-						if (err) {
-							reject(err.name + ": " + err.message);
-							return;
-						}
-
-						resolve(data.value);
-					});
-				});
-			});
-
-			return vow.all(promises).then(function (userData) {
-				return userData.map(function (user) {
-					return user.value;
+		function getChatsList(startFrom) {
+			return vow.Promise(function (resolve, reject) {
+				conn.get("chats", {
+					index: "last_message",
+					offset: startFrom,
+					limit: 30
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(records);
+					}
 				});
 			});
 		}
 
-		this._conn[userId].get("chats", {
-			index: "last_message",
-			offset: startFrom,
-			limit: 30
-		}, function (err, data) {
-			if (err) {
-				fnFail(err.name + ": " + err.message);
-				return;
-			}
-
-			// calculate all participants and get them
-			var participants = {};
-			data.forEach(function (chatData) {
-				chatData.value.participants.forEach(function (userId) {
-					participants[userId] = true;
+		function getTotalChats() {
+			return vow.Promise(function (resolve, reject) {
+				conn.count("chats", function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
 				});
 			});
+		}
 
-			fetchParticipants(participants).then().fail();
-			// dialogData.participants = usersList;
+		function getContactById(id) {
+			return vow.Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(id)
+				}, function (err, records) {
+					if (err) {
+						reject(err.name + ": " + err.message);
+					else if (!records.length) {
+						reject("No such contact: " + id);
+					} else {
+						resolve({
+							id: id,
+							first_name: records[0].value.first_name,
+							last_name: records[0].value.last_name
+						});
+					}
+				});
+			});
+		}
 
-			fnSuccess([]);
+		function getChatParticipants(record) {
+			return vow.Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_participants",
+					direction: sklad.ASC_UNIQUE
+					range: IDBKeyRange.bound([record.id], Date.now())
+				}, function (err, data) {
+					if (err) {
+						reject(err);
+					} else {
+						var promises = [];
+						var currentUserIsParticipant = false;
+
+						data.forEach(function (contact) {
+							if (contact.value.uid == userId) {
+								currentUserIsParticipant = true;
+								return;
+							}
+
+							promises.push(getContactById(contact.value.uid));
+						});
+
+						vow.all(promises).then(function (res) {
+							record.participants = res;
+
+							if (currentUserIsParticipant) {
+								record.participants.push({uid: userId});
+							}
+
+							resolve();
+						}, function (err) {
+							console.error(err);
+
+							record.participants = [];
+							resolve();
+						});
+					}
+				});
+			});
+		}
+
+		function getChatLastMessage(record) {
+			return vow.Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.bound([record.id], Date.now()),
+					direction: sklad.DESC,
+					limit: 1
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						record.body = records[0].value.body;
+						record.uid = records[0].value.uid;
+
+						resolve();
+					}
+				});
+			});
+		}
+
+		function getChatTotalMessages(record) {
+			return vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.bound([record.id], Date.now())
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						record.total = total;
+						resolve();
+					}
+				});
+			});
+		}
+
+		vow.all({
+			chats: getChatsList(startFrom),
+			total: getTotalChats()
+		}).then(function (res) {
+			var output = {};
+			var fillDataPromises = [];
+
+			res.chats.forEach(function (record) {
+				output[record.value.id] = {
+					id: record.value.id,
+					title: record.value.title,
+					date: record.value.last_message_ts
+				};
+
+				fillDataPromises.push(getChatParticipants(record));
+				fillDataPromises.push(getChatLastMessage(record));
+				fillDataPromises.push(getChatTotalMessages(record));
+			});
+
+			vow.all(fillDataPromises).then(function () {
+				fnSuccess([
+					_.values(output),
+					res.total
+				]);
+			}, function (err) {
+				fnFail(err.name + ": " + err.message);
+			});
+		}, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 
@@ -468,7 +585,7 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает аргументы {Array} сообщения, {Integer} количество сообщений в диалоге и {Array} [messageId второго сообщения, messageId пред-предпоследнего сообщения]
 	 * @param {Function} fnFail принимает {String} строка ошибки
 	 */
-	getDialogThread: function DatabaseManager_getDialogThread(dialogId, from, fnSuccess, fnFail) {
+	getDialogThread: function(dialogId, from, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isMultiChat = (/^[\d]+$/.test(dialogId)),
 			sqlWhere = (isMultiChat) ? "m.chatid = ?" : "m.uid = ? AND m.chatid = 0",
@@ -775,54 +892,86 @@ var DatabaseManager = {
 
 	/**
 	 * Добавление метки к сообщению
-	 * @param {Integer} msgId ID сообщения
-	 * @param {Integer} tagId ID тэга
+	 * @param {Number} msgId ID сообщения
+	 * @param {String} тэг
 	 * @param {Function} fnSuccess принимает {Void}
 	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	markMessageWithTag: function(msgId, tagId, fnSuccess, fnFail) {
+	markMessageWithTag: function DatabaseManager_markMessageWithTag(msgId, tag, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET tags = tags | ? WHERE mid = ?", [tagId, msgId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					fnSuccess();
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tagId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(msgId)
+		}, function (err, records) {
+			if (err) {
+				fnFail(true, err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			var message = records[0].value;
+			if (message.tags.indexOf(tag) !== -1) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			message.tags.push(tag);
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(true, err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess();
 			});
 		});
 	},
 
 	/**
 	 * Удаление метки с сообщения
-	 * @param {Integer} msgId ID сообщения
-	 * @param {Integer} tagId ID тэга
+	 * @param {Number} msgId ID сообщения
+	 * @param {String} тэг
 	 * @param {Function} fnSuccess принимает {Void}
 	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	unmarkMessageWithTag: function(msgId, tagId, fnSuccess, fnFail) {
+	unmarkMessageWithTag: function DatabaseManager_unmarkMessageWithTag(msgId, tag, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET tags = tags - ? WHERE mid = ? AND tags & ?", [tagId, msgId, tagId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					fnSuccess();
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tagId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(msgId)
+		}, function (err, records) {
+			if (err) {
+				fnFail(true, err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			var message = records[0].value;
+			var tagIndex = message.tags.indexOf(tag);
+
+			if (tagIndex === -1) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			message.tags.splice(tagIndex, 1);
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(true, err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess();
 			});
 		});
 	},
@@ -832,12 +981,11 @@ var DatabaseManager = {
 	 * @param {Integer} msgId ID сообщения
 	 * @param {Function} fn
 	 */
-	deleteMessage: function(msgId, fn) {
+	deleteMessage: function DatabaseManager_deleteMessage(msgId, fn) {
 		var userId = this._userId;
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("DELETE FROM pm_" + userId + " WHERE mid = ?", [msgId], fn, fn);
-		});
+		// проблема здесь - рассинхронизация messages и chats.last_message_ts
+		this._conn[userId].delete("messages", msgId, fn);
 	},
 
 	/**

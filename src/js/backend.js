@@ -308,7 +308,6 @@ document.addEventListener("DOMContentLoaded", function () {
 		}
 	}, function readyToGo(err, results) {
 		var fsLink = results.fs;
-		return;
 
 		// записываем дату установки
 		if (StorageManager.get("app_install_time") === null) {
@@ -2065,7 +2064,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "markMessageTag" :
-					DatabaseManager.markMessageWithTag(request.mid, request.tagId, function() {
+					DatabaseManager.markMessageWithTag(request.mid, request.tag, function() {
 						sendResponse(true);
 					}, function (isDatabaseError, errMsg) {
 						if (isDatabaseError) {
@@ -2080,7 +2079,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "unmarkMessageTag" :
-					DatabaseManager.unmarkMessageWithTag(request.mid, request.tagId, function() {
+					DatabaseManager.unmarkMessageWithTag(request.mid, request.tag, function() {
 						sendResponse(true);
 					}, function(isDatabaseError, errMsg) {
 						if (isDatabaseError) {

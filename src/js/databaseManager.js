@@ -16,6 +16,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * ========================================================== */
+function validateJSONString(data, constr) {
+	var someData;
+	try {
+		someData = JSON.parse(data);
+		if (!(someData instanceof constr)) {
+			throw new Error("Invalid");
+		}
+	} catch (ex) {
+		someData = new constr;
+	}
+
+	return someData;
+}
 
 var DatabaseManager = {
 	/**
@@ -74,20 +87,6 @@ var DatabaseManager = {
 					});
 				});
 			});
-		}
-
-		function validateJSONString(data, constr) {
-			var someData;
-			try {
-				someData = JSON.parse(data);
-				if (!(someData instanceof constr)) {
-					throw new Error("Invalid");
-				}
-			} catch (ex) {
-				someData = new constr;
-			}
-
-			return someData;
 		}
 
 		// FIXME: user can exist but no tables
@@ -248,6 +247,7 @@ var DatabaseManager = {
 					messagesStore.createIndex("user_chats", ["uid", "chat"]); // get all chats where user said smth
 					messagesStore.createIndex("chat_participants", ["chat", "uid"]); // get all chat participants
 					messagesStore.createIndex("chat_messages", ["chat", "date"]); // get all chat messages sorted by date
+					messagesStore.createIndex("actualizer", "chat"); // get all chats while actualizing data
 					messagesStore.createIndex("tag", "tags", {multiEntry: true});
 					messagesStore.createIndex("fulltext", "fulltext", {multiEntry: true});
 
@@ -401,7 +401,7 @@ var DatabaseManager = {
 				conn.get("messages", {
 					index: "chat_participants",
 					direction: sklad.ASC_UNIQUE
-					range: IDBKeyRange.bound([record.id], Date.now())
+					range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
 				}, function (err, data) {
 					if (err) {
 						reject(err);
@@ -441,7 +441,7 @@ var DatabaseManager = {
 			return vow.Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_messages",
-					range: IDBKeyRange.bound([record.id], Date.now()),
+					range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
 					direction: sklad.DESC,
 					limit: 1
 				}, function (err, records) {
@@ -461,7 +461,7 @@ var DatabaseManager = {
 			return vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "chat_messages",
-					range: IDBKeyRange.bound([record.id], Date.now())
+					range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
 				}, function (err, total) {
 					if (err) {
 						reject(err);
@@ -510,7 +510,7 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает параметр {Array} список объектов
 	 * @param {Function} fnFail принимает параметр {String} errorMessage
 	 */
-	getConversationThreadsWithContact: function DatabaseManager_getConversationThreadsWithContact(uid, fnSuccess, fnFail) {
+	getConversationThreadsWithContact: function(uid, fnSuccess, fnFail) {
 		var userId = this._userId,
 			isMultiChatRegExp = /^[\d]+$/;
 
@@ -716,119 +716,93 @@ var DatabaseManager = {
 	},
 
 	/**
-	 * Внесение сообщений
+	 * Внесение сообщений.
+	 * Есть интересная особенность API ВКонтакте: метод messages.get не поддерживает сортировку и отдает сперва самые новые сообщения.
 	 *
 	 * @param {Number} currentUserId ID аккаунта, для которого заносятся сообщения
-	 * @param {Object} data объект с ключами:
-	 *     @param {Boolean} data.firstSync первая синхронизация или нет
-	 *     @param {Array} data.messages массив сообщений-объектов с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags)
-	 * @param {Function} fnSuccess принимает
-	 *     @param {Object} данные сообщения (копия элемента массива из первого параметра)
-	 *     @param {Boolean} занесено ли сообщение в БД
-	 * @param {Function} fnAfterwards принимает
-	 *     @param {Number} количество успешно внесенных сообщений
-	 *     @param {Number} количество фэйлов при занесении
+	 * @param {Array} messages - сообщения-объекты с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags)
+	 * @param {Function} fnSuccess
+	 * @param {Function} fnFail
 	 */
-	insertMessages: function(currentUserId, data, fnSuccess, fnAfterwards) {
-		currentUserId = Number(currentUserId);
-
-		// calculate new chats to be inserted / upserted
+	insertMessages: function DatabaseManager_insertMessages(currentUserId, messages, fnSuccess, fnFail) {
 		var chats = {};
-		data.forEach(function (msgData) {
-			var chatTempId = msgData.chat_id || "0_" + msgData.uid;
-			var uid = Number(msgData.uid);
+		var messagesToInsert = [];
 
-			chats[chatTempId] = chats[chatTempId] || {};
-			chats[chatTempId].participants = chats[chatTempId].participants || [];
+		messages.forEach(function (message) {
+			var chatId = message.chat_id ? String(message.chat_id) : "0_" + message.uid;
 
-			if (uid === currentUserId) {
+			// chat should be inserted only once
+			if (!chats[chatId]) {
+				chats[chatId] = {
+					id: chatId,
+					title: message.title,
+					last_message_ts: message.date
+				};
+			}
+
+			// FIXME: support important messages from VK
+			messagesToInsert.push({
+				mid: Number(message.mid),
+				uid: Number(message.uid),
+				title: message.title,
+				body: message.body,
+				date: message.date,
+				read: Boolean(record.read_state),
+				chat: chatId,
+				attachments: validateJSONString(message.attachments, Array),
+				tags: message.tags
+			});
+		});
+
+		this._conn[currentUserId].upsert({
+			chats: _.values(chats),
+			messages: messagesToInsert
+		}, function (err) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
 				return;
 			}
 
-			if (chats[chatTempId].participants.indexOf(uid) === -1) {
-				chats[chatTempId].participants(uid);
-			}
+			fnSuccess();
 		});
+	},
 
-		// sklad.get("chats", {index: "contact", only: uid}) - once for this method
-		// insert chat
-		// chats[chatId] = chats[chatId] || {};
-							// chats[chatId].title = record.title;
-							// chats[chatId].last_message_ts = Math.max(record.date, lastChatMessageDate);
+	/**
+	 * Actualize chats' dates
+	 *
+	 * @param {String} userId
+	 * @return {Vow.Promise}
+	 */
+	actualizeChatDates: function DatabaseManager_actualizeChatDates(userId) {
+		var conn = this._conn[userId];
 
-							// if (isMultiChat) {
-							// 	chats[chatId].chat_id = Number(record.chatid);
-							// }
-
-							// chats[chatId].participants = chats[chatId].participants || [];
-							// if (isMultiChat) {
-							// 	if (userId !== currentUserId && chats[chatId].participants.indexOf(userId) === -1) {
-							// 		chats[chatId].participants.push(userId);
-							// 	}
-							// } else {
-							// 	// there should be only one person in chat
-							// 	if (!chats[chatId].participants.length) {
-							// 		chats[chatId].participants.push(userId);
-							// 	}
-							// }
-
-	// insert message
-
-		var userId = currentUserId,
-			callbacksAreFunctions = [(typeof fnSuccess === "function"), (typeof fnAfterwards === "function")],
-			executedStatements = [0, 0], // сумма хороших запросов и сумма плохих
-			databaseKeys = ["mid", "uid", "date", "title", "body", "other_data", "status", "attachments", "chatid", "tags"];
-
-		if (data.messages.length === 0) {
-			fnAfterwards(0, 0);
-			return;
-		}
-
-		// вызывается на каждой итерации после занесения сообщения в БД
-		var subAfterFn = function(msgData, queryIsOk) {
-			if (callbacksAreFunctions[0]) {
-				fnSuccess(msgData, queryIsOk);
-			}
-
-			if (queryIsOk) {
-				executedStatements[0] += 1;
-			} else {
-				executedStatements[1] += 1;
-			}
-
-			if (executedStatements[0] + executedStatements[1] === data.messages.length && callbacksAreFunctions[1]) {
-				if (data.firstSync) {
-					executedStatements[1] = 0;
+		return vow.Promise(function (resolve, reject) {
+			conn.get("messages", {
+				index: "actualizer",
+				direction: sklad.DESC_UNIQUE
+			}, function (err, records) {
+				if (err) {
+					reject(err.name + ": " + err.message);
+					return;
 				}
 
-				fnAfterwards.apply(null, executedStatements);
-			}
-		};
-
-		this._dbLink.transaction(function(tx) {
-			data.messages.forEach(function(msgData) {
-				var databasePlaces = [],
-					databaseBindings = [];
-
-				if (typeof msgData.attachments === "object") {
-					msgData.attachments = JSON.stringify(msgData.attachments);
-				}
-
-				databaseKeys.forEach(function(key) {
-					databasePlaces.push("?");
-
-					switch (key) {
-						case "other_data" : databaseBindings.push(JSON.stringify(msgData)); break;
-						case "status" : databaseBindings.push(msgData.read_state); break;
-						case "chatid" : databaseBindings.push(msgData.chat_id); break;
-						default : databaseBindings.push(msgData[key]); break;
-					}
+				var upsertData = records.map(function (record) {
+					return {
+						id: record.key,
+						title: record.value.title,
+						last_message_ts: record.value.date
+					};
 				});
 
-				tx.executeSql("INSERT INTO pm_" + userId + " (" + databaseKeys.join(",") + ") VALUES (" + databasePlaces.join(",") + ")", databaseBindings, function(tx, resultSet) {
-					subAfterFn(msgData, true);
-				}, function(tx, err) {
-					subAfterFn(msgData, false);
+				conn.upsert({
+					chats: upsertData
+				}, function (err) {
+					if (err) {
+						reject(err.name + ": " + err.message);
+						return;
+					}
+
+					resolve();
 				});
 			});
 		});

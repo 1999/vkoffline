@@ -70,8 +70,9 @@ var MigrationManager = (function () {
 
 	function runLegacyMigration(uids, callback) {
 		localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_STARTED);
+		createAlarms();
 
-		Promise.all([migrateLocalStorage(), migrateWebDatabase(uids)]).then(function () {
+		Promise.all([migrateLocalStorage(), migrateWebDatabase(uids), ]).then(function () {
 			localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_FINISHED);
 			callback();
 		}, function (err) {
@@ -144,6 +145,13 @@ var MigrationManager = (function () {
 					resolve();
 				}
 			});
+		});
+	}
+
+	function createAlarms() {
+		chrome.alarms.create("actualize", {
+			periodInMinutes: 5,
+			delayInMinutes: 5
 		});
 	}
 

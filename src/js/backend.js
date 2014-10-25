@@ -47,6 +47,8 @@
 			}
 
 			StorageManager.remove("requests");
+		} else if (alarmInfo.name === "actualize") {
+			DatabaseManager.actualizeChatDates();
 		}
 	});
 
@@ -518,9 +520,13 @@ document.addEventListener("DOMContentLoaded", function () {
 									msgData.tags.push("attachments");
 								}
 
-								DatabaseManager.insertMessages(currentUserId, {"firstSync" : false, "messages" : [msgData]}, function(msgData) {
+								DatabaseManager.insertMessages(currentUserId, [msgData], function () {
 									// обновляем фронтенд
-									chrome.runtime.sendMessage({"action" : "messageReceived", "data" : msgData, "userdata" : userData});
+									chrome.runtime.sendMessage({
+										action: "messageReceived",
+										data: msgData,
+										userdata: userData
+									});
 
 									if (mailType === "inbox") {
 										if (CacheManager.avatars[msgData.uid] !== undefined && CacheManager.avatars[msgData.uid].length) {
@@ -1032,7 +1038,9 @@ document.addEventListener("DOMContentLoaded", function () {
 							// чтобы защититься от этого проверяем, был ли обновлен токен
 							wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
 							if (wallTokenUpdated) {
-								chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
+								DatabaseManager.actualizeChatDates(currentUserId).then(function () {
+									chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
+								});
 							}
 						}
 					}
@@ -1097,27 +1105,25 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 				});
 
-				DatabaseManager.insertMessages(currentUserId, {"firstSync" : firstSync, "messages" : messages}, function(msgData, queryIsOk) {
-					if (queryIsOk) {
-						syncingData[currentUserId][mailType][1] += 1;
+				DatabaseManager.insertMessages(currentUserId, messages, function () {
+					syncingData[currentUserId][mailType][1] += messages.length;
 
-						chrome.runtime.sendMessage({
-							"action" : "syncProgress",
-							"userId" : currentUserId,
-							"type" : mailType,
-							"total" : syncingData[currentUserId][mailType][0],
-							"current" : syncingData[currentUserId][mailType][1]
-						});
-					}
-				}, function (msgInsertedNum, msgInsertFailedNum) {
-					if (msgInsertFailedNum > 0 || syncingData[currentUserId][mailType][1] > data.response[0]) {
+					chrome.runtime.sendMessage({
+						"action" : "syncProgress",
+						"userId" : currentUserId,
+						"type" : mailType,
+						"total" : syncingData[currentUserId][mailType][0],
+						"current" : syncingData[currentUserId][mailType][1]
+					});
+
+					if (syncingData[currentUserId][mailType][1] > data.response[0]) {
 						dataSyncedFn();
 						return;
 					}
 
 					window.setTimeout(mailSync, 350, currentUserId, mailType);
-				});
-			}, function(errCode, errData) {
+				}, _.noop);
+			}, function (errCode, errData) {
 				switch (errCode) {
 					case ReqManager.ACCESS_DENIED :
 						// TODO error

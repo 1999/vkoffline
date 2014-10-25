@@ -2225,9 +2225,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					break;
 
-				case "getMessagesByTagId" :
+				case "getMessagesByTagName" :
 					sendAsyncResponse = true;
-					DatabaseManager.getMessagesByType(request.tagId, request.totalShown, sendResponse, function(errMsg) {
+					DatabaseManager.getMessagesByType(request.tag, request.totalShown, sendResponse, function(errMsg) {
 						LogManager.error(errMsg);
 						statSend("Custom-Errors", "Database error", errMsg);
 

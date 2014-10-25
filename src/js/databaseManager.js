@@ -246,7 +246,7 @@ var DatabaseManager = {
 					var messagesStore = database.createObjectStore("messages", {keyPath: "mid"});
 					messagesStore.createIndex("user_chats", ["uid", "chat"]); // get all chats where user said smth
 					messagesStore.createIndex("chat_participants", ["chat", "uid"]); // get all chat participants
-					messagesStore.createIndex("chat_messages", ["chat", "date"]); // get all chat messages sorted by date
+					messagesStore.createIndex("chat_messages", "chat"); // get all chat messages sorted by date
 					messagesStore.createIndex("actualizer", "chat"); // get all chats while actualizing data
 					messagesStore.createIndex("tag", "tags", {multiEntry: true});
 					messagesStore.createIndex("fulltext", "fulltext", {multiEntry: true});
@@ -441,7 +441,7 @@ var DatabaseManager = {
 			return vow.Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_messages",
-					range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
+					range: IDBKeyRange.only(record.id),
 					direction: sklad.DESC,
 					limit: 1
 				}, function (err, records) {
@@ -461,7 +461,7 @@ var DatabaseManager = {
 			return vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "chat_messages",
-					range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
+					range: IDBKeyRange.only(record.id),
 				}, function (err, total) {
 					if (err) {
 						reject(err);
@@ -1019,36 +1019,84 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает {Array} [{Array} сообщения, {Integer} total]
 	 * @oaram {Function} fnFail принимает {String} errorMessage
 	 */
-	getMessagesByType: function(tag, startFrom, fnSuccess, fnFail) {
-		var userId = this._userId,
-			isTrashFolder = (tagsIds[0] === tagsIds[1]),
-			sqlAfter = (isTrashFolder) ? "" : " AND m.tags & ? == 0",
-			bindings = (isTrashFolder) ? [tagsIds[0]] : tagsIds;
+	getMessagesByType: function DatabaseManager_getMessagesByType(tag, startFrom, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT (CASE m.chatid WHEN 0 THEN ('0_' || m.uid) ELSE m.chatid END) AS id, m.title, m.status, m.body, m.date, m.uid, m.mid, m.tags, c.first_name, c.last_name \
-							FROM pm_" + userId + " AS m \
-							JOIN contacts_" + userId + " AS c ON c.uid = m.uid \
-							WHERE m.tags & ?" + sqlAfter + " \
-							ORDER BY m.mid DESC", bindings, function(tx, resultSet) {
-				var total = resultSet.rows.length,
-					output = [[], total],
-					i, len;
-
-				for (i = startFrom, len = startFrom + 20; i < len; i++) {
-					if (i + 1 > total) {
-						break;
+		function countTagMessages() {
+			return vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "tag",
+					range: IDBKeyRange.only(tag)
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
 					}
-
-					output[0].push(resultSet.rows.item(i));
-				}
-
-				fnSuccess(output);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				});
 			});
+		}
+
+		function getContactData(message) {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(uid)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						message.first_name = records.length ? records[0].value.first_name : "Not";
+						message.last_name = records.length ? records[0].value.last_name : "Found";
+
+						resolve();
+					}
+				});
+			});
+		}
+
+		function getTagMessages() {
+			return vow.Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "tag",
+					range: IDBKeyRange.only(tag),
+					direction: sklad.DESC
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						var promises = [];
+						var output = [];
+
+						records.forEach(function (record) {
+							var message = {
+								id: record.value.chat,
+								title: record.value.title,
+								body: record.value.body,
+								date: record.value.date,
+								uid: record.value.uid,
+								mid: record.value.mid,
+								tags: record.value.tags,
+								status: Number(record.value.read)
+							};
+
+							output.push(message);
+							promises.push(getContactData(message));
+						});
+
+						Promise.all(promises).then(function () {
+							resolve(output);
+						}, reject);
+					}
+				});
+			});
+		}
+
+		vow.all([
+			getTagMessages(),
+			countTagMessages()
+		]).then(fnSuccess, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 

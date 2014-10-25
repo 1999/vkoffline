@@ -1948,14 +1948,12 @@ var AppUI = {
 		},
 
 		// список сообщений определенной папки
-		messagesOfType: function (tagId, startFrom) {
+		messagesOfType: function (tag, startFrom) {
 			var self = this;
 			var textHeader = $("#content > header.right > span.text");
 			var listHeader = $("#content > header.right > span.icon.list");
 			var searchHeader = $("#content > header.right > span.icon.search");
-			var rightSection = $("#content > section.right").data("tagId", tagId);
-
-			var isCustomTag = true;
+			var rightSection = $("#content > section.right").data("tag", tag);
 			var tagTitle;
 
 			startFrom = startFrom || 0;
@@ -1966,19 +1964,9 @@ var AppUI = {
 
 				// устанавливаем span.text
 				for (i = 0; i < App.INIT_TAGS.length; i++) {
-					if (self.CacheManager.tags[App.INIT_TAGS[i]] === tagId) {
-						isCustomTag = false;
-						tagTitle = chrome.i18n.getMessage("tag" + Utils.string.ucfirst(App.INIT_TAGS[i]) + "Name");
+					if (tag === App.INIT_TAGS[i]) {
+						tagTitle = chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tag) + "Name");
 						break;
-					}
-				}
-
-				if (isCustomTag) {
-					for (var customTagTitle in self.CacheManager.tags) {
-						if (self.CacheManager.tags[customTagTitle] === tagId) {
-							tagTitle = customTagTitle;
-							break;
-						}
 					}
 				}
 
@@ -2018,14 +2006,14 @@ var AppUI = {
 					}
 				}, true);
 
-				if (tagId === self.CacheManager.tags.important) {
+				if (tag === "important") {
 					chrome.runtime.sendMessage({"action" : "useImportantTag", "type" : "list"});
 				}
 			}
 
 			chrome.runtime.sendMessage({
-				action: "getMessagesByTagId",
-				tagId: tagId,
+				action: "getMessagesByTagName",
+				tag: tag,
 				totalShown: startFrom
 			}, function (data) {
 				var messagesData = data[0];

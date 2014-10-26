@@ -2237,27 +2237,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "searchContact" :
-					var latin = "qwertyuiopasdfghjklzxcvbnm".split(""),
-						rus = chrome.i18n.getMessage("ruSymbols").split(""),
-						search = [request.value],
-						correction = [];
-
-					sendAsyncResponse = true;
-
-					if (/[a-zA-Z]/.test(request.value)) {
-						request.value.split("").forEach(function(letter) {
-							var pos = latin.indexOf(letter);
-							if (pos === -1) {
-								correction.push(letter);
-							} else {
-								correction.push(rus[pos]);
-							}
-						});
-
-						search.push(correction.join(""));
-					}
-
-					DatabaseManager.searchContact(search, SettingsManager.SortContacts, request.totalShown, function(contacts, total) {
+					DatabaseManager.searchContact(request.value, request.totalShown, function (contacts, total) {
 						sendResponse([contacts, total, request.value]);
 
 						if (SettingsManager.ShowOnline === 1 && contacts.length) {
@@ -2272,13 +2252,14 @@ document.addEventListener("DOMContentLoaded", function () {
 								});
 							});
 						}
-					}, function(errMsg) {
+					}, function (errMsg) {
 						LogManager.error(errMsg);
 						statSend("Custom-Errors", "Database error", errMsg);
 
 						sendResponse([[], 0, request.value]);
 					});
 
+					sendAsyncResponse = true;
 					break;
 
 				case "searchMail" :

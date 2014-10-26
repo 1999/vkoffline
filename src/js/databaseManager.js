@@ -111,15 +111,25 @@ var DatabaseManager = {
 
 						fetchedContacts.forEach(function (record) {
 							var otherData = validateJSONString(record.other_data, Object);
+							var uid = Number(record.uid);
 
 							contacts[record.uid] = {
-								uid: Number(record.uid),
+								uid: uid,
 								first_name: record.first_name,
 								last_name: record.last_name,
 								notes: record.notes,
 								last_message_ts: 0,
-								messages_num: 0
+								messages_num: 0,
+								fulltext: [
+									record.first_name,
+									record.last_name,
+									uid
+								]
 							};
+
+							if (otherData.domain) {
+								contacts[record.uid].fulltext.push(otherData.domain);
+							}
 
 							["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
 								if (otherData[field]) {
@@ -671,13 +681,20 @@ var DatabaseManager = {
 		// FIXME: should be changed afterwards
 		data.forEach(function (userData) {
 			var otherData = userData[3];
+			var uid = Number(userData[0]);
+
 			var contact = {
-				uid: Number(userData[0]),
+				uid: uid,
 				first_name: userData[1],
 				last_name: userData[2],
 				notes: "",
 				last_message_ts: 0,
-				messages_num: 0
+				messages_num: 0,
+				fulltext: [
+					userData[1],
+					userData[2],
+					uid
+				]
 			};
 
 			if (otherData.photo) {
@@ -694,6 +711,7 @@ var DatabaseManager = {
 
 			if (otherData.domain) {
 				contact.domain = otherData.domain;
+				contact.fulltext.push(otherData.domain);
 			}
 
 			that._conn[userId].upsert("contacts", contact, function (err, upsertedKey) {
@@ -1102,56 +1120,60 @@ var DatabaseManager = {
 
 	/**
 	 * Поиск контактов
-	 * @param {Array} searchItems массив искомых строк
-	 * @param {Integer} sortType типа сортировки: 0 - по дате последней переписки, 1 - по частоте переписки, 2 - по алфавиту
-	 * @param {Function} fnSuccess принимает {Array} массив объектов-контактов, {Integer} общее количество найденных контактов
-	 * @param {Function} fnFail принимает параметр {String} errorMessage
+	 *
+	 * @param {String} q
+	 * @param {Number} startFrom
+	 * @param {Function} fnSuccess принимает:
+	 *     {Array} массив объектов-контактов
+	 *     {Number} общее количество найденных контактов
+	 * @param {Function} fnFail принимает:
+	 *     {String} errorMessage
 	 */
-	searchContact: function(searchItems, sortType, startFrom, fnSuccess, fnFail) {
-		var userId = this._userId,
-			sql,
-			bind = [],
-			where = [];
+	searchContact: function DatabaseManager_searchContact(q, startFrom, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
+		var to = q.substr(0, q.length - 1) + String.fromCharCode(q.charCodeAt(q.length - 1) + 1);
+		var range = IDBKeyRange.bound(q, to, false, true);
 
-		searchItems.forEach(function(item) {
-			where.push("LIKE(?, ss)");
-			bind.push("%" + item + "%");
-		});
-
-		switch (sortType) {
-			case 0 :
-				sql = "SELECT c.*, pm.date, (c.first_name || ' ' || c.last_name || ' ' || c.first_name) AS ss FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid WHERE " + where.join(" OR ") + " GROUP BY c.uid ORDER BY pm.date DESC, c.first_name, c.last_name";
-				break;
-
-			case 1 :
-				sql = "SELECT c.*, COUNT(pm.rowid) AS total, (c.first_name || ' ' || c.last_name || ' ' || c.first_name) AS ss FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid WHERE " + where.join(" OR ") + " GROUP BY c.uid ORDER BY total DESC, c.first_name, c.last_name";
-				break;
-
-			case 2 :
-				sql = "SELECT c.*, (c.first_name || ' ' || c.last_name || ' ' || c.first_name) AS ss FROM contacts_" + userId + " AS c WHERE " + where.join(" OR ") + " ORDER BY first_name, last_name";
-				break;
+		function countContacts() {
+			return new Promise(function (resolve, reject) {
+				conn.count("contacts", {
+					index: "fulltext",
+					range: range
+				}, function (err, total) {
+					if (err) {
+						reject(err)
+					} else {
+						resolve(total);
+					}
+				});
+			});
 		}
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql(sql, bind, function(tx, resultSet) {
-				var i, len,
-					total = resultSet.rows.length,
-					output = [];
-
-				for (i = startFrom, len = startFrom + 20; i < len; i++) {
-					if (i + 1 > total) {
-						break;
+		function searchContacts() {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					index: "fulltext",
+					range: range,
+					offset: startFrom,
+					limi: 20
+				}, function (err, records) {
+					if (err) {
+						reject(err)
+					} else {
+						resolve(records.map(function (record) {
+							return record.value;
+						}));
 					}
-
-					output.push(resultSet.rows.item(i));
-				}
-
-				fnSuccess(output, total);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				});
 			});
+		}
+
+		Promise.all([
+			countContacts(),
+			data: searchContacts()
+		]).then(fnSuccess, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 

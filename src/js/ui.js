@@ -71,7 +71,7 @@ document.addEventListener("click", function (e) {
 			var self = this;
 			var closestParent = target.closestParent("section.open") || target.closestParent("section.msg"),
 				msgId = closestParent.data("mid"),
-				tagListItemCounter = $("#content > section.left.manage-mail li[data-tid='" + self.CacheManager.tags.important + "'] span"),
+				tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='important'] span"),
 				counterValue;
 
 			if (target.hasClass("active")) {
@@ -340,7 +340,7 @@ document.addEventListener("click", function (e) {
 					return;
 
 				// обновление счетчика корзины
-				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tid='" + self.CacheManager.tags.trash + "'] span");
+				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='trash'] span");
 				var counterValue = parseInt(tagListItemCounter.text(), 10);
 				tagListItemCounter.text(counterValue - 1);
 
@@ -350,11 +350,11 @@ document.addEventListener("click", function (e) {
 
 					// добавляем стартовые метки-папки
 					App.INIT_TAGS.forEach(function (tagName) {
-						var tagId = self.CacheManager.tags[tagName]
-						if ((tagName === "trash") || ((msgInfo.tags & tagId) === 0))
+						if (tagName === "trash" || msgInfo.tags.indexOf(tagName) === -1) {
 							return;
+						}
 
-						var counterElem = $(leftSection, "li[data-tid='" + tagId + "'] > span.total");
+						var counterElem = $(leftSection, "li[data-tag='" + tagName + "'] > span.total");
 						if (counterElem) {
 							counterValue = parseInt(counterElem.text(), 10) + 1;
 							counterElem.text(counterValue);
@@ -369,7 +369,8 @@ document.addEventListener("click", function (e) {
 			var msgSection = target.closestParent("section.open");
 			var msgId = msgSection.data("mid");
 			var leftSection = $("#content > section.left");
-			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && parseInt($(leftSection, "li.active").data("tid"), 10) === self.CacheManager.tags.trash);
+			var activeSectionTag = $(leftSection, "li.active").data("tag");
+			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && activeSectionTag === "trash");
 			var serverToo = (self.SettingsManager.DeleteUser !== 0);
 
 			if (isTrashFolderContents) {
@@ -412,7 +413,7 @@ document.addEventListener("click", function (e) {
 
 				var openPrevAfterDelete = (msgSection !== msgSection.parentNode.firstElementChild && msgSection.previousElementSibling.hasClass("open") === false);
 				var sectionToOpen = (openPrevAfterDelete && msgSection.previousElementSibling.hasClass("half")) ? msgSection.previousElementSibling : $("#fold");
-				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tid='" + self.CacheManager.tags.trash + "'] span");
+				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='trash'] span");
 
 				msgSection.remove();
 				if (openPrevAfterDelete) {
@@ -434,11 +435,11 @@ document.addEventListener("click", function (e) {
 
 					// добавляем стартовые метки-папки
 					App.INIT_TAGS.forEach(function (tagName) {
-						var tagId = self.CacheManager.tags[tagName];
-						if ((tagName === "trash") || ((msgInfo.tags & tagId) === 0))
+						if (tagName === "trash" || msgInfo.tags.indexOf(tagName) === -1) {
 							return;
+						}
 
-						var counterElem = $(leftSection, "li[data-tid='" + tagId + "'] > span.total");
+						var counterElem = $(leftSection, "li[data-tag='" + tagName + "'] > span.total");
 						if (counterElem) {
 							counterValue = parseInt(counterElem.text(), 10) - 1;
 							counterElem.text(counterValue);
@@ -448,11 +449,11 @@ document.addEventListener("click", function (e) {
 			});
 		},
 		// открытие сообщений определенного типа
-		"#content > section.left.manage-mail li[data-tid]": function (target, evt) {
+		"#content > section.left.manage-mail li[data-tag]": function (target, evt) {
 			var tagId = parseInt(target.data("tid"), 10);
 			var containerSection = target.closestParent("#content > section.left");
 
-			$$(containerSection, "li[data-tid]").each(function () {
+			$$(containerSection, "li[data-tag]").each(function () {
 				if (target === this) {
 					this.addClass("active");
 				} else {
@@ -1834,7 +1835,7 @@ var AppUI = {
 					scrollToElem = $(right, "section.msg");
 
 				for (var i = startIndex; i >= 0; i--) {
-					isInboxMsg = (messages[i].tags & self.CacheManager.tags.inbox);
+					isInboxMsg = (messages[i].tags.indexOf("inbox") !== -1);
 					msgSenderUid = (isInboxMsg) ? messages[i].uid : self.AccountsManager.currentUserId;
 					msgSection = self._prepareMessage(messages[i]);
 
@@ -2602,7 +2603,7 @@ var AppUI = {
 
 	addReceivedMessage: function (msgData) {
 		var self = this,
-			isInboxMsg = (msgData.tags & self.CacheManager.tags.inbox),
+			isInboxMsg = (msgData.tags.indexOf("inbox") !== -1),
 			msgSenderUid = (isInboxMsg) ? msgData.uid : self.AccountsManager.currentUserId,
 			chatContainer = $("#content > section.chat-container"),
 			msgDataObj = self._prepareMessage(msgData, true),
@@ -2640,7 +2641,7 @@ var AppUI = {
 	 */
 	_prepareHalfSection: function (msgData, searchTerm) {
 		var self = this;
-		var isInboxMsg = Boolean(msgData.tags & self.CacheManager.tags.inbox);
+		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
 		var uid = isInboxMsg ? msgData.uid : self.AccountsManager.currentUserId;
 
 		var avatarSrc = "pic/question_th.gif";
@@ -2669,7 +2670,7 @@ var AppUI = {
 		}
 
 		var output = {
-			is_new: (msgData.status === 0 && msgData.tags & self.CacheManager.tags.inbox),
+			is_new: (msgData.tags.indexOf("inbox") !== -1 && msgData.status === 0),
 			mid: msgData.mid,
 			avatarSrc: avatarSrc,
 			uid: uid,
@@ -2738,7 +2739,7 @@ var AppUI = {
 	 */
 	_prepareMessage: function (msgData, forceShowUnread) {
 		var self = this;
-		var isInbox = (msgData.tags & self.CacheManager.tags.inbox);
+		var isInbox = (msgData.tags.indexOf("inbox") !== -1);
 		var unread = forceShowUnread || (msgData.status === 0 && isInbox);
 
 		var attachments = [];
@@ -2759,7 +2760,7 @@ var AppUI = {
 			date: msgData.date,
 			localizedDate: (new Date(msgData.date * 1000)).toLocaleString().replace(/\sGMT.*/, ""),
 			humanDate: Utils.string.humanDate(msgData.date),
-			important: (msgData.tags & self.CacheManager.tags.important),
+			important: (msgData.tags.indexOf("important") !== -1),
 			importantTitle: chrome.i18n.getMessage("importantMessage"),
 			body: msgData.body,
 			attachments: []
@@ -2855,7 +2856,8 @@ var AppUI = {
 			action: "getMessageInfo",
 			mid: msgId
 		}, function (msgInfo) {
-			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && parseInt($(leftSection, "li.active").data("tid"), 10) === self.CacheManager.tags.trash);
+			var activeSectionTag = $(leftSection, "li.active").data("tag");
+			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && activeSectionTag === "trash");
 
 			var msgTplData = self._prepareHalfSection(msgInfo);
 			msgTplData.fio = fromFio;
@@ -2866,7 +2868,7 @@ var AppUI = {
 			msgTplData.deleteText = chrome.i18n.getMessage("deleteMessage");
 			msgTplData.replyText = chrome.i18n.getMessage("respondMessage");
 			msgTplData.startTyping = chrome.i18n.getMessage("startTypingMessage");
-			msgTplData.important = (!isTrashFolderContents && (msgInfo.tags & self.CacheManager.tags.important));
+			msgTplData.important = (!isTrashFolderContents && msgInfo.tags.indexOf("important") !== -1);
 			msgTplData.importantText = chrome.i18n.getMessage("importantMessage");
 			msgTplData.attachments = [];
 
@@ -3083,7 +3085,7 @@ var AppUI = {
 			currentMsgSection.after(msgSection).remove();
 
 			// помечаем сообщение как прочитанное
-			if (msgInfo.status === 0 && (msgInfo.tags & self.CacheManager.tags.inbox))
+			if (msgInfo.status === 0 && msgInfo.tags.indexOf("inbox") !== -1)
 				chrome.runtime.sendMessage({action: "markAsRead", mid: msgInfo.mid});
 
 			// закрываем уведомление
@@ -3132,7 +3134,7 @@ var AppUI = {
 	},
 
 	_drawUserSpeechSection: function (msgData) {
-		var isInboxMsg = (msgData.tags & this.CacheManager.tags.inbox);
+		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
 		var msgSenderUid = isInboxMsg ? msgData.uid : this.AccountsManager.currentUserId;
 		var fio = isInboxMsg ? msgData.first_name + " " + msgData.last_name : this.AccountsManager.current.fio;
 

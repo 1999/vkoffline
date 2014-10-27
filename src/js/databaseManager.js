@@ -661,42 +661,113 @@ var DatabaseManager = {
 	 *
 	 * @param {String} dialogId идентификатор диалога: [\d]+ в случае чата, 0_[\d]+ в случае переписки один на один
 	 * @param {Integer|Null} from с какой записи нужно все получить
-	 * @param {Function} fnSuccess принимает аргументы {Array} сообщения, {Integer} количество сообщений в диалоге и {Array} [messageId второго сообщения, messageId пред-предпоследнего сообщения]
-	 * @param {Function} fnFail принимает {String} строка ошибки
+	 * @param {Function} fnSuccess принимает:
+	 *     {Array} сообщения
+	 *     {Number} количество сообщений в диалоге
+	 * @param {Function} fnFail принимает:
+	 *     {String} строка ошибки
 	 */
-	getDialogThread: function(dialogId, from, fnSuccess, fnFail) {
-		var userId = this._userId,
-			isMultiChat = (/^[\d]+$/.test(dialogId)),
-			sqlWhere = (isMultiChat) ? "m.chatid = ?" : "m.uid = ? AND m.chatid = 0",
-			bindArgs = (isMultiChat) ? [trashTagId, dialogId] : [trashTagId, dialogId.split("_")[1]];
+	getDialogThread: function DatabaseManager_getDialogThread(dialogId, from, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT m.title, m.status, m.body, m.date, m.uid, m.mid, m.tags, c.first_name, c.last_name, m.attachments, m.other_data \
-							FROM pm_" + userId + " AS m \
-							JOIN contacts_" + userId + " AS c ON c.uid = m.uid \
-							WHERE m.tags & ? == 0 AND " + sqlWhere + " \
-							GROUP BY m.mid \
-							ORDER BY m.mid", bindArgs, function(tx, resultSet) {
-				var i, stop,
-					total = resultSet.rows.length,
-					output = [];
-
-				if (from === null) {
-					for (i = 0; i < total; i++) {
-						output.push(resultSet.rows.item(i));
+		function getContactById(id) {
+			return vow.Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(id)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else if (!records.length) {
+						resolve(null);
+					} else {
+						resolve({
+							uid: records[0].key,
+							first_name: records[0].value.first_name,
+							last_name: records[0].value.last_name
+						});
 					}
-				} else {
-					for (i = Math.max(total - from - 30, 0), stop = Math.max(total - from, 0); i < stop; i++) {
-						output.push(resultSet.rows.item(i));
-					}
-				}
+				});
+			});
+		}
 
-				fnSuccess([output, total]);
-			}, function (tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
+		function countChatMessages() {
+			return vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(dialogId)
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
+				});
+			});
+		}
+
+		function getChatMessages() {
+			return vow.Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(dialogId),
+					direction: sklad.DESC,
+					offset: from,
+					limit: 30
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(records);
+					}
+				});
+			});
+		}
+
+		vow.all({
+			messages: getChatMessages(),
+			total: countChatMessages()
+		}).then(function (res) {
+			var total = res.total;
+			var promises = {};
+			var output = [];
+
+			res.messages.forEach(function (record) {
+				output.push({
+					mid: record.value.mid,
+					title: record.value.title,
+					body: record.value.body,
+					date: record.value.date,
+					status: Number(record.value.read),
+					uid: record.value.uid,
+					tags: record.value.tags,
+					attachments: record.value.attachments
+				});
+
+				if (!promises[record.value.uid] && record.value.uid != userId) {
+					promises[record.value.uid] = getContactById(record.value.uid);
 				}
 			});
+
+			vow.all(promises).then(function (res) {
+				output.forEach(function (message) {
+					if (!res[message.uid]) {
+						return;
+					}
+
+					message.first_name = res[message.uid].first_name;
+					message.last_name = res[message.uid].last_name;
+				});
+
+				fnSuccess([
+					output,
+					total
+				]);
+			}, function (err) {
+				fnFail(err.name + ": " + err.message);
+			});
+		}, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 

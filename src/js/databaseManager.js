@@ -31,7 +31,7 @@ function validateJSONString(data, constr) {
 }
 
 function getMessageFulltext(msgBody) {
-	return msgBody.split('').filter(function (word) {
+	return msgBody.split(' ').filter(function (word) {
 		return word.length >= 3;
 	});
 }
@@ -348,7 +348,7 @@ var DatabaseManager = {
 				return;
 			}
 
-			fnSuccess(data.value);
+			fnSuccess && fnSuccess(data.value);
 		});
 	},
 
@@ -365,7 +365,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function getChatsList(startFrom) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("chats", {
 					index: "last_message",
 					offset: startFrom,
@@ -381,7 +381,7 @@ var DatabaseManager = {
 		}
 
 		function getTotalChats() {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.count("chats", function (err, total) {
 					if (err) {
 						reject(err);
@@ -393,7 +393,7 @@ var DatabaseManager = {
 		}
 
 		function getContactById(id) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(id)
 				}, function (err, records) {
@@ -413,7 +413,7 @@ var DatabaseManager = {
 		}
 
 		function getChatParticipants(record) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_participants",
 					direction: sklad.ASC_UNIQUE,
@@ -454,7 +454,7 @@ var DatabaseManager = {
 		}
 
 		function getChatLastMessage(record) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(record.id),
@@ -474,7 +474,7 @@ var DatabaseManager = {
 		}
 
 		function getChatTotalMessages(record) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(record.id),
@@ -679,7 +679,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function getContactById(id) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(id)
 				}, function (err, records) {
@@ -699,7 +699,7 @@ var DatabaseManager = {
 		}
 
 		function countChatMessages() {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(dialogId)
@@ -714,7 +714,7 @@ var DatabaseManager = {
 		}
 
 		function getChatMessages() {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(dialogId),
@@ -912,7 +912,7 @@ var DatabaseManager = {
 				title: message.title,
 				body: message.body,
 				date: message.date,
-				read: Boolean(record.read_state),
+				read: Boolean(message.read_state),
 				chat: chatId,
 				attachments: validateJSONString(message.attachments, Array),
 				tags: message.tags,
@@ -942,7 +942,7 @@ var DatabaseManager = {
 	actualizeChatDates: function DatabaseManager_actualizeChatDates(userId) {
 		var conn = this._conn[userId];
 
-		return vow.Promise(function (resolve, reject) {
+		return new Promise(function (resolve, reject) {
 			conn.get("messages", {
 				index: "chat_messages",
 				direction: sklad.DESC_UNIQUE
@@ -1144,7 +1144,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function countTagOccurrences(tag) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "tag",
 					range: IDBKeyRange.only(tag)
@@ -1190,7 +1190,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function countTagMessages() {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "tag",
 					range: IDBKeyRange.only(tag)
@@ -1222,7 +1222,7 @@ var DatabaseManager = {
 		}
 
 		function getTagMessages() {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "tag",
 					range: IDBKeyRange.only(tag),
@@ -1343,7 +1343,7 @@ var DatabaseManager = {
 		var range = IDBKeyRange.bound(q, to, false, true);
 
 		function countMessages() {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "fulltext",
 					range: range
@@ -1358,7 +1358,7 @@ var DatabaseManager = {
 		}
 
 		function getMessages() {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "fulltext",
 					range: range,
@@ -1376,7 +1376,7 @@ var DatabaseManager = {
 		}
 
 		function getContactById(record) {
-			return vow.Promise(function (resolve, reject) {
+			return new vow.Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(record.uid)
 				}, function (err, records) {

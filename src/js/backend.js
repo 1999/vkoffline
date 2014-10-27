@@ -1510,7 +1510,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "fetchConversations" :
 					sendAsyncResponse = true;
-					DatabaseManager.getConversations(request.totalShown, sendResponse, function(errMsg) {
+					DatabaseManager.getConversations(request.totalShown, sendResponse, function (errMsg) {
 						sendResponse([[], 0]);
 						LogManager.error(errMsg);
 					});

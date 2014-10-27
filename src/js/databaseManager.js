@@ -401,6 +401,7 @@ var DatabaseManager = {
 				conn.get("chats", {
 					index: "last_message",
 					offset: startFrom,
+					direction: sklad.DESC,
 					limit: 30
 				}, function (err, records) {
 					if (err) {
@@ -425,7 +426,7 @@ var DatabaseManager = {
 		}
 
 		function getContactById(id) {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(id)
 				}, function (err, records) {
@@ -445,7 +446,7 @@ var DatabaseManager = {
 		}
 
 		function getChatParticipants(record) {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_participants",
 					direction: sklad.ASC_UNIQUE,
@@ -466,7 +467,7 @@ var DatabaseManager = {
 							promises.push(getContactById(contact.value.uid));
 						});
 
-						vow.all(promises).then(function (res) {
+						Promise.all(promises).then(function (res) {
 							record.participants = res;
 
 							if (currentUserIsParticipant) {
@@ -486,7 +487,7 @@ var DatabaseManager = {
 		}
 
 		function getChatLastMessage(record) {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(record.id),
@@ -506,7 +507,7 @@ var DatabaseManager = {
 		}
 
 		function getChatTotalMessages(record) {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(record.id),
@@ -535,12 +536,14 @@ var DatabaseManager = {
 					date: record.value.last_message_ts
 				};
 
-				fillDataPromises.push(getChatParticipants(record));
-				fillDataPromises.push(getChatLastMessage(record));
-				fillDataPromises.push(getChatTotalMessages(record));
+				fillDataPromises.push(getChatParticipants(output[record.value.id]));
+				fillDataPromises.push(getChatLastMessage(output[record.value.id]));
+				fillDataPromises.push(getChatTotalMessages(output[record.value.id]));
 			});
 
-			vow.all(fillDataPromises).then(function () {
+			console.log(fillDataPromises);
+			Promise.all(fillDataPromises).then(function () {
+				console.log(1);
 				fnSuccess([
 					_.values(output),
 					res.total

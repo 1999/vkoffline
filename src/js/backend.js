@@ -2265,7 +2265,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				case "searchMail" :
 					sendAsyncResponse = true;
 
-					DatabaseManager.searchMail(request.params, request.value, request.totalShown, function(correspondence, total) {
+					DatabaseManager.searchMail(request.params, request.value, request.totalShown, function (correspondence, total) {
 						sendResponse([correspondence, total, request.value]);
 					}, function(errMsg) {
 						LogManager.error(errMsg);

@@ -31,11 +31,9 @@ function validateJSONString(data, constr) {
 }
 
 function getMessageFulltext(msgBody) {
-	return msgBody.split(' ').filter(function (word) {
+	return msgBody.replace(/<br\s?\/?\s?>/g, " ").split(" ").filter(function (word) {
 		return word.length >= 3;
 	});
-
-	// remove <tags>, !!!, )))
 }
 
 var DatabaseManager = {
@@ -305,21 +303,6 @@ var DatabaseManager = {
 	getContactList: function DatabaseManager_getContactList(outputType, startFrom, fnSuccess, fnFail) {
 		var userId = this._userId;
 		var conn = this._conn[userId];
-		var indexName;
-
-		switch (outputType) {
-			case "alpha":
-				indexName = "name";
-				break;
-
-			case "lastdate":
-				indexName = "last_message";
-				break;
-
-			case "messagesnum":
-				indexName = "messages_num";
-				break;
-		}
 
 		function countContacts() {
 			return new Promise(function (resolve, reject) {
@@ -334,11 +317,32 @@ var DatabaseManager = {
 		}
 
 		function getContacts() {
+			var indexName;
+			var direction;
+
+			switch (outputType) {
+				case "alpha":
+					indexName = "name";
+					direction = sklad.ASC;
+					break;
+
+				case "lastdate":
+					indexName = "last_message";
+					direction = sklad.DESC;
+					break;
+
+				case "messagesnum":
+					indexName = "messages_num";
+					direction = sklad.DESC;
+					break;
+			}
+
 			return new Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					index: indexName,
 					limit: 30,
-					offset: startFrom
+					offset: startFrom,
+					direction: direction
 				}, function (err, data) {
 					if (err) {
 						reject(err);

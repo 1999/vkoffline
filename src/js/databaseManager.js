@@ -34,6 +34,8 @@ function getMessageFulltext(msgBody) {
 	return msgBody.split(' ').filter(function (word) {
 		return word.length >= 3;
 	});
+
+	// remove <tags>, !!!, )))
 }
 
 var DatabaseManager = {
@@ -294,11 +296,15 @@ var DatabaseManager = {
 	/**
 	 * @param {String} outputType - alpha (в алфавитном порядке), lastdate (по дате последнего сообщения), messagesnum (по общему количеству сообщений)
 	 * @param {Integer} startFrom
-	 * @param {Function} fnSuccess принимает {Array} массив объектов-контактов и {Integer} общее количество контактов
-	 * @param {Function} fnFail принимает параметр {String} errorMessage
+	 * @param {Function} fnSuccess принимает:
+	 *     {Array} массив объектов-контактов
+	 *     {Number} общее количество контактов
+	 * @param {Function} fnFail принимает:
+	 *     {String} errorMessage
 	 */
 	getContactList: function DatabaseManager_getContactList(outputType, startFrom, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 		var indexName;
 
 		switch (outputType) {
@@ -315,19 +321,41 @@ var DatabaseManager = {
 				break;
 		}
 
-		this._conn[userId].get("contacts", {
-			index: indexName,
-			limit: 30,
-			offset: startFrom
-		}, function (err, data) {
-			if (err) {
-				fnFail(err.name + ": " + err.message);
-				return;
-			}
+		function countContacts() {
+			return new Promise(function (resolve, reject) {
+				conn.count("contacts", function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
+				});
+			});
+		}
 
-			fnSuccess(data.map(function (msgData) {
-				return msgData.value;
-			}));
+		function getContacts() {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					index: indexName,
+					limit: 30,
+					offset: startFrom
+				}, function (err, data) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(data.map(function (msgData) {
+							return msgData.value;
+						}));
+					}
+				});
+			});
+		}
+
+		Promise.all([
+			getContacts(),
+			countContacts()
+		]).then(fnSuccess, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 

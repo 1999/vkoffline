@@ -399,7 +399,7 @@ var DatabaseManager = {
 				}, function (err, records) {
 					if (err) {
 						reject(err.name + ": " + err.message);
-					else if (!records.length) {
+					} else if (!records.length) {
 						reject("No such contact: " + id);
 					} else {
 						resolve({
@@ -416,7 +416,7 @@ var DatabaseManager = {
 			return vow.Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_participants",
-					direction: sklad.ASC_UNIQUE
+					direction: sklad.ASC_UNIQUE,
 					range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
 				}, function (err, data) {
 					if (err) {
@@ -1319,7 +1319,7 @@ var DatabaseManager = {
 
 		Promise.all([
 			countContacts(),
-			data: searchContacts()
+			searchContacts()
 		]).then(fnSuccess, function (err) {
 			fnFail(err.name + ": " + err.message);
 		});

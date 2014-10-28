@@ -374,6 +374,29 @@ var DatabaseManager = {
 		});
 	},
 
+	getActiveContacts: function DatabaseManager_getActiveContacts() {
+		var userId = this._userId;
+		var conn = this._conn[userId];
+
+		return new Promise(function (resolve, reject) {
+			conn.get("contacts", {
+				index: "messages_num",
+				range: IDBKeyRange.lowerBound(1)
+			}, function (err, records) {
+				if (err) {
+					reject(err.name + ": " + err.message);
+				} else {
+					var output = {};
+					records.forEach(function (record) {
+						output[record.value.uid] = record.value;
+					});
+
+					resolve(output);
+				}
+			});
+		});
+	},
+
 	/**
 	 * @param {Integer} uid
 	 * @param {Function} fnSuccess принимает параметр {Object} контакт

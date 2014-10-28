@@ -149,9 +149,14 @@ var MigrationManager = (function () {
 	}
 
 	function createAlarms() {
-		chrome.alarms.create("actualize", {
+		chrome.alarms.create("actualizeChats", {
 			periodInMinutes: 5,
 			delayInMinutes: 5
+		});
+
+		chrome.alarms.create("actualizeContacts", {
+			periodInMinutes: 60,
+			delayInMinutes: 60
 		});
 	}
 

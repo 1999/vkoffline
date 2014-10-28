@@ -181,9 +181,20 @@ var DatabaseManager = {
 								fulltext: getMessageFulltext(record.body)
 							};
 
+							if (userId == uid || tags.indexOf("inbox") === -1) {
+								return;
+							}
+
+							if (!contacts[userId]) {
+								console.warn("No contact with such id: %s", userId);
+								return;
+							}
+
 							contacts[userId].messages_num += 1;
 							contacts[userId].last_message_ts = Math.max(contacts[userId].last_message_ts, record.date);
 						});
+
+						console.log("Start inserting data with uid %s", uid);
 
 						// insert data
 						that._conn[uid].insert({
@@ -433,7 +444,8 @@ var DatabaseManager = {
 					if (err) {
 						reject(err.name + ": " + err.message);
 					} else if (!records.length) {
-						reject("No such contact: " + id);
+						console.warn("No such contact: " + id);
+						resolve(null);
 					} else {
 						resolve({
 							id: id,
@@ -468,7 +480,7 @@ var DatabaseManager = {
 						});
 
 						Promise.all(promises).then(function (res) {
-							record.participants = res;
+							record.participants = _.compact(res);
 
 							if (currentUserIsParticipant) {
 								record.participants.push({uid: userId});
@@ -476,8 +488,6 @@ var DatabaseManager = {
 
 							resolve();
 						}, function (err) {
-							console.error(err);
-
 							record.participants = [];
 							resolve();
 						});
@@ -541,9 +551,7 @@ var DatabaseManager = {
 				fillDataPromises.push(getChatTotalMessages(output[record.value.id]));
 			});
 
-			console.log(fillDataPromises);
 			Promise.all(fillDataPromises).then(function () {
-				console.log(1);
 				fnSuccess([
 					_.values(output),
 					res.total
@@ -639,9 +647,6 @@ var DatabaseManager = {
 					}
 				});
 			});
-
-
-			// title, date, body, uid
 		}
 
 		function countChatMessages(record) {
@@ -662,7 +667,7 @@ var DatabaseManager = {
 
 		conn.get("messages", {
 			index: "user_chats",
-			range: IDBKeyRange.bound([uid], uid + 1, true, true),
+			range: IDBKeyRange.bound([uid], [uid + 1], true, true),
 			direction: sklad.ASC_UNIQUE
 		}, function (err, records) {
 			if (err) {
@@ -970,11 +975,10 @@ var DatabaseManager = {
 
 	/**
 	 * Actualize chats' dates
-	 *
-	 * @param {String} userId
-	 * @return {Vow.Promise}
+	 * @return {Promise}
 	 */
-	actualizeChatDates: function DatabaseManager_actualizeChatDates(userId) {
+	actualizeChatDates: function DatabaseManager_actualizeChatDates() {
+		var userId = this._userId;
 		var conn = this._conn[userId];
 
 		return new Promise(function (resolve, reject) {
@@ -997,6 +1001,63 @@ var DatabaseManager = {
 
 				conn.upsert({
 					chats: upsertData
+				}, function (err) {
+					if (err) {
+						reject(err.name + ": " + err.message);
+						return;
+					}
+
+					resolve();
+				});
+			});
+		});
+	},
+
+	actualizeContacts: function DatabaseManager_actualizeContacts() {
+		var userId = this._userId;
+		var conn = this._conn[userId];
+
+		return new Promise(function (resolve, reject) {
+			conn.get({
+				messages: null,
+				contacts: null
+			}, function (err, records) {
+				if (err) {
+					reject(err.name + ": " + err.message);
+					return;
+				}
+
+				var contacts = {};
+				records.contacts.forEach(function (contact) {
+					contacts[contact.key] = contact.value;
+
+					contacts[contact.key].last_message_ts = 0;
+					contacts[contact.key].messages_num = 0;
+				});
+
+				records.messages.forEach(function (message) {
+					if (message.value.uid == userId || message.value.tags.indexOf("inbox") === -1) {
+						return;
+					}
+
+					if (!contacts[message.value.uid]) {
+						console.warn("No contact with such id: %s", message.value.uid);
+						return;
+					}
+
+					try {
+						contacts[message.value.uid].last_message_ts = Math.max(contacts[message.value.uid].last_message_ts, message.value.date);
+						contacts[message.value.uid].messages_num += 1;
+					} catch (ex) {
+						console.log(message.value);
+						console.log(contacts[message.value.uid]);
+
+						throw ex;
+					}
+				});
+
+				conn.upsert({
+					contacts: _.values(contacts)
 				}, function (err) {
 					if (err) {
 						reject(err.name + ": " + err.message);

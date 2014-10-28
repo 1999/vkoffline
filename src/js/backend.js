@@ -47,8 +47,13 @@
 			}
 
 			StorageManager.remove("requests");
-		} else if (alarmInfo.name === "actualize") {
+		} else if (alarmInfo.name === "actualizeChats") {
 			DatabaseManager.actualizeChatDates();
+		} else if (alarmInfo.name === "actualizeContacts") {
+			DatabaseManager.actualizeContacts().catch(function (errMsg) {
+				LogManager.error(errMsg);
+				statSend("Custom-Errors", "Database error", errMsg);
+			});
 		}
 	});
 

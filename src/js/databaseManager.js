@@ -1479,7 +1479,7 @@ var DatabaseManager = {
 
 		function getMessages() {
 			return new vow.Promise(function (resolve, reject) {
-				conn.count("messages", {
+				conn.get("messages", {
 					index: "fulltext",
 					range: range,
 					offset: startFrom,
@@ -1543,14 +1543,11 @@ var DatabaseManager = {
 					promises.push(getContactById(message));
 				}
 
-				output.push(record);
+				output.push(message);
 			});
 
 			Promise.all(promises).then(function () {
-				fnSuccess([
-					output,
-					total
-				]);
+				fnSuccess(output, total);
 			}, function (err) {
 				fnFail(err.name + ": " + err.message);
 			});

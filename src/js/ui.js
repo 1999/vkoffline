@@ -2190,6 +2190,9 @@ var AppUI = {
 				if (!value.length)
 					return $$(rightSection.removeClass("loading"), "section[data-mid]").remove();
 
+				if (value.length < 2)
+					return;
+
 				$$(rightSection.addClass("loading"), "section[data-mid]").remove();
 				chrome.runtime.sendMessage({
 					action: "searchMail",

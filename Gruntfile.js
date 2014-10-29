@@ -27,21 +27,12 @@ module.exports = function (grunt) {
 
  	grunt.registerTask('templates', 'Builds mustache Vanilla JS templates', function () {
  		var hogan = require('hogan.js');
- 		var SEPARATOR = "\n\t\t";
-
- 		// очищаем старые шаблоны
-		var templateFileContents = grunt.file.read('src/js/templates.js');
-		var matches = templateFileContents.match(/\/\/\sstart((.|\n)+?)\/\/\send/);
-
-		if (!matches)
-			return grunt.fail.fatal("Templates.js file has been changed manually");
-
-		var tplLines = [];
+ 		var tplLines = [];
 		var dependencies = [];
 		var depsRegex = /{{>\s([\w]+)}}/g;
-		var regex, depsMatches;
+		var depsMatches;
 
-		grunt.file.recurse('templates', function (abspath, rootdir, subdir, filename) {
+ 		grunt.file.recurse('templates', function (abspath, rootdir, subdir, filename) {
 			var tplName = filename.replace(/\.mustache$/, "");
 			var tplFileContents = grunt.file.read(abspath);
 
@@ -61,8 +52,12 @@ module.exports = function (grunt) {
 			tplLines.push(tplName + ": {renderFunc: " + compiledTemplate + ", dependencies: " + JSON.stringify(dependencies) + "}");
 		});
 
-		templateFileContents = templateFileContents.replace(matches[1], SEPARATOR + tplLines.join("," + SEPARATOR) + SEPARATOR);
-		grunt.file.write('src/js/templates.js', templateFileContents);
+		grunt.file.write('src/js/precompiledTemplates.js', [
+			'var PrecompiledTemplates = {',
+			'\n\t',
+			tplLines.join(',\n\t'),
+			'\n};'
+		].join(''));
 
 		grunt.log.ok('Templates file ready');
  	});

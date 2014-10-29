@@ -581,6 +581,8 @@ var DatabaseManager = {
 		var userId = this._userId;
 		var conn = this._conn[userId];
 
+		uid = Number(uid);
+
 		function getContactById(id) {
 			return new Promise(function (resolve, reject) {
 				conn.get("contacts", {

@@ -1532,7 +1532,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getConversationThreadsWithContact" :
 					sendAsyncResponse = true;
-					DatabaseManager.getConversationThreadsWithContact(request.uid, sendResponse, function(errMsg) {
+					DatabaseManager.getConversationThreadsWithContact(request.uid, sendResponse, function (errMsg) {
 						sendResponse([]);
 						LogManager.error(errMsg);
 					});

@@ -75,22 +75,22 @@ function statSend(category, action, optLabel, optValue) {
 	var args = [];
 
 	for (var i = 0, len = Math.min(arguments.length, 4); i < len; i++) {
-        if (i === 3) {
-            if (typeof optValue === "boolean") {
-                optValue = Number(optValue);
-            } else if (typeof optValue !== "number") {
-                optValue = parseInt(optValue, 10) || 0;
-            }
+		if (i === 3) {
+			if (typeof optValue === "boolean") {
+				optValue = Number(optValue);
+			} else if (typeof optValue !== "number") {
+				optValue = parseInt(optValue, 10) || 0;
+			}
 
-            args.push(optValue);
-        } else {
-            if (typeof arguments[i] !== "string") {
-                args.push(JSON.stringify(arguments[i]));
-            } else {
-                args.push(arguments[i]);
-            }
-        }
-    }
+			args.push(optValue);
+		} else {
+			if (typeof arguments[i] !== "string") {
+				args.push(JSON.stringify(arguments[i]));
+			} else {
+				args.push(arguments[i]);
+			}
+		}
+	}
 
 	try {
 		window._gaq.push(["_trackEvent"].concat(args));
@@ -338,7 +338,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 		var updateTokenForUserId = null, // при обновлении токенов нужно запоминать для какого пользователя требовалось обновление
 			syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
-			cachedUIDs = [],
 			uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...}
 
 		var clearSyncingDataCounters = function(userId) {
@@ -351,8 +350,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				syncingData[userId].sent[0] = 0;
 				syncingData[userId].sent[1] = 0;
-
-				cachedUIDs.length = 0;
 			} else {
 				syncingData[userId] = {
 					"contacts" : [0, 0], // [total, current]
@@ -689,64 +686,45 @@ document.addEventListener("DOMContentLoaded", function () {
 		/**
 		 * Запрос к API ВКонтакте за пользователями и последующая запись их в БД
 		 *
-		 * @param {Integer} currentUserId
-		 * @param {Array or Integer} массив UIDs или один UID
-		 * @param {Function} callback функция, в которую передается весь объект-ответ для каждого из UIDs от API ВКонтакте
-		 * @param {Function} callbackFinally итоговая функция, которая вызывается после всех манипуляций с БД
+		 * @param {Number} currentUserId
+		 * @param {Number} uid
+		 * @param {Function} callback функция, в которую передается весь объект-ответ от API ВКонтакте
 		 */
-		var getUserProfile = function(currentUserId, uids, callback, callbackFinally) {
-			var tokenForRequest = AccountsManager.list[currentUserId].token,
-				uidsForRequest = [];
+		function getUserProfile(currentUserId, uid, callback) {
+			var tokenForRequest = AccountsManager.list[currentUserId].token;
 
-			if ((uids instanceof Array) === false) {
-				uids = [uids];
-			}
+			uidsProcessing[currentUserId] = uidsProcessing[currentUserId] || {};
+			callback = callback || _.noop;
 
-			if (uidsProcessing[currentUserId] === undefined) {
-				uidsProcessing[currentUserId] = {};
-			}
-
-			// проверяем UIDs на нахождение в списке обрабатываемых
-			uids.forEach(function(uid) {
-				if (uidsProcessing[currentUserId][uid] !== undefined) {
-					return;
-				}
-
-				uidsForRequest.push(uid);
-			});
-
-			if (uidsForRequest.length === 0) {
-				if (typeof callbackFinally === "function") {
-					callbackFinally();
-				}
-
+			// проверяем uid на нахождение в списке обрабатываемых
+			if (uidsProcessing[currentUserId][uid]) {
 				return;
 			}
 
 			ReqManager.apiMethod("users.get", {
-				"uids" : uidsForRequest.join(","),
-				"fields" : "first_name,last_name,sex,domain,bdate,photo,contacts",
-				"access_token" : tokenForRequest
-			}, function(data) {
+				uids: String(uid),
+				fields: "first_name,last_name,sex,domain,bdate,photo,contacts",
+				access_token: tokenForRequest
+			}, function (data) {
 				// записываем данные друзей в БД и скачиваем их аватарки
-				updateUsersData(currentUserId, data.response, function(userData) {
+				updateUsersData(currentUserId, data.response).then(function (users) {
+					var userData = users[0];
+
 					// удаляем из списка обрабатываемых
 					delete uidsProcessing[currentUserId][userData.uid];
 
-					if (typeof callback === "function") {
-						callback(userData);
-					}
-				}, callbackFinally);
-			}, function(errCode, errData) {
+					callback(userData);
+				});
+			}, function (errCode, errData) {
 				switch (errCode) {
 					case ReqManager.ABORT :
 					case ReqManager.ACCESS_DENIED :
 						return;
 				}
 
-				window.setTimeout(getUserProfile, 5*1000, currentUserId, uids, callback, callbackFinally);
+				window.setTimeout(getUserProfile, 5*1000, currentUserId, uid, callback);
 			});
-		};
+		}
 
 		/**
 		 * Синхронизация списка друзей
@@ -826,79 +804,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				syncingData[currentUserId].contacts[0] += data.response.length;
 
-				// кэшируем ID
-				for (var i = 0; i < data.response.length; i++) {
-					if (cachedUIDs.indexOf(data.response[i].uid) === -1) {
-						cachedUIDs.push(data.response[i].uid);
-					}
-				}
-
 				// записываем данные друзей в БД и скачиваем их аватарки
-				updateUsersData(currentUserId, data.response, function (userDoc) {
-					var bDate, i;
-
-					// удаляем из списка обрабатываемых
-					delete uidsProcessing[currentUserId][userDoc.uid];
-
-					syncingData[currentUserId].contacts[1] += 1;
-					chrome.runtime.sendMessage({
-						action: "syncProgress",
-						userId: currentUserId,
-						type: "contacts",
-						total: syncingData[currentUserId].contacts[0],
-						current: syncingData[currentUserId].contacts[1]
-					});
-
-					if (SettingsManager.ShowBirthdayNotifications === 0)
-						return;
-
-					// показываем уведомление, если у кого-то из друзей ДР
-					if (userDoc.bdate === undefined || userDoc.bdate.length === 0)
-						return;
-
-					// разбиваем и преобразуем в числа
-					bDate = userDoc.bdate.split(".");
-					for (i = 0; i < bDate.length; i++)
-						bDate[i] = parseInt(bDate[i], 10);
-
-					if (bDate[0] !== nowDay || bDate[1] !== nowMonth)
-						return;
-
-					// показываем уведомление о ДР
-					var i18nBirthDay = chrome.i18n.getMessage("birthday").split("|"),
-						i18nYears = chrome.i18n.getMessage("years").split("|"),
-						hisHerMatches = i18nBirthDay[0].match(/([^\s]+)-([^\s]+)/),
-						msg, yoNow, notification;
-
-					userDoc.sex = userDoc.sex || 0;
-					switch (userDoc.sex) {
-						case 1 : // female
-							msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[2]) + "!";
-							break;
-
-						case 2 : // male
-							msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[1]) + "!";
-							break;
-
-						default : // non-specified
-							msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[1] + " (" + hisHerMatches[2] + ")") + "!";
-					}
-
-					if (bDate.length === 3) {
-						yoNow = nowYear - bDate[2];
-						msg += " (" + i18nBirthDay[1].replace("%years%", yoNow + " " + Utils.string.plural(yoNow, i18nYears)) + ")";
-					}
-
-					if (CacheManager.avatars[userDoc.uid] !== undefined && CacheManager.avatars[userDoc.uid].length) {
-						showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
-					} else {
-						loadAvatar(userDoc.uid, function() {
-							showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
-						}, function() {
-							showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, App.resolveURL("pic/question_th.gif"));
-						});
-					}
-
+				updateUsersData(currentUserId, data.response).then(function (users) {
 					function showBirthdayNotification(title, message, avatar) {
 						showChromeNotification({
 							title: title,
@@ -908,9 +815,75 @@ document.addEventListener("DOMContentLoaded", function () {
 							onclick: focusAppTab
 						});
 					}
-				}, function () {
-					var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null),
-						sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
+
+					users.forEach(function (userDoc) {
+						var bDate, i;
+
+						// удаляем из списка обрабатываемых
+						delete uidsProcessing[currentUserId][userDoc.uid];
+
+						syncingData[currentUserId].contacts[1] += 1;
+						chrome.runtime.sendMessage({
+							action: "syncProgress",
+							userId: currentUserId,
+							type: "contacts",
+							total: syncingData[currentUserId].contacts[0],
+							current: syncingData[currentUserId].contacts[1]
+						});
+
+						if (SettingsManager.ShowBirthdayNotifications === 0)
+							return;
+
+						// показываем уведомление, если у кого-то из друзей ДР
+						if (userDoc.bdate === undefined || userDoc.bdate.length === 0)
+							return;
+
+						// разбиваем и преобразуем в числа
+						bDate = userDoc.bdate.split(".");
+						for (i = 0; i < bDate.length; i++)
+							bDate[i] = parseInt(bDate[i], 10);
+
+						if (bDate[0] !== nowDay || bDate[1] !== nowMonth)
+							return;
+
+						// показываем уведомление о ДР
+						var i18nBirthDay = chrome.i18n.getMessage("birthday").split("|"),
+							i18nYears = chrome.i18n.getMessage("years").split("|"),
+							hisHerMatches = i18nBirthDay[0].match(/([^\s]+)-([^\s]+)/),
+							msg, yoNow, notification;
+
+						userDoc.sex = userDoc.sex || 0;
+						switch (userDoc.sex) {
+							case 1 : // female
+								msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[2]) + "!";
+								break;
+
+							case 2 : // male
+								msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[1]) + "!";
+								break;
+
+							default : // non-specified
+								msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[1] + " (" + hisHerMatches[2] + ")") + "!";
+						}
+
+						if (bDate.length === 3) {
+							yoNow = nowYear - bDate[2];
+							msg += " (" + i18nBirthDay[1].replace("%years%", yoNow + " " + Utils.string.plural(yoNow, i18nYears)) + ")";
+						}
+
+						if (CacheManager.avatars[userDoc.uid] !== undefined && CacheManager.avatars[userDoc.uid].length) {
+							showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
+						} else {
+							loadAvatar(userDoc.uid, function() {
+								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
+							}, function() {
+								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, App.resolveURL("pic/question_th.gif"));
+							});
+						}
+					});
+
+					var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
+					var sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
 
 					friendsSyncTimes[currentUserId] = Date.now();
 					StorageManager.set("friends_sync_time", friendsSyncTimes);
@@ -924,7 +897,10 @@ document.addEventListener("DOMContentLoaded", function () {
 							// сбрасываем счетчик синхронизации
 							clearSyncingDataCounters(currentUserId);
 
-							chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
+							chrome.runtime.sendMessage({
+								action: "ui",
+								which: "user"
+							});
 						}
 					}
 
@@ -946,55 +922,61 @@ document.addEventListener("DOMContentLoaded", function () {
 		/**
 		 * Функция-обработчик, которая запускается в методах friends.get/users.get, поскольку оба метода возвращают примерно
 		 * одинаковый ответ и имеют общую логику записи данных в БД
+		 *
+		 * @param {Number} currentUserId
+		 * @param {Array} users
+		 * @return {Promise} [description]
 		 */
-		var updateUsersData = function (currentUserId, userObjectsArray, callback, callbackFinally) {
-			var dataToReplace = [];
+		function updateUsersData(currentUserId, users) {
+			return new Promise(function (resolve, reject) {
+				var dataToReplace = [];
+				uidsProcessing[currentUserId] = uidsProcessing[currentUserId] || {};
 
-			if (!uidsProcessing[currentUserId])
-				uidsProcessing[currentUserId] = {};
+				users.forEach(function (userData) {
+					// добавляем uid в список обрабатываемых
+					uidsProcessing[currentUserId][userData.uid] = true;
 
-			userObjectsArray.forEach(function (userData) {
-				// добавляем UID в список обрабатываемых
-				uidsProcessing[currentUserId][userData.uid] = true;
-
-				// скачиваем аватарку
-				if (fsLink) {
-					fetchPhoto(userData.photo, function (blob) {
-						fsLink.root.getFile(userData.uid + "_th.jpg", {create: true}, function(fileEntry) {
-							fileEntry.createWriter(function(fileWriter) {
-								fileWriter.write(blob);
-							}, function(err) {
+					// скачиваем аватарку
+					if (fsLink) {
+						fetchPhoto(userData.photo, function (blob) {
+							fsLink.root.getFile(userData.uid + "_th.jpg", {create: true}, function(fileEntry) {
+								fileEntry.createWriter(function (fileWriter) {
+									fileWriter.write(blob);
+								}, function (err) {
+									LogManager.warn(err.message);
+								});
+							}, function (err) {
 								LogManager.warn(err.message);
 							});
-						}, function(err) {
-							LogManager.warn(err.message);
 						});
-					});
+					}
+
+					// очищаем закэшированную аватарку
+					delete CacheManager.avatars[userData.uid];
+
+					// обновляем ФИО пользователя
+					if (currentUserId === userData.uid) {
+						AccountsManager.setFio(currentUserId, userData.first_name + " " + userData.last_name);
+					}
+
+					dataToReplace.push([userData.uid, userData.first_name, userData.last_name, userData]);
+				});
+
+				if (!dataToReplace.length) {
+					resolve([]);
+					return;
 				}
 
-				// очищаем закэшированную аватарку
-				delete CacheManager.avatars[userData.uid];
+				DatabaseManager.replaceContacts(currentUserId, dataToReplace).then(resolve, function (err) {
+					var errMessage = err.name + ": " + err.message;
 
-				// обновляем ФИО пользователя
-				if (currentUserId === userData.uid)
-					AccountsManager.setFio(currentUserId, userData.first_name + " " + userData.last_name);
+					LogManager.error(errMessage);
+					statSend("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
 
-				dataToReplace.push([userData.uid, userData.first_name, userData.last_name, userData]);
+					reject();
+				});
 			});
-
-			if (dataToReplace.length === 0) {
-				if (typeof callbackFinally === "function") {
-					callbackFinally();
-				}
-
-				return;
-			}
-
-			DatabaseManager.replaceContacts(currentUserId, dataToReplace, callback, function(uid, errMessage) {
-				LogManager.error(errMessage);
-				statSend("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
-			}, callbackFinally);
-		};
+		}
 
 		/**
 		 * Особенность mailSync заключается в том, что она должна запускаться редко и из startUserSession
@@ -1095,9 +1077,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						msgData.tags.push('attachments');
 
 					// проверяем существует ли пользователь
-					if (uidsProcessing[currentUserId][msgData.uid] === undefined && cachedUIDs.indexOf(msgData.uid) === -1) {
-						cachedUIDs.push(msgData.uid);
-
+					if (!uidsProcessing[currentUserId][msgData.uid]) {
 						DatabaseManager.getContactById(currentUserId, msgData.uid, null, function (err) {
 							getUserProfile(currentUserId, msgData.uid);
 						});
@@ -1152,9 +1132,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			// сбрасываем все XHR-запросы
 			ReqManager.abortAll();
-
-			// сбрасываем закэшированные ID контактов
-			cachedUIDs.length = 0;
 
 			// инициализация кэша URL аватарок
 			CacheManager.init(AccountsManager.currentUserId, "avatars");

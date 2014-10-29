@@ -374,29 +374,6 @@ var DatabaseManager = {
 		});
 	},
 
-	getActiveContacts: function DatabaseManager_getActiveContacts() {
-		var userId = this._userId;
-		var conn = this._conn[userId];
-
-		return new Promise(function (resolve, reject) {
-			conn.get("contacts", {
-				index: "messages_num",
-				range: IDBKeyRange.lowerBound(1)
-			}, function (err, records) {
-				if (err) {
-					reject(err.name + ": " + err.message);
-				} else {
-					var output = {};
-					records.forEach(function (record) {
-						output[record.value.uid] = record.value;
-					});
-
-					resolve(output);
-				}
-			});
-		});
-	},
-
 	/**
 	 * @param {Integer} uid
 	 * @param {Function} fnSuccess принимает параметр {Object} контакт
@@ -869,76 +846,84 @@ var DatabaseManager = {
 	/**
 	 * Внесение и обновление контактов
 	 *
+	 * @param {Number} userId
 	 * @param {Array} data массив из массивов вида [uid, firstName, lastName, otherData, oldNames, notes]
-	 * @param {Function} fnSuccess (optional) принимает {Object} данные пользователя
-	 * @param {Function} fnFail (optional) принимает {Integer} UID и {String} текст ошибки
-	 * @param {Function} fnAfterwards (optional)
+	 * @return {Promise}
 	 */
-	replaceContacts: function DatabaseManager_replaceContacts(userId, data, fnSuccess, fnFail, fnAfterwards) {
-		var that = this;
-		var callbacksAreFunctions = [(typeof fnSuccess === "function"), (typeof fnFail === "function"), (typeof fnAfterwards === "function")];
-		var executedStatements = 0;
+	replaceContacts: function DatabaseManager_replaceContacts(userId, data) {
+		var conn = this._conn[userId];
 
-		function fn() {
-			executedStatements += 1;
-			if (executedStatements === data.length && callbacksAreFunctions[2]) {
-				fnAfterwards();
-			}
-		};
+		return new Promise(function (resolve, reject) {
+			var searchOpts = {};
+			var uids = data.map(function (userData) {
+				return Number(userData.uid);
+			});
 
-		// it would be faster to insert all contacts using one transaction
-		// but current UI should be updated after each contact is inserted
-		// FIXME: should be changed afterwards
-		data.forEach(function (userData) {
-			var otherData = userData[3];
-			var uid = Number(userData[0]);
-
-			var contact = {
-				uid: uid,
-				first_name: userData[1],
-				last_name: userData[2],
-				notes: "",
-				last_message_ts: 0,
-				messages_num: 0,
-				fulltext: [
-					userData[1],
-					userData[2],
-					uid
-				]
-			};
-
-			if (otherData.photo) {
-				contact.photo = otherData.photo;
+			if (uids.length > 1) {
+				searchOpts.range = IDBKeyRange.only(uids[0]);
+			} else {
+				searchOpts.index = "messages_num";
+				searchOpts.range = IDBKeyRange.lowerBound(1);
 			}
 
-			if (otherData.bdate) {
-				contact.bdate = otherData.bdate;
-			}
-
-			if (otherData.sex) {
-				contact.sex = Number(otherData.sex) || 0;
-			}
-
-			if (otherData.domain) {
-				contact.domain = otherData.domain;
-				contact.fulltext.push(otherData.domain);
-			}
-
-			that._conn[userId].upsert("contacts", contact, function (err, upsertedKey) {
+			conn.get("contacts", searchOpts, function (err, records) {
 				if (err) {
-					if (callbacksAreFunctions[1]) {
-						fnFail(userData[0], err.name + ": " + err.message);
-					}
+					reject(err);
+				} else {
+					var currentContacts = {};
+					records.forEach(function (record) {
+						if (uids.indexOf(record.value.uid) !== -1) {
+							currentContacts[record.value.uid] = record.value;
+						}
+					});
 
-					fn();
-					return;
+					var upsertContacts = data.map(function (userData) {
+						var otherData = userData[3];
+						var uid = Number(userData[0]);
+
+						var contact = {
+							uid: uid,
+							first_name: userData[1],
+							last_name: userData[2],
+							notes: "",
+							fulltext: [
+								userData[1],
+								userData[2],
+								uid
+							]
+						};
+
+						if (otherData.photo) {
+							contact.photo = otherData.photo;
+						}
+
+						if (otherData.bdate) {
+							contact.bdate = otherData.bdate;
+						}
+
+						if (otherData.sex) {
+							contact.sex = Number(otherData.sex) || 0;
+						}
+
+						if (otherData.domain) {
+							contact.domain = otherData.domain;
+							contact.fulltext.push(otherData.domain);
+						}
+
+						contact.last_message_ts = currentContacts[uid] ? currentContacts[uid].last_message_ts : 0;
+						contact.messages_num = currentContacts[uid] ? currentContacts[uid].messages_num : 0;
+
+						return contact;
+					});
+
+					conn.upsert("contacts", upsertContacts, function (err) {
+						if (err) {
+							reject(err);
+						} else {
+							resolve(upsertContacts);
+						}
+					});
 				}
-
-				if (callbacksAreFunctions[0]) {
-					fnSuccess(contact);
-				}
-
-				fn();
 			});
 		});
 	},

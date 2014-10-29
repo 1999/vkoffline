@@ -1321,7 +1321,7 @@ var DatabaseManager = {
 		function getContactData(message) {
 			return new Promise(function (resolve, reject) {
 				conn.get("contacts", {
-					range: IDBKeyRange.only(uid)
+					range: IDBKeyRange.only(message.uid)
 				}, function (err, records) {
 					if (err) {
 						reject(err);
@@ -1340,7 +1340,9 @@ var DatabaseManager = {
 				conn.get("messages", {
 					index: "tag",
 					range: IDBKeyRange.only(tag),
-					direction: sklad.DESC
+					direction: sklad.DESC,
+					offset: startFrom,
+					limit: 20
 				}, function (err, records) {
 					if (err) {
 						reject(err);
@@ -1364,7 +1366,10 @@ var DatabaseManager = {
 							promises.push(getContactData(message));
 						});
 
+						console.log(output);
+
 						Promise.all(promises).then(function () {
+							console.log(output);
 							resolve(output);
 						}, reject);
 					}

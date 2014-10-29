@@ -2209,7 +2209,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getMessagesByTagName" :
 					sendAsyncResponse = true;
-					DatabaseManager.getMessagesByType(request.tag, request.totalShown, sendResponse, function(errMsg) {
+					DatabaseManager.getMessagesByType(request.tag, request.totalShown || 0, sendResponse, function(errMsg) {
 						LogManager.error(errMsg);
 						statSend("Custom-Errors", "Database error", errMsg);
 

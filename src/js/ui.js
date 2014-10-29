@@ -450,7 +450,7 @@ document.addEventListener("click", function (e) {
 		},
 		// открытие сообщений определенного типа
 		"#content > section.left.manage-mail li[data-tag]": function (target, evt) {
-			var tagId = parseInt(target.data("tid"), 10);
+			var tag = target.data("tag");
 			var containerSection = target.closestParent("#content > section.left");
 
 			$$(containerSection, "li[data-tag]").each(function () {
@@ -470,7 +470,7 @@ document.addEventListener("click", function (e) {
 						{"type" : "icon", "name" : "search"}
 					]
 				}
-			}, [tagId]);
+			}, [tag]);
 		}
 	};
 
@@ -1993,7 +1993,7 @@ var AppUI = {
 								{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
 							]
 						}
-					}, [{tag: tagId}]);
+					}, [{tag: tag}]);
 				});
 
 				rightSection.bind("scroll", function () {
@@ -2031,18 +2031,19 @@ var AppUI = {
 				});
 
 				var sectionsHTML = Templates.render("halfSections", {sections: halfSections});
-				var tagIdTmp = rightSection.data("tagId");
-				rightSection.removeData().data("tagId", tagIdTmp).removeClass().addClass("right", "thread-container").append(sectionsHTML);
+				var tagTmp = rightSection.data("tag");
+				rightSection.removeData().data("tag", tagTmp).removeClass().addClass("right", "thread-container").append(sectionsHTML);
 
 				// добавляем при необходимости кнопку "еще"
 				var totalShown = $$(rightSection, "section[data-mid]").length + messagesData.length;
+
 				if (totalShown < total) {
 					var more = $("<section>").addClass("more").text(Utils.string.ucfirst(chrome.i18n.getMessage("more"))).bind("click", function () {
 						if (this.hasClass("loading"))
 							return;
 
 						this.html("&nbsp;").addClass("loading");
-						self.view("messagesOfType", {}, [tagId, totalShown]);
+						self.view("messagesOfType", {}, [tag, totalShown]);
 					});
 
 					rightSection.append(more);

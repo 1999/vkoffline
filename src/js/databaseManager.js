@@ -31,7 +31,7 @@ function validateJSONString(data, constr) {
 }
 
 function getMessageFulltext(msgBody) {
-	return msgBody.replace(/<br\s?\/?\s?>/g, " ").split(" ").filter(function (word) {
+	return msgBody.replace(/<br\s?\/?\s?>/g, " ").toLowerCase().split(" ").filter(function (word) {
 		return word.length >= 3;
 	});
 }
@@ -127,14 +127,14 @@ var DatabaseManager = {
 								last_message_ts: 0,
 								messages_num: 0,
 								fulltext: [
-									record.first_name,
-									record.last_name,
+									record.first_name.toLowerCase(),
+									record.last_name.toLowerCase(),
 									uid
 								]
 							};
 
 							if (otherData.domain) {
-								contacts[record.uid].fulltext.push(otherData.domain);
+								contacts[record.uid].fulltext.push(otherData.domain.toLowerCase());
 							}
 
 							["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
@@ -895,8 +895,8 @@ var DatabaseManager = {
 							last_name: userData[2],
 							notes: "",
 							fulltext: [
-								userData[1],
-								userData[2],
+								userData[1].toLowerCase(),
+								userData[2].toLowerCase(),
 								uid
 							]
 						};
@@ -915,7 +915,7 @@ var DatabaseManager = {
 
 						if (otherData.domain) {
 							contact.domain = otherData.domain;
-							contact.fulltext.push(otherData.domain);
+							contact.fulltext.push(otherData.domain.toLowerCase());
 						}
 
 						contact.last_message_ts = currentContacts[uid] ? currentContacts[uid].last_message_ts : 0;
@@ -1390,6 +1390,8 @@ var DatabaseManager = {
 	 *     {String} errorMessage
 	 */
 	searchContact: function DatabaseManager_searchContact(q, startFrom, fnSuccess, fnFail) {
+		q = q.toLowerCase();
+
 		var userId = this._userId;
 		var conn = this._conn[userId];
 		var to = q.substr(0, q.length - 1) + String.fromCharCode(q.charCodeAt(q.length - 1) + 1);
@@ -1430,9 +1432,11 @@ var DatabaseManager = {
 		}
 
 		Promise.all([
-			countContacts(),
-			searchContacts()
-		]).then(fnSuccess, function (err) {
+			searchContacts(),
+			countContacts()
+		]).then(function (res) {
+			fnSuccess.apply(null, res);
+		}, function (err) {
 			fnFail(err.name + ": " + err.message);
 		});
 	},
@@ -1449,6 +1453,8 @@ var DatabaseManager = {
 	 *     {String} текст ошибки
 	 */
 	searchMail: function DatabaseManager_searchMail(params, q, startFrom, fnSuccess, fnFail) {
+		q = q.toLowerCase();
+
 		var userId = this._userId;
 		var conn = this._conn[userId];
 		var to = q.substr(0, q.length - 1) + String.fromCharCode(q.charCodeAt(q.length - 1) + 1);

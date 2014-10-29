@@ -383,15 +383,23 @@ var DatabaseManager = {
 		var userId = currentUserId;
 		var searchUserId = Number(uid);
 
+		fnSuccess = fnSuccess || _.noop;
+		fnFail = fnFail || _.noop;
+
 		this._conn[userId].get("contacts", {
 			range: IDBKeyRange.only(searchUserId)
-		}, function (err, data) {
+		}, function (err, records) {
 			if (err) {
 				fnFail(err.name + ": " + err.message);
 				return;
 			}
 
-			fnSuccess && fnSuccess(data.value);
+			if (!records.length) {
+				fnFail(null);
+				return;
+			}
+
+			fnSuccess(records[0].value);
 		});
 	},
 
@@ -536,24 +544,24 @@ var DatabaseManager = {
 			chats: getChatsList(startFrom),
 			total: getTotalChats()
 		}).then(function (res) {
-			var output = {};
 			var fillDataPromises = [];
-
-			res.chats.forEach(function (record) {
-				output[record.value.id] = {
+			var output = res.chats.map(function (record) {
+				var chatData = {
 					id: record.value.id,
 					title: record.value.title,
 					date: record.value.last_message_ts
 				};
 
-				fillDataPromises.push(getChatParticipants(output[record.value.id]));
-				fillDataPromises.push(getChatLastMessage(output[record.value.id]));
-				fillDataPromises.push(getChatTotalMessages(output[record.value.id]));
+				fillDataPromises.push(getChatParticipants(chatData));
+				fillDataPromises.push(getChatLastMessage(chatData));
+				fillDataPromises.push(getChatTotalMessages(chatData));
+
+				return chatData;
 			});
 
 			Promise.all(fillDataPromises).then(function () {
 				fnSuccess([
-					_.values(output),
+					output,
 					res.total
 				]);
 			}, function (err) {
@@ -779,7 +787,7 @@ var DatabaseManager = {
 			var promises = {};
 			var output = [];
 
-			res.messages.forEach(function (record) {
+			res.messages.reverse().forEach(function (record) {
 				output.push({
 					mid: record.value.mid,
 					title: record.value.title,

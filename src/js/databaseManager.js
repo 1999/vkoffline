@@ -836,7 +836,7 @@ var DatabaseManager = {
 	getMessageById: function DatabaseManager_getMessageById(mid, fnSuccess, fnFail) {
 		var userId = this._userId;
 
-		this._conn[userId].get(mid, {
+		this._conn[userId].get("messages", {
 			range: IDBKeyRange.only(mid)
 		}, function (err, records) {
 			if (err) {
@@ -1098,10 +1098,15 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		conn.get("messages", {
-			range: IDBKeyRange.only(msgId)
+			range: IDBKeyRange.only(Number(msgId))
 		}, function (err, records) {
 			if (err) {
 				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnSuccess && fnSuccess();
 				return;
 			}
 
@@ -1129,10 +1134,15 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		conn.get("messages", {
-			range: IDBKeyRange.only(msgId)
+			range: IDBKeyRange.only(Number(msgId))
 		}, function (err, records) {
 			if (err) {
 				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnSuccess && fnSuccess();
 				return;
 			}
 
@@ -1162,7 +1172,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		conn.get("messages", {
-			range: IDBKeyRange.only(msgId)
+			range: IDBKeyRange.only(Number(msgId))
 		}, function (err, records) {
 			if (err) {
 				fnFail(true, err.name + ": " + err.message);
@@ -1204,7 +1214,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		conn.get("messages", {
-			range: IDBKeyRange.only(msgId)
+			range: IDBKeyRange.only(Number(msgId))
 		}, function (err, records) {
 			if (err) {
 				fnFail(true, err.name + ": " + err.message);
@@ -1245,7 +1255,7 @@ var DatabaseManager = {
 		var userId = this._userId;
 
 		// проблема здесь - рассинхронизация messages и chats.last_message_ts
-		this._conn[userId].delete("messages", msgId, fn);
+		this._conn[userId].delete("messages", Number(msgId), fn);
 	},
 
 	/**

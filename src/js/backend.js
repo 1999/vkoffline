@@ -1512,7 +1512,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "getMessageInfo" :
 					sendAsyncResponse = true;
-					DatabaseManager.getMessageById(request.mid, sendResponse, function(isDatabaseError, errMsg) {
+					DatabaseManager.getMessageById(Number(request.mid), sendResponse, function (isDatabaseError, errMsg) {
 						sendResponse(undefined);
 
 						if (isDatabaseError) {

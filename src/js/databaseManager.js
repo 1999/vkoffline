@@ -970,8 +970,7 @@ var DatabaseManager = {
 				};
 			}
 
-			// FIXME: support important messages from VK
-			messagesToInsert.push({
+			var msgData = {
 				mid: Number(message.mid),
 				uid: Number(message.uid),
 				title: message.title,
@@ -983,7 +982,17 @@ var DatabaseManager = {
 				tags: message.tags,
 				has_emoji: Boolean(message.emoji),
 				fulltext: getMessageFulltext(message.body)
-			});
+			};
+
+			if (message.important) {
+				msgData.tags.push("important");
+			}
+
+			if (message.deleted) {
+				msgData.tags.push("trash");
+			}
+
+			messagesToInsert.push(msgData);
 		});
 
 		this._conn[currentUserId].upsert({

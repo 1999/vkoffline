@@ -66,8 +66,8 @@ var StorageManager = {
 	},
 
 	remove: function(key) {
-		// FIXME
-		localStorage.removeItem(key);
+		delete this._data[key];
+		chrome.storage.local.remove(key, _.noop);
 	},
 
 	_data: {}

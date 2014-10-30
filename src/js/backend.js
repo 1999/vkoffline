@@ -460,7 +460,15 @@ document.addEventListener("DOMContentLoaded", function () {
 								// в идеале нужно менять соответствующий индекс массива "messagesGot" для корректной работы mailSync
 								// В то же время и для исходящих, и для входящих сообщений data[2] === 128, и чтобы определить входящее сообщение или нет, необходимо делать доп. запрос.
 								// За это время может произойти ошибка duplicate key
-							} else {
+							} else if (data[2] & 8) {
+								// сообщение отмечено как важное
+								DatabaseManager.markMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
+									if (isDatabaseError) {
+										LogManager.error(errMsg);
+										statSend("Custom-Errors", "Database error", errMsg);
+									}
+								});
+							} else if (data[2] & 1) {
 								DatabaseManager.markAsUnread(data[1], function () {
 									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
 								}, function (errMsg) {
@@ -472,12 +480,30 @@ document.addEventListener("DOMContentLoaded", function () {
 							break;
 
 						case 3 :
-							DatabaseManager.markAsRead(data[1], function () {
-								chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
-							}, function (errMsg) {
-								LogManager.error(errMsg);
-								statSend("Custom-Errors", "Database error", errMsg);
-							});
+							if (data[2] & 128) {
+								// сообщение восстановлено на сайте
+								DatabaseManager.unmarkMessageWithTag(data[1], "trash", _.noop, function (isDatabaseError, errMsg) {
+									if (isDatabaseError) {
+										LogManager.error(errMsg);
+										statSend("Custom-Errors", "Database error", errMsg);
+									}
+								});
+							} else if (data[2] & 8) {
+								// сообщение больше не важное
+								DatabaseManager.unmarkMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
+									if (isDatabaseError) {
+										LogManager.error(errMsg);
+										statSend("Custom-Errors", "Database error", errMsg);
+									}
+								});
+							} else if (data[2] & 1) {
+								DatabaseManager.markAsRead(data[1], function () {
+									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
+								}, function (errMsg) {
+									LogManager.error(errMsg);
+									statSend("Custom-Errors", "Database error", errMsg);
+								});
+							}
 
 							break;
 
@@ -1044,7 +1070,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				}
 
 				// отсекаем общий счетчик сообщений
-				data.response.forEach(function(msgData, index) {
+				data.response.forEach(function (msgData, index) {
 					var coords;
 
 					// пропускаем общий счетчик

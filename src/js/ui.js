@@ -467,7 +467,7 @@ document.addEventListener("click", function (e) {
 					right: [
 						{"type" : "text", "name" : "..."},
 						{"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
-						{"type" : "icon", "name" : "search"}
+						// {"type" : "icon", "name" : "search"}
 					]
 				}
 			}, [tag]);
@@ -1953,7 +1953,7 @@ var AppUI = {
 			var self = this;
 			var textHeader = $("#content > header.right > span.text");
 			var listHeader = $("#content > header.right > span.icon.list");
-			var searchHeader = $("#content > header.right > span.icon.search");
+			// var searchHeader = $("#content > header.right > span.icon.search");
 			var rightSection = $("#content > section.right").data("tag", tag);
 			var tagTitle;
 
@@ -1984,17 +1984,17 @@ var AppUI = {
 					});
 				});
 
-				searchHeader.bind("click", function () {
-					self.view("searchMail", {
-						uiType: "partial",
-						headers: {
-							right: [
-								{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
-								{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
-							]
-						}
-					}, [{tag: tag}]);
-				});
+				// searchHeader.bind("click", function () {
+				// 	self.view("searchMail", {
+				// 		uiType: "partial",
+				// 		headers: {
+				// 			right: [
+				// 				{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
+				// 				{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
+				// 			]
+				// 		}
+				// 	}, [{tag: tag}]);
+				// });
 
 				rightSection.bind("scroll", function () {
 					var moreSection = $(this, "section.more");
@@ -2151,7 +2151,7 @@ var AppUI = {
 								"right" : [
 									{"type" : "text", "name" : "..."},
 									{"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
-									{"type" : "icon", "name" : "search"}
+									// {"type" : "icon", "name" : "search"}
 								]
 							}
 						}, [params.tag]);

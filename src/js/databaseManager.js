@@ -926,7 +926,9 @@ var DatabaseManager = {
 						return contact;
 					});
 
-					conn.upsert("contacts", upsertContacts, function (err) {
+					conn.upsert({
+						contacts: upsertContacts
+					}, function (err) {
 						if (err) {
 							reject(err);
 						} else {
@@ -1063,15 +1065,8 @@ var DatabaseManager = {
 						return;
 					}
 
-					try {
-						contacts[message.value.uid].last_message_ts = Math.max(contacts[message.value.uid].last_message_ts, message.value.date);
-						contacts[message.value.uid].messages_num += 1;
-					} catch (ex) {
-						console.log(message.value);
-						console.log(contacts[message.value.uid]);
-
-						throw ex;
-					}
+					contacts[message.value.uid].last_message_ts = Math.max(contacts[message.value.uid].last_message_ts, message.value.date);
+					contacts[message.value.uid].messages_num += 1;
 				});
 
 				conn.upsert({
@@ -1376,10 +1371,7 @@ var DatabaseManager = {
 							promises.push(getContactData(message));
 						});
 
-						console.log(output);
-
 						Promise.all(promises).then(function () {
-							console.log(output);
 							resolve(output);
 						}, reject);
 					}

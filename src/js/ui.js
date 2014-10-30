@@ -55,7 +55,7 @@ document.addEventListener("click", function (e) {
 					right: [
 						{"type" : "text", "name" : subject},
 						{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("backToDialogsList")},
-						{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
+						// {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
 						{"type" : "icon", "name" : "print", "title" : chrome.i18n.getMessage("printCorrespondence")}
 					]
 				}
@@ -1759,17 +1759,17 @@ var AppUI = {
 					});
 				});
 
-				rightHeaderSearch.bind("click", function() {
-					self.view("searchMail", {
-						"uiType" : "partial",
-						"headers" : {
-							"right" : [
-								{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
-								{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
-							]
-						}
-					}, [{"id" : dialogId, "chatName" : rightHeaderText}]);
-				});
+				// rightHeaderSearch.bind("click", function() {
+				// 	self.view("searchMail", {
+				// 		"uiType" : "partial",
+				// 		"headers" : {
+				// 			"right" : [
+				// 				{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
+				// 				{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
+				// 			]
+				// 		}
+				// 	}, [{"id" : dialogId, "chatName" : rightHeaderText}]);
+				// });
 
 				if (this.prevShownView[0] === "showContact") {
 					var uid = this.prevShownView[1];
@@ -2136,7 +2136,7 @@ var AppUI = {
 								"right" : [
 									{"type" : "text", "name" : chatName},
 									{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("backToDialogsList")},
-									{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
+									// {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
 									{"type" : "icon", "name" : "print", "title" : chrome.i18n.getMessage("printCorrespondence")}
 								]
 							}

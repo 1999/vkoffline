@@ -514,9 +514,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								msgData.attachments = attachments;
 								msgData.chat_id = (data[7].from !== undefined) ? data[3] - 2000000000 : 0;
 								msgData.tags = [mailType];
-
-								if (data[7].emoji)
-									msgData.emoji = 1;
+								msgData.emoji = data[7].emoji ? 1 : 0;
 
 								if (attachments.length) {
 									msgData.tags.push("attachments");

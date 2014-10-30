@@ -168,6 +168,9 @@ var DatabaseManager = {
 								}
 							});
 
+							var otherData = validateJSONString(record.other_data, Object);
+							var hasEmoji = Boolean(otherData.emoji);
+
 							messages[record.mid] = {
 								mid: Number(record.mid),
 								uid: userId,
@@ -177,6 +180,7 @@ var DatabaseManager = {
 								read: Boolean(record.status),
 								attachments: attachments,
 								tags: tags,
+								has_emoji: hasEmoji,
 								chat: chatId,
 								fulltext: getMessageFulltext(record.body)
 							};
@@ -798,6 +802,7 @@ var DatabaseManager = {
 					status: Number(record.value.read),
 					uid: record.value.uid,
 					tags: record.value.tags,
+					has_emoji: record.value.has_emoji,
 					attachments: record.value.attachments
 				});
 
@@ -945,7 +950,7 @@ var DatabaseManager = {
 	 * Есть интересная особенность API ВКонтакте: метод messages.get не поддерживает сортировку и отдает сперва самые новые сообщения.
 	 *
 	 * @param {Number} currentUserId ID аккаунта, для которого заносятся сообщения
-	 * @param {Array} messages - сообщения-объекты с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags)
+	 * @param {Array} messages - сообщения-объекты с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags, emoji)
 	 * @param {Function} fnSuccess
 	 * @param {Function} fnFail
 	 */
@@ -976,6 +981,7 @@ var DatabaseManager = {
 				chat: chatId,
 				attachments: validateJSONString(message.attachments, Array),
 				tags: message.tags,
+				has_emoji: Boolean(message.emoji),
 				fulltext: getMessageFulltext(message.body)
 			});
 		});

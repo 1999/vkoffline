@@ -2750,12 +2750,9 @@ var AppUI = {
 		var msgObj;
 
 		msgData.body = Utils.string.replaceLinks(msgData.body);
-
-		// try {
-		// 	msgObj = JSON.parse(msgData.other_data);
-		// } catch (e) {}
-		// if (msgObj && msgObj.emoji)
-		// 	msgData.body = Utils.string.emoji(msgData.body, true);
+		if (msgData.has_emoji) {
+			msgData.body = Utils.string.emoji(msgData.body, true);
+		}
 
 		var output = {
 			unread: unread,

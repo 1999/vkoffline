@@ -876,14 +876,14 @@ var DatabaseManager = {
 		return new Promise(function (resolve, reject) {
 			var searchOpts = {};
 			var uids = data.map(function (userData) {
-				return Number(userData.uid);
+				return Number(userData[0]);
 			});
 
 			if (uids.length > 1) {
-				searchOpts.range = IDBKeyRange.only(uids[0]);
-			} else {
 				searchOpts.index = "messages_num";
 				searchOpts.range = IDBKeyRange.lowerBound(1);
+			} else {
+				searchOpts.range = IDBKeyRange.only(uids[0]);
 			}
 
 			conn.get("contacts", searchOpts, function (err, records) {

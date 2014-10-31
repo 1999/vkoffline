@@ -102,12 +102,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	// notification click handlers
 	var notificationHandlers = {};
-	var noop = function () {}
 	chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
 		if (!notificationHandlers[notificationId])
 			return;
 
-		chrome.notifications.clear(notificationId, noop);
+		chrome.notifications.clear(notificationId, _.noop);
 		notificationHandlers[notificationId]();
 
 		delete notificationHandlers[notificationId];
@@ -164,7 +163,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			if (data.timeout) {
 				setTimeout(function () {
-					chrome.notifications.clear(notificationId, noop);
+					chrome.notifications.clear(notificationId, _.noop);
 				}, data.timeout * 1000);
 			}
 		});
@@ -997,7 +996,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					LogManager.error(errMessage);
 					statSend("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
 
-					reject();
+					reject(errMessage);
 				});
 			});
 		}
@@ -1398,7 +1397,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					sendAsyncResponse = true;
 					sendResponse(true);
 
-					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true}),
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
 						inboxSynced, sentSynced, friendsSynced,
 						wallTokenUpdated;
 
@@ -1436,7 +1435,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				case "closeNotification":
 					if (notificationHandlers[request.mid]) {
-						chrome.notifications.clear(request.mid, noop);
+						chrome.notifications.clear(request.mid, _.noop);
 						delete notificationHandlers[request.mid];
 					}
 
@@ -2317,7 +2316,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					ReqManager.abortAll();
 					AccountsManager.currentUserId = request.uid;
 
-					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true}),
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
 						wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined),
 						startUser = true;
 

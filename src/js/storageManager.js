@@ -1,8 +1,8 @@
 /* ==========================================================
- * LocalStorage Manager (VK Offline Chrome app)
+ * Chrome.storage Manager (VK Offline Chrome app)
  * https://github.com/1999/vkoffline
  * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
+ * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

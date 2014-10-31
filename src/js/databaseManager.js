@@ -89,13 +89,18 @@ var DatabaseManager = {
 
 						resolve(output);
 					}, function (tx, err) {
+						// let it be
+						if (err.message.indexOf("no such table") !== -1) {
+							resolve([]);
+							return;
+						}
+
 						reject(err.message);
 					});
 				});
 			});
 		}
 
-		// FIXME: user can exist but no tables
 		function migrateUserData(uid) {
 			var that = this;
 			var currentUserId = Number(uid);

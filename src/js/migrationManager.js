@@ -72,7 +72,10 @@ var MigrationManager = (function () {
 		localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_STARTED);
 		createAlarms();
 
-		Promise.all([migrateLocalStorage(), migrateWebDatabase(uids), ]).then(function () {
+		Promise.all([
+			migrateLocalStorage(),
+			migrateWebDatabase(uids)
+		]).then(function () {
 			localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_FINISHED);
 			callback();
 		}, function (err) {

@@ -190,7 +190,7 @@ var DatabaseManager = {
 								fulltext: getMessageFulltext(record.body)
 							};
 
-							if (userId == uid || tags.indexOf("inbox") === -1) {
+							if (userId == uid) {
 								return;
 							}
 
@@ -282,6 +282,7 @@ var DatabaseManager = {
 
 					var messagesStore = database.createObjectStore("messages", {keyPath: "mid"});
 					messagesStore.createIndex("user_chats", ["uid", "chat"]); // get all chats where user said smth
+					messagesStore.createIndex("user_messages", "uid"); // get all user messages
 					messagesStore.createIndex("chat_participants", ["chat", "uid"]); // get all chat participants
 					messagesStore.createIndex("chat_messages", "chat"); // get all chat messages sorted by date
 					messagesStore.createIndex("tag", "tags", {multiEntry: true});
@@ -1057,47 +1058,72 @@ var DatabaseManager = {
 		var userId = this._userId;
 		var conn = this._conn[userId];
 
+		function getLastUserMessage(contact) {
+			return new Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "user_messages",
+					range: IDBKeyRange.only(contact.uid),
+					direction: sklad.DESC,
+					limit: 1
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						contact.last_message_ts = records.length ? records[0].value.date : 0;
+						resolve();
+					}
+				});
+			});
+		}
+
+		function countUserMessages(contact) {
+			return new Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "user_messages",
+					range: IDBKeyRange.only(contact.uid),
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						contact.messages_num = total;
+						resolve();
+					}
+				});
+			});
+		}
+
 		return new Promise(function (resolve, reject) {
-			conn.get({
-				messages: null,
-				contacts: null
-			}, function (err, records) {
+			conn.get("contacts", function (err, records) {
 				if (err) {
 					reject(err.name + ": " + err.message);
 					return;
 				}
 
-				var contacts = {};
-				records.contacts.forEach(function (contact) {
-					contacts[contact.key] = contact.value;
+				var contacts = [];
+				var promises = [];
 
-					contacts[contact.key].last_message_ts = 0;
-					contacts[contact.key].messages_num = 0;
+				records.forEach(function (record) {
+					var contact = record.value;
+
+					promises.push(getLastUserMessage(contact));
+					promises.push(countUserMessages(contact));
+
+					contacts.push(contact);
 				});
 
-				records.messages.forEach(function (message) {
-					if (message.value.uid == userId || message.value.tags.indexOf("inbox") === -1) {
-						return;
-					}
+				Promise.all(promises).then(function () {
+					conn.upsert({
+						contacts: contacts
+					}, function (err) {
+						if (err) {
+							reject(err.name + ": " + err.message);
+							return;
+						}
 
-					if (!contacts[message.value.uid]) {
-						console.warn("No contact with such id: %s", message.value.uid);
-						return;
-					}
-
-					contacts[message.value.uid].last_message_ts = Math.max(contacts[message.value.uid].last_message_ts, message.value.date);
-					contacts[message.value.uid].messages_num += 1;
-				});
-
-				conn.upsert({
-					contacts: _.values(contacts)
+						resolve();
+					});
 				}, function (err) {
-					if (err) {
-						reject(err.name + ": " + err.message);
-						return;
-					}
-
-					resolve();
+					reject(err.name + ": " + err.message);
 				});
 			});
 		});

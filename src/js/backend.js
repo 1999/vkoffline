@@ -1048,8 +1048,14 @@ document.addEventListener("DOMContentLoaded", function () {
 							// чтобы защититься от этого проверяем, был ли обновлен токен
 							wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
 							if (wallTokenUpdated) {
-								DatabaseManager.actualizeChatDates(currentUserId).then(function () {
-									chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
+								Promise.all([
+									DatabaseManager.actualizeContacts(),
+									DatabaseManager.actualizeChatDates(currentUserId)
+								]).then(function () {
+									chrome.runtime.sendMessage({
+										action: "ui",
+										which: "user"
+									});
 								});
 							}
 						}

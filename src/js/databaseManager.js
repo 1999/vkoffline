@@ -914,21 +914,18 @@ var DatabaseManager = {
 							]
 						};
 
-						if (otherData.photo) {
-							contact.photo = otherData.photo;
+						if (otherData.domain) {
+							contact.fulltext.push(otherData.domain.toLowerCase());
 						}
 
-						if (otherData.bdate) {
-							contact.bdate = otherData.bdate;
-						}
+						["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
+							if (otherData[field]) {
+								contact[field] = otherData[field];
+							}
+						});
 
 						if (otherData.sex) {
 							contact.sex = Number(otherData.sex) || 0;
-						}
-
-						if (otherData.domain) {
-							contact.domain = otherData.domain;
-							contact.fulltext.push(otherData.domain.toLowerCase());
 						}
 
 						contact.last_message_ts = currentContacts[uid] ? currentContacts[uid].last_message_ts : 0;
@@ -1022,7 +1019,31 @@ var DatabaseManager = {
 		var userId = this._userId;
 		var conn = this._conn[userId];
 
+		function getChatLastDate(id) {
+			return new Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(id),
+					direction: sklad.DESC,
+					limit: 1
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve({
+							id: id,
+							title: records[0].value.title,
+							last_message_ts: records[0].value.date
+						});
+					}
+				});
+			});
+		}
+
+		// NB: can't search with {index: "chat_messages", direction: sklad.DESC_UNIQUE} here
+		// because first record is not the last sorted by mid unfortunately :(
 		return new Promise(function (resolve, reject) {
+			// get all chats grouped by id
 			conn.get("messages", {
 				index: "chat_messages",
 				direction: sklad.DESC_UNIQUE
@@ -1032,23 +1053,23 @@ var DatabaseManager = {
 					return;
 				}
 
-				var upsertData = records.map(function (record) {
-					return {
-						id: record.key,
-						title: record.value.title,
-						last_message_ts: record.value.date
-					};
+				var promises = records.map(function (record) {
+					return getChatLastDate(record.key);
 				});
 
-				conn.upsert({
-					chats: upsertData
-				}, function (err) {
-					if (err) {
-						reject(err.name + ": " + err.message);
-						return;
-					}
+				Promise.all(promises).then(function (upsertData) {
+					conn.upsert({
+						chats: upsertData
+					}, function (err) {
+						if (err) {
+							reject(err.name + ": " + err.message);
+							return;
+						}
 
-					resolve();
+						resolve();
+					});
+				}, function (err) {
+					reject(err.name + ": " + err.message);
 				});
 			});
 		});

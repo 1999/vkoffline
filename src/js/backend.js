@@ -920,9 +920,14 @@ document.addEventListener("DOMContentLoaded", function () {
 							// сбрасываем счетчик синхронизации
 							clearSyncingDataCounters(currentUserId);
 
-							chrome.runtime.sendMessage({
-								action: "ui",
-								which: "user"
+							Promise.all([
+								DatabaseManager.actualizeContacts(),
+								DatabaseManager.actualizeChatDates(currentUserId)
+							]).then(function () {
+								chrome.runtime.sendMessage({
+									action: "ui",
+									which: "user"
+								});
 							});
 						}
 					}

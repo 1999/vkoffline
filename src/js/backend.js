@@ -921,7 +921,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							clearSyncingDataCounters(currentUserId);
 
 							Promise.all([
-								DatabaseManager.actualizeContacts(),
+								DatabaseManager.actualizeContacts(currentUserId),
 								DatabaseManager.actualizeChatDates(currentUserId)
 							]).then(function () {
 								chrome.runtime.sendMessage({
@@ -1054,7 +1054,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
 							if (wallTokenUpdated) {
 								Promise.all([
-									DatabaseManager.actualizeContacts(),
+									DatabaseManager.actualizeContacts(currentUserId),
 									DatabaseManager.actualizeChatDates(currentUserId)
 								]).then(function () {
 									chrome.runtime.sendMessage({

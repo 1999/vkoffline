@@ -269,6 +269,7 @@ var DatabaseManager = {
 	 */
 	initUser: function DatabaseManager_initUser(userId, fnSuccess, fnFail) {
 		var that = this;
+		this._userId = userId;
 
 		sklad.open('db_' + userId, {
 			version: 1,
@@ -1015,8 +1016,8 @@ var DatabaseManager = {
 	 * Actualize chats' dates
 	 * @return {Promise}
 	 */
-	actualizeChatDates: function DatabaseManager_actualizeChatDates() {
-		var userId = this._userId;
+	actualizeChatDates: function DatabaseManager_actualizeChatDates(userId) {
+		userId = userId || this._userId;
 		var conn = this._conn[userId];
 
 		function getChatLastDate(id) {
@@ -1075,8 +1076,8 @@ var DatabaseManager = {
 		});
 	},
 
-	actualizeContacts: function DatabaseManager_actualizeContacts() {
-		var userId = this._userId;
+	actualizeContacts: function DatabaseManager_actualizeContacts(userId) {
+		userId = userId || this._userId;
 		var conn = this._conn[userId];
 
 		function getLastUserMessage(contact) {

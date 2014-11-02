@@ -89,6 +89,8 @@ var DatabaseManager = {
 
 						resolve(output);
 					}, function (tx, err) {
+						statSend("Migrate1", "WebDatabase warn", err.message);
+
 						// let it be
 						if (err.message.indexOf("no such table") !== -1) {
 							resolve([]);
@@ -212,7 +214,15 @@ var DatabaseManager = {
 							"messages": _.values(messages)
 						}, function (err, insertedKeys) {
 							if (err) {
-								reject(err.name + ": " + err.message);
+								var errMsg = err.name + ": " + err.message;
+
+								try {
+									that._conn[uid].close();
+								} catch (ex) {}
+
+								statSend("Migrate1", "IDB insert fail", errMsg);
+								reject(errMsg);
+
 								return;
 							}
 
@@ -221,8 +231,14 @@ var DatabaseManager = {
 							that._conn[uid].close();
 							resolve();
 						});
-					}, reject);
-				}, reject);
+					}, function (errMsg) {
+						statSend("Migrate1", "getAllWebDatabase fail", errMsg);
+						reject(errMsg);
+					});
+				}, function (errMsg) {
+					statSend("Migrate1", "initUser fail", errMsg);
+					reject(errMsg);
+				});
 			});
 		}
 
@@ -233,9 +249,7 @@ var DatabaseManager = {
 
 		Promise.all(promises).then(function () {
 			callback();
-		}, function (err) {
-			callback(err);
-		});
+		}, callback);
 	},
 
 	/**

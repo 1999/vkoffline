@@ -48,6 +48,8 @@ var MigrationManager = (function () {
 		{key: "wall_token_updated", type: "object"}
 	];
 
+	var CHANGELOG_KEY = "changelog_notified";
+
 	function getUsersList() {
 		var tokens = localStorage.getItem("token") || "";
 		try {
@@ -72,14 +74,25 @@ var MigrationManager = (function () {
 		localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_STARTED);
 		createAlarms();
 
+		var migrationStartTime = Date.now();
+
 		Promise.all([
 			migrateLocalStorage(),
 			migrateWebDatabase(uids)
 		]).then(function () {
 			localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_FINISHED);
+			statSend("Migrate1", "Successfully finished");
+
+			var migrationTotalTime = Date.now() - migrationStartTime;
+			if (uids.length) {
+				var processTime = Math,round(migrationTotalTime / 1000 / uids.length);
+				statSend("Migrate1", "Process time", processTime);
+			}
+
 			callback();
 		}, function (err) {
-			throw new Error(err);
+			statSend("Migrate1", "Finish failed", err);
+			callback();
 		});
 	}
 
@@ -165,6 +178,14 @@ var MigrationManager = (function () {
 
 	return {
 		start: function (callback) {
+			var appVersionsHistory = StorageManager.get(CHANGELOG_KEY, {constructor: Array, strict: true, create: true});
+			var isUpgrade = (appVersionsHistory.indexOf(App.VERSION) === -1);
+
+			if (isUpgrade) {
+				appVersionsHistory.push(App.VERSION);
+				StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
+			}
+
 			var legacyMigrationStatus = Number(localStorage.getItem(LAST_LEGACY_MIGRATION_KEY)) || 0;
 			var uids = getUsersList();
 
@@ -187,12 +208,14 @@ var MigrationManager = (function () {
 						throw new Error(err.name + ': ' + err.message);
 					}
 
+					statSend("Migrate1", "Started");
 					runLegacyMigration(uids, callback);
 				});
 
 				return;
 			}
 
+			statSend("Migrate1", "Started");
 			runLegacyMigration(uids, callback);
 		}
 	};

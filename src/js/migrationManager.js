@@ -85,7 +85,7 @@ var MigrationManager = (function () {
 
 			var migrationTotalTime = Date.now() - migrationStartTime;
 			if (uids.length) {
-				var processTime = Math,round(migrationTotalTime / 1000 / uids.length);
+				var processTime = Math.round(migrationTotalTime / 1000 / uids.length);
 				statSend("Migrate1", "Process time", processTime);
 			}
 

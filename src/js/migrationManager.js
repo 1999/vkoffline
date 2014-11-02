@@ -74,24 +74,41 @@ var MigrationManager = (function () {
 		localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_STARTED);
 		createAlarms();
 
+		// should sent "migrate1" stat only if current install type is upgrade
 		var migrationStartTime = Date.now();
+		var isUpgrade = false;
 
-		Promise.all([
-			migrateLocalStorage(),
-			migrateWebDatabase(uids)
-		]).then(function () {
+		// `runLegacyMigration` is invoked in two cases: current install type is "clean install" or "upgrade"
+		// anyway `migrateLocalStorage` will run only once
+		migrateLocalStorage();
+
+		var appVersionsHistory = StorageManager.get(CHANGELOG_KEY, {constructor: Array, strict: true, create: true});
+		if (appVersionsHistory.indexOf(App.VERSION) === -1) {
+			if (appVersionsHistory.length) {
+				isUpgrade = true;
+			}
+
+			appVersionsHistory.push(App.VERSION);
+			StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
+		}
+
+		// should sent stat only for upgrade
+		var logMigrate = isUpgrade ? statSend.bind(null, "Migrate1") : _.noop;
+		logMigrate("Migrate1", "Started");
+
+		migrateWebDatabase(uids).then(function () {
 			localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_FINISHED);
-			statSend("Migrate1", "Successfully finished");
+			logMigrate("Successfully finished");
 
 			var migrationTotalTime = Date.now() - migrationStartTime;
 			if (uids.length) {
 				var processTime = Math.round(migrationTotalTime / 1000 / uids.length);
-				statSend("Migrate1", "Process time", processTime);
+				logMigrate("Process time", processTime);
 			}
 
 			callback();
-		}, function (err) {
-			statSend("Migrate1", "Finish failed", err);
+		}, function (errMsg) {
+			logMigrate("Finish failed", errMsg);
 			callback();
 		});
 	}
@@ -143,12 +160,8 @@ var MigrationManager = (function () {
 			});
 		}
 
-		return new Promise(function (resolve, reject) {
-			chrome.storage.local.set(records, resolve);
-
-			if (chrome.runtime.lastError) {
-				reject(chrome.runtime.lastError.message);
-			}
+		Object.keys(records).forEach(function (key) {
+			StorageManager.set(key, records[key]);
 		});
 	}
 
@@ -178,14 +191,6 @@ var MigrationManager = (function () {
 
 	return {
 		start: function (callback) {
-			var appVersionsHistory = StorageManager.get(CHANGELOG_KEY, {constructor: Array, strict: true, create: true});
-			var isUpgrade = (appVersionsHistory.indexOf(App.VERSION) === -1);
-
-			if (isUpgrade) {
-				appVersionsHistory.push(App.VERSION);
-				StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
-			}
-
 			var legacyMigrationStatus = Number(localStorage.getItem(LAST_LEGACY_MIGRATION_KEY)) || 0;
 			var uids = getUsersList();
 
@@ -208,14 +213,12 @@ var MigrationManager = (function () {
 						throw new Error(err.name + ': ' + err.message);
 					}
 
-					statSend("Migrate1", "Started");
 					runLegacyMigration(uids, callback);
 				});
 
 				return;
 			}
 
-			statSend("Migrate1", "Started");
 			runLegacyMigration(uids, callback);
 		}
 	};

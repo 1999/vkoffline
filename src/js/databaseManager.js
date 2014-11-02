@@ -2,7 +2,7 @@
  * Database Manager (VK Offline Chrome app)
  * https://github.com/1999/vkoffline
  * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
+ * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,152 +16,386 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * ========================================================== */
+function validateJSONString(data, constr) {
+	var someData;
+	try {
+		someData = JSON.parse(data);
+		if (!(someData instanceof constr)) {
+			throw new Error("Invalid");
+		}
+	} catch (ex) {
+		someData = new constr;
+	}
+
+	return someData;
+}
+
+function getMessageFulltext(msgBody) {
+	return msgBody.replace(/<br\s?\/?\s?>/g, " ").toLowerCase().split(" ").filter(function (word) {
+		return word.length >= 3;
+	});
+}
 
 var DatabaseManager = {
-	init: function(dbLink) {
-		this._dbLink = dbLink;
+	/**
+	 * Drop every created database in case migration failed
+	 */
+	dropEverything: function DatabaseManager_dropEverything(uids, callback) {
+		var promises = uids.map(function (uid) {
+			return ["contacts", "messages", "chats"].map(function (objStorePrefix) {
+				return new Promise(function (resolve, reject) {
+					sklad.deleteDatabase(objStorePrefix + '_' + uid, function (err) {
+						if (err) {
+							reject(err);
+						} else {
+							resolve();
+						}
+					});
+				});
+			});
+		});
+
+		Promise.all(_.flatten(promises)).then(function () {
+			callback();
+		}, function (err) {
+			callback(err);
+		});
+	},
+
+	/**
+	 * Migrate all WebDatabases into IndexedDB
+	 */
+	migrateWebDatabase: function DatabaseManager_migrateWebDatabase(uids, callback) {
+		console.log("Migrate WebDatabase into IndexedDB");
+		console.log("UIDS", uids);
+
+		var that = this;
+		var webDatabaseLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
+
+		function getAllWebDatabaseData(table, uid) {
+			console.log("Collect data from %s_%s", table, uid);
+
+			return new vow.Promise(function (resolve, reject) {
+				webDatabaseLink.readTransaction(function (tx) {
+					tx.executeSql("SELECT rowid, * FROM " + table + "_" + uid + " ORDER BY rowid", [], function (tx, resultSet) {
+						var totalRecords = resultSet.rows.length;
+						var output = [];
+
+						console.log("%s records found in %s", totalRecords, table);
+
+						for (var i = 0; i < totalRecords; i++) {
+							output.push(resultSet.rows.item(i));
+						}
+
+						resolve(output);
+					}, function (tx, err) {
+						statSend("Migrate1", "WebDatabase warn", err.message);
+
+						// let it be
+						if (err.message.indexOf("no such table") !== -1) {
+							resolve([]);
+							return;
+						}
+
+						reject(err.message);
+					});
+				});
+			});
+		}
+
+		function migrateUserData(uid) {
+			var that = this;
+			var currentUserId = Number(uid);
+
+			return new Promise(function (resolve, reject) {
+				that.initUser(uid, function () {
+					console.log("User initialized");
+
+					Promise.all([
+						getAllWebDatabaseData("contacts", uid),
+						getAllWebDatabaseData("pm", uid)
+					]).then(function (res) {
+						var fetchedContacts = res[0];
+						var fetchedMessages = res[1];
+
+						var contacts = {};
+						var messages = {};
+						var chats = {};
+
+						fetchedContacts.forEach(function (record) {
+							var otherData = validateJSONString(record.other_data, Object);
+							var uid = Number(record.uid);
+
+							contacts[record.uid] = {
+								uid: uid,
+								first_name: record.first_name,
+								last_name: record.last_name,
+								notes: record.notes,
+								last_message_ts: 0,
+								messages_num: 0,
+								fulltext: [
+									record.first_name.toLowerCase(),
+									record.last_name.toLowerCase(),
+									uid
+								]
+							};
+
+							if (otherData.domain) {
+								contacts[record.uid].fulltext.push(otherData.domain.toLowerCase());
+							}
+
+							["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
+								if (otherData[field]) {
+									contacts[record.uid][field] = otherData[field];
+								}
+							});
+
+							if (otherData.sex) {
+								contacts[record.uid].sex = Number(otherData.sex) || 0;
+							}
+						});
+
+						fetchedMessages.forEach(function (record) {
+							var isMultiChat = Boolean(record.chatid);
+							var chatId = isMultiChat ? String(record.chatid) : "0_" + record.uid;
+							var userId = Number(record.uid);
+							var lastChatMessageDate = chats[chatId] ? chats[chatId].last_message_ts : 0;
+
+							chats[chatId] = chats[chatId] || {};
+							chats[chatId].id = chatId;
+							chats[chatId].title = record.title;
+							chats[chatId].last_message_ts = Math.max(record.date, lastChatMessageDate);
+
+							var attachments = validateJSONString(record.attachments, Array);
+							var tags = [];
+
+							App.INIT_TAGS.forEach(function (tag, i) {
+								if (record.tags & Math.pow(2, i)) {
+									tags.push(tag);
+								}
+							});
+
+							var otherData = validateJSONString(record.other_data, Object);
+							var hasEmoji = Boolean(otherData.emoji);
+
+							messages[record.mid] = {
+								mid: Number(record.mid),
+								uid: userId,
+								title: record.title,
+								body: record.body,
+								date: record.date,
+								read: Boolean(record.status),
+								attachments: attachments,
+								tags: tags,
+								has_emoji: hasEmoji,
+								chat: chatId,
+								fulltext: getMessageFulltext(record.body)
+							};
+
+							if (userId == uid) {
+								return;
+							}
+
+							if (!contacts[userId]) {
+								console.warn("No contact with such id: %s", userId);
+								return;
+							}
+
+							contacts[userId].messages_num += 1;
+							contacts[userId].last_message_ts = Math.max(contacts[userId].last_message_ts, record.date);
+						});
+
+						console.log("Start inserting data with uid %s", uid);
+
+						// insert data
+						that._conn[uid].insert({
+							"chats": _.values(chats),
+							"contacts": _.values(contacts),
+							"messages": _.values(messages)
+						}, function (err, insertedKeys) {
+							if (err) {
+								var errMsg = err.name + ": " + err.message;
+
+								try {
+									that._conn[uid].close();
+								} catch (ex) {}
+
+								statSend("Migrate1", "IDB insert fail", errMsg);
+								reject(errMsg);
+
+								return;
+							}
+
+							console.log("Contacts and PMs inserted");
+
+							that._conn[uid].close();
+							resolve();
+						});
+					}, function (errMsg) {
+						statSend("Migrate1", "getAllWebDatabase fail", errMsg);
+						reject(errMsg);
+					});
+				}, function (errMsg) {
+					statSend("Migrate1", "initUser fail", errMsg);
+					reject(errMsg);
+				});
+			});
+		}
+
+		var promises = uids.map(function (uid) {
+			console.log("UID found: %s", uid);
+			return migrateUserData.call(that, uid);
+		});
+
+		Promise.all(promises).then(function () {
+			callback();
+		}, callback);
+	},
+
+	/**
+	 * Create meta database with log object store
+	 */
+	initMeta: function DatabaseManager_initMeta(callback) {
+		var that = this;
+
+		sklad.open('meta', {
+			version: 1,
+			migration: {
+				'1': function (database) {
+					database.createObjectStore("log", {autoIncrement: true});
+				}
+			}
+		}, function (err, conn) {
+			if (err) {
+				throw new Error(err.name + ': ' + err.message);
+			}
+
+			that._meta = conn;
+			callback();
+		});
 	},
 
 	/**
 	 * @param {Integer} userId
-	 * @param {Array} i18nTerms массив обязательных тэгов ["inbox", "sent", "attachments", "important", "trash", "outbox", "drafts"]
-	 * @param {Function} fnDatabaseReady принимает {Object} объект вида {tagId1: term1, tagId2: term2, ...}
+	 * @param {Function} fnSuccess
 	 * @param {Function} fnFail принимает {String} текст ошибки
 	 * @return {Void}
 	 */
-	initUser: function(userId, i18nTerms, fnDatabaseReady, fnFail) {
-		var self = this;
+	initUser: function DatabaseManager_initUser(userId, fnSuccess, fnFail) {
+		var that = this;
 		this._userId = userId;
 
-		if (this._cachedInitTags[userId] !== undefined) {
-			fnDatabaseReady(this._cachedInitTags[userId]);
-			return;
-		}
-		
-		this._dbLink.transaction(function(tx) {
-			var initPartsExecuted = 0,
-				databaseTags = {};
+		sklad.open('db_' + userId, {
+			version: 1,
+			migration: {
+				'1': function (database) {
+					var contactsStore = database.createObjectStore("contacts", {keyPath: "uid"});
+					contactsStore.createIndex("last_message", "last_message_ts");
+					contactsStore.createIndex("messages_num", "messages_num");
+					contactsStore.createIndex("name", ["first_name", "last_name"]);
+					contactsStore.createIndex("fulltext", "fulltext", {multiEntry: true});
 
-			var fn = function() {
-				initPartsExecuted += 1;
-				if (initPartsExecuted !== 3) {
-					return;
+					var messagesStore = database.createObjectStore("messages", {keyPath: "mid"});
+					messagesStore.createIndex("user_chats", ["uid", "chat"]); // get all chats where user said smth
+					messagesStore.createIndex("user_messages", "uid"); // get all user messages
+					messagesStore.createIndex("chat_participants", ["chat", "uid"]); // get all chat participants
+					messagesStore.createIndex("chat_messages", "chat"); // get all chat messages sorted by date
+					messagesStore.createIndex("tag", "tags", {multiEntry: true});
+					messagesStore.createIndex("fulltext", "fulltext", {multiEntry: true});
+
+					var chatsStore = database.createObjectStore("chats", {keyPath: "id"});
+					chatsStore.createIndex("last_message", "last_message_ts");
 				}
+			}
+		}, function (err, conn) {
+			if (err) {
+				fnFail(err.name + ': ' + err.message);
+			} else {
+				that._conn[userId] = conn;
+				that._userId = userId;
 
-				// проверяем, чтобы все дефолтовые метки существовали
-				var tagsExistInDatabase = true;
-				i18nTerms.forEach(function(tagName) {
-					if (databaseTags[tagName] === undefined) {
-						tagsExistInDatabase = false;
-					}
-				});
-
-				if (tagsExistInDatabase === false) {
-					fnFail("Not all config default tags exist in the database");
-					return;
-				}
-
-				self._cachedInitTags[userId] = databaseTags;
-				fnDatabaseReady(databaseTags);
-			};
-
-			tx.executeSql('CREATE TABLE IF NOT EXISTS contacts_' + userId + '(uid INTEGER UNIQUE, first_name TEXT, last_name TEXT, other_data TEXT, notes TEXT)', [], fn, function(tx, err) {
-				fnFail(err.message);
-			});
-			
-			tx.executeSql('CREATE TABLE IF NOT EXISTS pm_' + userId + '(mid INTEGER UNIQUE, uid INTEGER, date INTEGER, title TEXT, body TEXT, other_data TEXT, status INTEGER, attachments TEXT, chatid INTEGER, tags INTEGER NOT NULL)', [], fn, function(tx, err) {
-				fnFail(err.message);
-			});
-
-			tx.executeSql("CREATE TABLE IF NOT EXISTS tags_" + userId + "(id INTEGER PRIMARY KEY NOT NULL, tag TEXT UNIQUE)", [], function(tx) {
-				tx.executeSql("SELECT id, tag FROM tags_" + userId + " ORDER BY id", [], function(tx, resultSet) {
-					var i, item;
-
-					if (resultSet.rows.length) {
-						for (i = 0; i < resultSet.rows.length; i++) {
-							item = resultSet.rows.item(i);
-							databaseTags[item.tag] = item.id;
-						}
-
-						fn();
-					} else { // первый запуск
-						i18nTerms.forEach(function(tagName, index) {
-							tx.executeSql("INSERT INTO tags_" + userId + " (id, tag) VALUES (?, ?)", [Math.pow(2, index), tagName], function(tx, resultSet) {
-								databaseTags[tagName] = resultSet.insertId;
-
-								if (Object.keys(databaseTags).length === i18nTerms.length) {
-									fn();
-								}
-							}, function(tx, err) {
-								fn(err.message);
-							});
-						});
-					}
-				}, function(tx, err) {
-					fnFail(err.message);
-				});
-			});
+				fnSuccess();
+			}
 		});
 	},
 
 	/**
-	 * 
+	 *
 	 */
-	dropUser: function(userId) {
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("DROP TABLE IF EXISTS contacts_" + userId, []);
-			tx.executeSql("DROP TABLE IF EXISTS pm_" + userId, []);
-			tx.executeSql("DROP TABLE IF EXISTS tags_" + userId, []);
-		});
-
-		delete this._cachedInitTags[userId];
+	dropUser: function DatabaseManager_dropUser(userId) {
+		this._conn[userId].close();
+		sklad.deleteDatabase('db_' + userId, _.noop);
 	},
 
 	/**
 	 * @param {String} outputType - alpha (в алфавитном порядке), lastdate (по дате последнего сообщения), messagesnum (по общему количеству сообщений)
 	 * @param {Integer} startFrom
-	 * @param {Integer} trashTagId
-	 * @param {Function} fnSuccess принимает параметр {Array} массив объектов-контактов и {Integer} общее количество контактов
-	 * @param {Function} fnFail принимает параметр {String} errorMessage
+	 * @param {Function} fnSuccess принимает:
+	 *     {Array} массив объектов-контактов
+	 *     {Number} общее количество контактов
+	 * @param {Function} fnFail принимает:
+	 *     {String} errorMessage
 	 */
-	getContactList: function(outputType, startFrom, trashTagId, fnSuccess, fnFail) {
-		var userId = this._userId,
-			sql, bindings;
+	getContactList: function DatabaseManager_getContactList(outputType, startFrom, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		switch (outputType) {
-			case "alpha" :
-				sql = "SELECT * FROM contacts_" + userId + " ORDER BY first_name, last_name";
-				bindings = [];
-				break;
-
-			case "lastdate" :
-				sql = "SELECT c.*, pm.date FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid AND pm.tags & ? == 0 GROUP BY c.uid ORDER BY pm.date DESC, c.first_name, c.last_name";
-				bindings = [trashTagId];
-				break;
-
-			case "messagesnum" :
-				sql = "SELECT c.*, COUNT(pm.rowid) AS total FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid AND pm.tags & ? == 0 GROUP BY c.uid ORDER BY total DESC, c.first_name, c.last_name";
-				bindings = [trashTagId];
-				break;
+		function countContacts() {
+			return new Promise(function (resolve, reject) {
+				conn.count("contacts", function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
+				});
+			});
 		}
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql(sql, bindings, function(tx, resultSet) {
-				var i,
-					total = resultSet.rows.length,
-					processTo = Math.min(startFrom + 30, total),
-					output = [];
+		function getContacts() {
+			var indexName;
+			var direction;
 
-				for (i = startFrom; i < processTo; i++) {
-					output.push(resultSet.rows.item(i));
-				}
+			switch (outputType) {
+				case "alpha":
+					indexName = "name";
+					direction = sklad.ASC;
+					break;
 
-				fnSuccess([output, total]);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				case "lastdate":
+					indexName = "last_message";
+					direction = sklad.DESC;
+					break;
+
+				case "messagesnum":
+					indexName = "messages_num";
+					direction = sklad.DESC;
+					break;
+			}
+
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					index: indexName,
+					limit: 30,
+					offset: startFrom,
+					direction: direction
+				}, function (err, data) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(data.map(function (msgData) {
+							return msgData.value;
+						}));
+					}
+				});
 			});
+		}
+
+		Promise.all([
+			getContacts(),
+			countContacts()
+		]).then(fnSuccess, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 
@@ -170,160 +404,336 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает параметр {Object} контакт
 	 * @param {Function} fnFail принимает параметры {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	getContactById: function(currentUserId, uid, fnSuccess, fnFail) {
+	getContactById: function DatabaseManager_getContactById(currentUserId, uid, fnSuccess, fnFail) {
 		var userId = currentUserId;
+		var searchUserId = Number(uid);
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT * FROM contacts_" + userId + " WHERE uid = ?", [uid], function(tx, resultSet) {
-				if (resultSet.rows.length) {
-					if (typeof fnSuccess === "function") {
-						fnSuccess(resultSet.rows.item(0));
-					}
-				} else if (typeof fnFail === "function") {
-					fnFail(false, "No user with ID #" + uid);
-				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
-			});
+		fnSuccess = fnSuccess || _.noop;
+		fnFail = fnFail || _.noop;
+
+		this._conn[userId].get("contacts", {
+			range: IDBKeyRange.only(searchUserId)
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnFail(null);
+				return;
+			}
+
+			fnSuccess(records[0].value);
 		});
 	},
 
-	getConversations: function(startFrom, trashTagId, fnSuccess, fnFail) {
-		var userId = this._userId,
-			isMultiChatRegExp = /^[\d]+$/;
-		
-		this._dbLink.readTransaction(function(tx) {
-			// выборка участников тредов
-			var fetchParticipants = function(dialogId, callback) {
-				var sql = "",
-					bindArgs = [],
-					isMultiChat = isMultiChatRegExp.test(dialogId);
+	/**
+	 * Get chats list ordered descending by date
+	 * Need also to get chats' participants, chat id, title, date & body of the last message, total messages in chat
+	 *
+	 * @param {Number} startFrom
+	 * @param {Function} fnSuccess which invokes {Array} with {Number} total chats number and {Array} chats data
+	 * @param {Function} fnFail
+	 */
+	getConversations: function DatabaseManager_getConversations(startFrom, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-				if (isMultiChat) {
-					sql = "SELECT c.uid, c.first_name, c.last_name FROM pm_" + userId + " AS pm JOIN contacts_" + userId + " AS c ON pm.uid = c.uid WHERE pm.chatid = ? GROUP BY pm.uid ORDER BY pm.mid DESC";
-					bindArgs = [dialogId];
-				} else {
-					sql = "SELECT uid, first_name, last_name FROM contacts_" + userId + " WHERE uid IN (?, ?) ORDER BY uid";
-					bindArgs = [dialogId.split("_")[1], userId];
-				}
-
-				tx.executeSql(sql, bindArgs, function(tx, resultSet) {
-					var i, users = [];
-
-					for (i = 0; i < resultSet.rows.length; i++) {
-						users.push(resultSet.rows.item(i));
+		function getChatsList(startFrom) {
+			return new vow.Promise(function (resolve, reject) {
+				conn.get("chats", {
+					index: "last_message",
+					offset: startFrom,
+					direction: sklad.DESC,
+					limit: 30
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(records);
 					}
-
-					callback(users);
-				}, function(tx, err) {
-					fnFail(err.message);
 				});
-			};
-
-			// выборка тредов
-			tx.executeSql("SELECT \
-							(CASE chatid WHEN 0 THEN (chatid || '_' || uid) ELSE chatid END) AS id, title, date, body, uid, inner.total \
-							FROM pm_" + userId + " AS pm \
-							JOIN \
-								(SELECT (CASE chatid WHEN 0 THEN (chatid || '_' || uid) ELSE chatid END) AS id, MAX(mid) AS maxmid, COUNT(rowid) AS total FROM pm_" + userId + " WHERE tags & ? == 0 GROUP BY id) AS inner \
-								ON inner.id = id AND mid = inner.maxmid \
-							ORDER BY pm.mid DESC", [trashTagId], function(tx, resultSet) {
-				var total = resultSet.rows.length,
-					i, processTo = Math.min(total, startFrom + 30),
-					dialogs = [],
-					dialogItemsNum = processTo - startFrom;
-
-				for (i = startFrom; i < processTo; i++) {
-					(function(dialogData) {
-						fetchParticipants(dialogData.id, function(usersList) {
-							dialogData.participants = usersList;
-							dialogs.push(dialogData);
-
-							if (dialogs.length === dialogItemsNum) {
-								fnSuccess([dialogs, total]);
-							}
-						});
-					})(resultSet.rows.item(i));
-				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
 			});
+		}
+
+		function getTotalChats() {
+			return new vow.Promise(function (resolve, reject) {
+				conn.count("chats", function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
+				});
+			});
+		}
+
+		function getContactById(id) {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(id)
+				}, function (err, records) {
+					if (err) {
+						reject(err.name + ": " + err.message);
+					} else if (!records.length) {
+						console.warn("No such contact: " + id);
+						resolve(null);
+					} else {
+						resolve({
+							id: id,
+							first_name: records[0].value.first_name,
+							last_name: records[0].value.last_name
+						});
+					}
+				});
+			});
+		}
+
+		function getChatParticipants(record) {
+			return new Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_participants",
+					direction: sklad.ASC_UNIQUE,
+					range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
+				}, function (err, data) {
+					if (err) {
+						reject(err);
+					} else {
+						var promises = [];
+						var currentUserIsParticipant = false;
+
+						data.forEach(function (contact) {
+							if (contact.value.uid == userId) {
+								currentUserIsParticipant = true;
+								return;
+							}
+
+							promises.push(getContactById(contact.value.uid));
+						});
+
+						Promise.all(promises).then(function (res) {
+							record.participants = _.compact(res);
+
+							if (currentUserIsParticipant) {
+								record.participants.push({uid: userId});
+							}
+
+							resolve();
+						}, function (err) {
+							record.participants = [];
+							resolve();
+						});
+					}
+				});
+			});
+		}
+
+		function getChatLastMessage(record) {
+			return new Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(record.id),
+					direction: sklad.DESC,
+					limit: 1
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						record.body = records[0].value.body;
+						record.uid = records[0].value.uid;
+
+						resolve();
+					}
+				});
+			});
+		}
+
+		function getChatTotalMessages(record) {
+			return new Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(record.id),
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						record.total = total;
+						resolve();
+					}
+				});
+			});
+		}
+
+		vow.all({
+			chats: getChatsList(startFrom),
+			total: getTotalChats()
+		}).then(function (res) {
+			var fillDataPromises = [];
+			var output = res.chats.map(function (record) {
+				var chatData = {
+					id: record.value.id,
+					title: record.value.title,
+					date: record.value.last_message_ts
+				};
+
+				fillDataPromises.push(getChatParticipants(chatData));
+				fillDataPromises.push(getChatLastMessage(chatData));
+				fillDataPromises.push(getChatTotalMessages(chatData));
+
+				return chatData;
+			});
+
+			Promise.all(fillDataPromises).then(function () {
+				fnSuccess([
+					output,
+					res.total
+				]);
+			}, function (err) {
+				fnFail(err.name + ": " + err.message);
+			});
+		}, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 
 	/**
 	 * @param {Integer} uid
-	 * @param {Integer} trashTagId
 	 * @param {Function} fnSuccess принимает параметр {Array} список объектов
 	 * @param {Function} fnFail принимает параметр {String} errorMessage
 	 */
-	getConversationThreadsWithContact: function(uid, trashTagId, fnSuccess, fnFail) {
-		var userId = this._userId,
-			isMultiChatRegExp = /^[\d]+$/;
+	getConversationThreadsWithContact: function DatabaseManager_getConversationThreadsWithContact(uid, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.readTransaction(function(tx) {
-			// выборка участников тредов
-			var fetchParticipants = function(dialogId, callback) {
-				var sql = "",
-					bindArgs = [],
-					isMultiChat = isMultiChatRegExp.test(dialogId);
+		uid = Number(uid);
 
-				if (isMultiChat) {
-					sql = "SELECT c.uid, c.first_name, c.last_name FROM pm_" + userId + " AS pm JOIN contacts_" + userId + " AS c ON pm.uid = c.uid WHERE pm.chatid = ? GROUP BY pm.uid ORDER BY pm.mid DESC";
-					bindArgs = [dialogId];
-				} else {
-					sql = "SELECT uid, first_name, last_name FROM contacts_" + userId + " WHERE uid IN (?, ?) ORDER BY uid";
-					bindArgs = [uid, userId];
-				}
-
-				tx.executeSql(sql, bindArgs, function(tx, resultSet) {
-					var i, users = [];
-
-					for (i = 0; i < resultSet.rows.length; i++) {
-						users.push(resultSet.rows.item(i));
-					}
-
-					callback(users);
-				}, function(tx, err) {
-					fnFail(err.message);
-				});
-			};
-
-			// запрос диалогов
-			tx.executeSql("SELECT (CASE chatid WHEN 0 THEN (chatid || '_' || uid) ELSE chatid END) AS id, title, date, body, uid, inner.total \
-							FROM pm_" + userId + " AS pm \
-							JOIN \
-								(SELECT (CASE chatid WHEN 0 THEN (chatid || '_' || uid) ELSE chatid END) AS id, MAX(mid) AS maxmid, COUNT(rowid) AS total FROM pm_" + userId + " WHERE uid = ? AND tags & ? == 0 GROUP BY id) AS inner \
-							ON inner.id = id AND mid = inner.maxmid \
-							ORDER BY pm.mid DESC", [uid, trashTagId], function(tx, resultSet) {
-				var i, item,
-					output = [];
-
-				if (resultSet.rows.length === 0) {
-					fnSuccess(output);
-					return;
-				}
-
-				for (i = 0; i < resultSet.rows.length; i++) {
-					(function(dialogData) {
-						fetchParticipants(dialogData.id, function(usersList) {
-							dialogData.participants = usersList;
-							output.push(dialogData);
-
-							if (output.length === resultSet.rows.length) {
-								fnSuccess(output);
-							}
+		function getContactById(id) {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(id)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else if (!records.length) {
+						resolve(null);
+					} else {
+						resolve({
+							uid: records[0].key,
+							first_name: records[0].value.first_name,
+							last_name: records[0].value.last_name
 						});
-					})(resultSet.rows.item(i));
-				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+					}
+				});
+			});
+		}
+
+		function getChatParticipants(record) {
+			return new Promise(function (resolve, reject) {
+				var chatId = record.id;
+				var to = chatId.substr(0, chatId.length - 1) + String.fromCharCode(chatId.charCodeAt(chatId.length - 1) + 1);
+				var range = IDBKeyRange.bound([chatId], [to], true, true);
+
+				conn.get("messages", {
+					index: "chat_participants",
+					range: range,
+					direction: sklad.ASC_UNIQUE
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						var promises = [];
+						records.forEach(function (record) {
+							promises.push(getContactById(record.value.uid));
+						});
+
+						Promise.all(promises).then(function (res) {
+							record.participants = _.compact(res);
+							resolve();
+						}, reject);
+					}
+				});
+			});
+		}
+
+		function getChatLastMessage(record) {
+			return new Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(record.id),
+					direction: sklad.DESC
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						var title = records.length ? records[0].value.title : '';
+						var body = records.length ? records[0].value.body : '';
+						var date = records.length ? records[0].value.date : 0;
+						var uid = records.length ? records[0].value.uid : userId;
+
+						_.assign(record, {
+							title: title,
+							body: body,
+							date: date,
+							uid: uid
+						});
+
+						resolve();
+					}
+				});
+			});
+		}
+
+		function countChatMessages(record) {
+			return new Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(record.id)
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						record.total = total;
+						resolve();
+					}
+				});
+			});
+		}
+
+		conn.get("messages", {
+			index: "user_chats",
+			range: IDBKeyRange.bound([uid], [uid + 1], true, true),
+			direction: sklad.ASC_UNIQUE
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			var output = [];
+			var promises = [];
+
+			records.forEach(function (record) {
+				var chatRecord = {
+					id: record.key[1]
+				};
+
+				output.push(chatRecord);
+
+				promises.push(getChatLastMessage(chatRecord));
+				promises.push(getChatParticipants(chatRecord));
+				promises.push(countChatMessages(chatRecord));
+			});
+
+			Promise.all(promises).then(function () {
+				// sort chats
+				output.sort(function (a, b) {
+					return b.date - a.date;
+				});
+
+				fnSuccess(output);
+			}, function (err) {
+				fnFail(err.name + ": " + err.message);
 			});
 		});
 	},
@@ -332,44 +742,115 @@ var DatabaseManager = {
 	 * Получение сообщений из диалога
 	 *
 	 * @param {String} dialogId идентификатор диалога: [\d]+ в случае чата, 0_[\d]+ в случае переписки один на один
-	 * @param {Integer} trashTagId rowId метки "trash" в таблице tags_%userId%
 	 * @param {Integer|Null} from с какой записи нужно все получить
-	 * @param {Function} fnSuccess принимает аргументы {Array} сообщения, {Integer} количество сообщений в диалоге и {Array} [messageId второго сообщения, messageId пред-предпоследнего сообщения]
-	 * @param {Function} fnFail принимает {String} строка ошибки
+	 * @param {Function} fnSuccess принимает:
+	 *     {Array} сообщения
+	 *     {Number} количество сообщений в диалоге
+	 * @param {Function} fnFail принимает:
+	 *     {String} строка ошибки
 	 */
-	getDialogThread: function(dialogId, trashTagId, from, fnSuccess, fnFail) {
-		var userId = this._userId,
-			isMultiChat = (/^[\d]+$/.test(dialogId)),
-			sqlWhere = (isMultiChat) ? "m.chatid = ?" : "m.uid = ? AND m.chatid = 0",
-			bindArgs = (isMultiChat) ? [trashTagId, dialogId] : [trashTagId, dialogId.split("_")[1]];
+	getDialogThread: function DatabaseManager_getDialogThread(dialogId, from, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT m.title, m.status, m.body, m.date, m.uid, m.mid, m.tags, c.first_name, c.last_name, m.attachments, m.other_data \
-							FROM pm_" + userId + " AS m \
-							JOIN contacts_" + userId + " AS c ON c.uid = m.uid \
-							WHERE m.tags & ? == 0 AND " + sqlWhere + " \
-							GROUP BY m.mid \
-							ORDER BY m.mid", bindArgs, function(tx, resultSet) {
-				var i, stop,
-					total = resultSet.rows.length,
-					output = [];
-
-				if (from === null) {
-					for (i = 0; i < total; i++) {
-						output.push(resultSet.rows.item(i));
+		function getContactById(id) {
+			return new vow.Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(id)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else if (!records.length) {
+						resolve(null);
+					} else {
+						resolve({
+							uid: records[0].key,
+							first_name: records[0].value.first_name,
+							last_name: records[0].value.last_name
+						});
 					}
-				} else {
-					for (i = Math.max(total - from - 30, 0), stop = Math.max(total - from, 0); i < stop; i++) {
-						output.push(resultSet.rows.item(i));
-					}
-				}
+				});
+			});
+		}
 
-				fnSuccess([output, total]);
-			}, function (tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
+		function countChatMessages() {
+			return new vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(dialogId)
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
+				});
+			});
+		}
+
+		function getChatMessages() {
+			return new vow.Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(dialogId),
+					direction: sklad.DESC,
+					offset: from,
+					limit: 30
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(records);
+					}
+				});
+			});
+		}
+
+		vow.all({
+			messages: getChatMessages(),
+			total: countChatMessages()
+		}).then(function (res) {
+			var total = res.total;
+			var promises = {};
+			var output = [];
+
+			res.messages.reverse().forEach(function (record) {
+				output.push({
+					mid: record.value.mid,
+					title: record.value.title,
+					body: record.value.body,
+					date: record.value.date,
+					status: Number(record.value.read),
+					uid: record.value.uid,
+					tags: record.value.tags,
+					has_emoji: record.value.has_emoji,
+					attachments: record.value.attachments
+				});
+
+				if (!promises[record.value.uid] && record.value.uid != userId) {
+					promises[record.value.uid] = getContactById(record.value.uid);
 				}
 			});
+
+			vow.all(promises).then(function (res) {
+				output.forEach(function (message) {
+					if (!res[message.uid]) {
+						return;
+					}
+
+					message.first_name = res[message.uid].first_name;
+					message.last_name = res[message.uid].last_name;
+				});
+
+				fnSuccess([
+					output,
+					total
+				]);
+			}, function (err) {
+				fnFail(err.name + ": " + err.message);
+			});
+		}, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 
@@ -378,190 +859,344 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает параметр {Object}
 	 * @param {Function} fnFail принимает параметры {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	getMessageById: function(mid, fnSuccess, fnFail) {
+	getMessageById: function DatabaseManager_getMessageById(mid, fnSuccess, fnFail) {
 		var userId = this._userId;
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT * FROM pm_" + userId + " WHERE mid = ?", [mid], function(tx, resultSet) {
-				if (resultSet.rows.length === 0) {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No message with ID #" + mid);
-					}
+		this._conn[userId].get("messages", {
+			range: IDBKeyRange.only(mid)
+		}, function (err, records) {
+			if (err) {
+				fnFail(true, err.name + ": " + err.message);
+				return;
+			}
 
-					return;
-				}
+			if (!records.length) {
+				fnFail(false, "No message with ID #" + mid);
+				return;
+			}
 
-				fnSuccess(resultSet.rows.item(0));
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
-			});
+			fnSuccess(records[0].value);
 		});
 	},
 
 	/**
 	 * Внесение и обновление контактов
-	 * 
+	 *
+	 * @param {Number} userId
 	 * @param {Array} data массив из массивов вида [uid, firstName, lastName, otherData, oldNames, notes]
-	 * @param {Function} fnSuccess (optional) принимает {Object} данные пользователя
-	 * @param {Function} fnFail (optional) принимает {Integer} UID и {String} текст ошибки
-	 * @param {Function} fnAfterwards (optional)
+	 * @return {Promise}
 	 */
-	replaceContacts: function(userId, data, fnSuccess, fnFail, fnAfterwards) {
-		var callbacksAreFunctions = [(typeof fnSuccess === "function"), (typeof fnFail === "function"), (typeof fnAfterwards === "function")],
-			executedStatements = 0,
-			fn;
+	replaceContacts: function DatabaseManager_replaceContacts(userId, data) {
+		var conn = this._conn[userId];
 
-		fn = function() {
-			executedStatements += 1;
-			if (executedStatements === data.length && callbacksAreFunctions[2]) {
-				fnAfterwards();
+		return new Promise(function (resolve, reject) {
+			var searchOpts = {};
+			var uids = data.map(function (userData) {
+				return Number(userData[0]);
+			});
+
+			if (uids.length > 1) {
+				searchOpts.index = "messages_num";
+				searchOpts.range = IDBKeyRange.lowerBound(1);
+			} else {
+				searchOpts.range = IDBKeyRange.only(uids[0]);
 			}
-		};
-		
-		this._dbLink.transaction(function(tx) {
-			var columns = ["uid", "first_name", "last_name", "other_data", "notes"];
 
-			data.forEach(function (userData) {
-				tx.executeSql('INSERT OR REPLACE INTO contacts_' + userId + '(' + columns.join(", ") + ') VALUES(?, ?, ?, ?, ?)', userData, function(tx, resultSet) {
-					if (callbacksAreFunctions[0]) {
-						var userDoc = {};
-						columns.forEach(function(columnName, index) {
-							userDoc[columnName] = userData[index];
+			conn.get("contacts", searchOpts, function (err, records) {
+				if (err) {
+					reject(err);
+				} else {
+					var currentContacts = {};
+					records.forEach(function (record) {
+						if (uids.indexOf(record.value.uid) !== -1) {
+							currentContacts[record.value.uid] = record.value;
+						}
+					});
+
+					var upsertContacts = data.map(function (userData) {
+						var otherData = userData[3];
+						var uid = Number(userData[0]);
+
+						var contact = {
+							uid: uid,
+							first_name: userData[1],
+							last_name: userData[2],
+							notes: "",
+							fulltext: [
+								userData[1].toLowerCase(),
+								userData[2].toLowerCase(),
+								uid
+							]
+						};
+
+						if (otherData.domain) {
+							contact.fulltext.push(otherData.domain.toLowerCase());
+						}
+
+						["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
+							if (otherData[field]) {
+								contact[field] = otherData[field];
+							}
 						});
 
-						fnSuccess(userDoc);
-					}
+						if (otherData.sex) {
+							contact.sex = Number(otherData.sex) || 0;
+						}
 
-					fn();
-				}, function(tx, err) {
-					if (callbacksAreFunctions[1]) {
-						fnFail(userData[0], err.message);
-					}
+						contact.last_message_ts = currentContacts[uid] ? currentContacts[uid].last_message_ts : 0;
+						contact.messages_num = currentContacts[uid] ? currentContacts[uid].messages_num : 0;
 
-					fn();
-				});
+						return contact;
+					});
+
+					conn.upsert({
+						contacts: upsertContacts
+					}, function (err) {
+						if (err) {
+							reject(err);
+						} else {
+							resolve(upsertContacts);
+						}
+					});
+				}
 			});
 		});
 	},
 
 	/**
-	 * Внесение сообщений
-	 * 
-	 * @param {Integer} currentUserId ID аккаунта, для которого заносятся сообщения
-	 * @param {Object} data объект с ключами: {Boolean} firstSync первая синхронизация или нет, {Array} messages массив сообщений-объектов с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags)
-	 * @param {Function} fnSuccess принимает {Object} данные сообщения (копия элемента массива из первого параметра), {Boolean} занесено ли сообщение в БД
-	 * @param {Function} fnAfterwards принимает {Integer} количество успешно внесенных сообщений и {Integer} количество фэйлов при занесении
+	 * Внесение сообщений.
+	 * Есть интересная особенность API ВКонтакте: метод messages.get не поддерживает сортировку и отдает сперва самые новые сообщения.
+	 *
+	 * @param {Number} currentUserId ID аккаунта, для которого заносятся сообщения
+	 * @param {Array} messages - сообщения-объекты с ключами (mid, uid, date, title, body, read_state, attachments, chat_id, tags, emoji)
+	 * @param {Function} fnSuccess
+	 * @param {Function} fnFail
 	 */
-	insertMessages: function(currentUserId, data, fnSuccess, fnAfterwards) {
-		var userId = currentUserId,
-			callbacksAreFunctions = [(typeof fnSuccess === "function"), (typeof fnAfterwards === "function")],
-			executedStatements = [0, 0], // сумма хороших запросов и сумма плохих
-			databaseKeys = ["mid", "uid", "date", "title", "body", "other_data", "status", "attachments", "chatid", "tags"];
+	insertMessages: function DatabaseManager_insertMessages(currentUserId, messages, fnSuccess, fnFail) {
+		var chats = {};
+		var messagesToInsert = [];
 
-		if (data.messages.length === 0) {
-			fnAfterwards(0, 0);
-			return;
+		messages.forEach(function (message) {
+			var chatId = message.chat_id ? String(message.chat_id) : "0_" + message.uid;
+
+			// chat should be inserted only once
+			if (!chats[chatId]) {
+				chats[chatId] = {
+					id: chatId,
+					title: message.title,
+					last_message_ts: message.date
+				};
+			}
+
+			var msgData = {
+				mid: Number(message.mid),
+				uid: Number(message.uid),
+				title: message.title,
+				body: message.body,
+				date: message.date,
+				read: Boolean(message.read_state),
+				chat: chatId,
+				attachments: validateJSONString(message.attachments, Array),
+				tags: message.tags,
+				has_emoji: Boolean(message.emoji),
+				fulltext: getMessageFulltext(message.body)
+			};
+
+			if (message.important) {
+				msgData.tags.push("important");
+			}
+
+			if (message.deleted) {
+				msgData.tags.push("trash");
+			}
+
+			messagesToInsert.push(msgData);
+		});
+
+		this._conn[currentUserId].upsert({
+			chats: _.values(chats),
+			messages: messagesToInsert
+		}, function (err) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			fnSuccess();
+		});
+	},
+
+	/**
+	 * Actualize chats' dates
+	 * @return {Promise}
+	 */
+	actualizeChatDates: function DatabaseManager_actualizeChatDates(userId) {
+		userId = userId || this._userId;
+		var conn = this._conn[userId];
+
+		function getChatLastDate(id) {
+			return new Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "chat_messages",
+					range: IDBKeyRange.only(id),
+					direction: sklad.DESC,
+					limit: 1
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve({
+							id: id,
+							title: records[0].value.title,
+							last_message_ts: records[0].value.date
+						});
+					}
+				});
+			});
 		}
 
-		// вызывается на каждой итерации после занесения сообщения в БД
-		var subAfterFn = function(msgData, queryIsOk) {
-			if (callbacksAreFunctions[0]) {
-				fnSuccess(msgData, queryIsOk);
-			}
-
-			if (queryIsOk) {
-				executedStatements[0] += 1;
-			} else {
-				executedStatements[1] += 1;
-			}
-
-			if (executedStatements[0] + executedStatements[1] === data.messages.length && callbacksAreFunctions[1]) {
-				if (data.firstSync) {
-					executedStatements[1] = 0;
+		// NB: can't search with {index: "chat_messages", direction: sklad.DESC_UNIQUE} here
+		// because first record is not the last sorted by mid unfortunately :(
+		return new Promise(function (resolve, reject) {
+			// get all chats grouped by id
+			conn.get("messages", {
+				index: "chat_messages",
+				direction: sklad.DESC_UNIQUE
+			}, function (err, records) {
+				if (err) {
+					reject(err.name + ": " + err.message);
+					return;
 				}
 
-				fnAfterwards.apply(null, executedStatements);
-			}
-		};
-		
-		this._dbLink.transaction(function(tx) {
-			data.messages.forEach(function(msgData) {
-				var databasePlaces = [],
-					databaseBindings = [];
-
-				if (typeof msgData.attachments === "object") {
-					msgData.attachments = JSON.stringify(msgData.attachments);
-				}
-
-				databaseKeys.forEach(function(key) {
-					databasePlaces.push("?");
-
-					switch (key) {
-						case "other_data" : databaseBindings.push(JSON.stringify(msgData)); break;
-						case "status" : databaseBindings.push(msgData.read_state); break;
-						case "chatid" : databaseBindings.push(msgData.chat_id); break;
-						default : databaseBindings.push(msgData[key]); break;
-					}
+				var promises = records.map(function (record) {
+					return getChatLastDate(record.key);
 				});
 
-				tx.executeSql("INSERT INTO pm_" + userId + " (" + databaseKeys.join(",") + ") VALUES (" + databasePlaces.join(",") + ")", databaseBindings, function(tx, resultSet) {
-					subAfterFn(msgData, true);
-				}, function(tx, err) {
-					subAfterFn(msgData, false);
-				});
-			});
-		});
-	},
+				Promise.all(promises).then(function (upsertData) {
+					conn.upsert({
+						chats: upsertData
+					}, function (err) {
+						if (err) {
+							reject(err.name + ": " + err.message);
+							return;
+						}
 
-	/**
-	 * Обновление полей "other_data" при миграции на 4.7
-	 * @param {Array} ids
-	 * @param {Function} callback принимает:
-	 *		{String|Null} текст ошибки
-	 */
-	updateMessagesOnMigrate: function (ids, callback) {
-		this._dbLink.transaction(function (tx) {
-			var tasks = {};
-			ids.forEach(function (id) {
-				tasks[id] = function (callback) {
-					tx.executeSql("UPDATE pm_" + id + " SET other_data = ''", [], function (tx, resultSet) {
-						callback();
-					}, function (tx, err) {
-						// как иначе отследить и передать в GA какие-то данные?
-						callback();
+						resolve();
 					});
-				};
+				}, function (err) {
+					reject(err.name + ": " + err.message);
+				});
 			});
+		});
+	},
 
-			Utils.async.parallel(tasks, callback);
+	actualizeContacts: function DatabaseManager_actualizeContacts(userId) {
+		userId = userId || this._userId;
+		var conn = this._conn[userId];
+
+		function getLastUserMessage(contact) {
+			return new Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "user_messages",
+					range: IDBKeyRange.only(contact.uid),
+					direction: sklad.DESC,
+					limit: 1
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						contact.last_message_ts = records.length ? records[0].value.date : 0;
+						resolve();
+					}
+				});
+			});
+		}
+
+		function countUserMessages(contact) {
+			return new Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "user_messages",
+					range: IDBKeyRange.only(contact.uid),
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						contact.messages_num = total;
+						resolve();
+					}
+				});
+			});
+		}
+
+		return new Promise(function (resolve, reject) {
+			conn.get("contacts", function (err, records) {
+				if (err) {
+					reject(err.name + ": " + err.message);
+					return;
+				}
+
+				var contacts = [];
+				var promises = [];
+
+				records.forEach(function (record) {
+					var contact = record.value;
+
+					promises.push(getLastUserMessage(contact));
+					promises.push(countUserMessages(contact));
+
+					contacts.push(contact);
+				});
+
+				Promise.all(promises).then(function () {
+					conn.upsert({
+						contacts: contacts
+					}, function (err) {
+						if (err) {
+							reject(err.name + ": " + err.message);
+							return;
+						}
+
+						resolve();
+					});
+				}, function (err) {
+					reject(err.name + ": " + err.message);
+				});
+			});
 		});
 	},
 
 	/**
 	 * @param {Integer} msgId
 	 * @param {Function} fnSuccess принимает {Void}
-	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
+	 * @param {Function} fnFail принимает {String} errorMessage
 	 */
-	markAsRead: function(msgId, fnSuccess, fnFail) {
+	markAsRead: function DatabaseManager_markAsRead(msgId, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET status = 1 WHERE mid = ?", [msgId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					if (typeof fnSuccess === "function") {
-						fnSuccess();
-					}
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating status column (mid: " + msgId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(Number(msgId))
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnSuccess && fnSuccess();
+				return;
+			}
+
+			var message = records[0].value;
+			message.read = true;
+
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess && fnSuccess();
 			});
 		});
 	},
@@ -569,80 +1204,121 @@ var DatabaseManager = {
 	/**
 	 * @param {Integer} msgId
 	 * @param {Function} fnSuccess принимает {Void}
-	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
+	 * @param {Function} fnFail принимает {String} errorMessage
 	 */
-	markAsUnread: function(msgId, fnSuccess, fnFail) {
+	markAsUnread: function DatabaseManager_markAsUnread(msgId, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET status = 0 WHERE mid = ?", [msgId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					if (typeof fnSuccess === "function") {
-						fnSuccess();
-					}
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating status column (mid: " + msgId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(Number(msgId))
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnSuccess && fnSuccess();
+				return;
+			}
+
+			var message = records[0].value;
+			message.read = false;
+
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess && fnSuccess();
 			});
 		});
 	},
 
 	/**
 	 * Добавление метки к сообщению
-	 * @param {Integer} msgId ID сообщения
-	 * @param {Integer} tagId ID тэга
+	 * @param {Number} msgId ID сообщения
+	 * @param {String} тэг
 	 * @param {Function} fnSuccess принимает {Void}
 	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	markMessageWithTag: function(msgId, tagId, fnSuccess, fnFail) {
+	markMessageWithTag: function DatabaseManager_markMessageWithTag(msgId, tag, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET tags = tags | ? WHERE mid = ?", [tagId, msgId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					fnSuccess();
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tagId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(Number(msgId))
+		}, function (err, records) {
+			if (err) {
+				fnFail(true, err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			var message = records[0].value;
+			if (message.tags.indexOf(tag) !== -1) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			message.tags.push(tag);
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(true, err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess();
 			});
 		});
 	},
 
 	/**
 	 * Удаление метки с сообщения
-	 * @param {Integer} msgId ID сообщения
-	 * @param {Integer} tagId ID тэга
+	 * @param {Number} msgId ID сообщения
+	 * @param {String} тэг
 	 * @param {Function} fnSuccess принимает {Void}
 	 * @param {Function} fnFail принимает {Boolean} isDatabaseError и {String} errorMessage
 	 */
-	unmarkMessageWithTag: function(msgId, tagId, fnSuccess, fnFail) {
+	unmarkMessageWithTag: function DatabaseManager_unmarkMessageWithTag(msgId, tag, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("UPDATE pm_" + userId + " SET tags = tags - ? WHERE mid = ? AND tags & ?", [tagId, msgId, tagId], function(tx, resultSet) {
-				if (resultSet.rowsAffected) {
-					fnSuccess();
-				} else {
-					if (typeof fnFail === "function") {
-						fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tagId + ")");
-					}
+		conn.get("messages", {
+			range: IDBKeyRange.only(Number(msgId))
+		}, function (err, records) {
+			if (err) {
+				fnFail(true, err.name + ": " + err.message);
+				return;
+			}
+
+			if (!records.length) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			var message = records[0].value;
+			var tagIndex = message.tags.indexOf(tag);
+
+			if (tagIndex === -1) {
+				fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+				return;
+			}
+
+			message.tags.splice(tagIndex, 1);
+			conn.upsert("messages", message, function (err) {
+				if (err) {
+					fnFail(true, err.name + ": " + err.message);
+					return;
 				}
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(true, err.message);
-				}
+
+				fnSuccess();
 			});
 		});
 	},
@@ -652,226 +1328,320 @@ var DatabaseManager = {
 	 * @param {Integer} msgId ID сообщения
 	 * @param {Function} fn
 	 */
-	deleteMessage: function(msgId, fn) {
+	deleteMessage: function DatabaseManager_deleteMessage(msgId, fn) {
 		var userId = this._userId;
 
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("DELETE FROM pm_" + userId + " WHERE mid = ?", [msgId], fn, fn);
-		});
+		// проблема здесь - рассинхронизация messages и chats.last_message_ts
+		this._conn[userId].delete("messages", Number(msgId), fn);
 	},
 
 	/**
 	 * Получение частоты использования тэгов
-	 * @param {Integer} trashTagId
 	 * @param {Function} fnSuccess принимает {Object} объект freq
 	 * @param {Function} fnFail принимает {String} errorMessage
 	 */
-	getTagsCount: function(trashTagId, fnSuccess, fnFail) {
-		var userId = this._userId,
-			freq = {}, // объект вида {tagId1: количество1, tagId2: количество2, ...}
-			steps = 0, // сколько запросов выполнено
-			fnAfterwards;
+	getTagsCount: function DatabaseManager_getTagsCount(fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		fnAfterwards = function() {
-			steps += 1;
-			if (steps !== 2) {
+		function countTagOccurrences(tag) {
+			return new vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "tag",
+					range: IDBKeyRange.only(tag)
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
+					}
+				});
+			});
+		}
+
+		conn.get("messages", {
+			index: "tag",
+			direction: sklad.ASC_UNIQUE
+		}, function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
 				return;
 			}
 
-			fnSuccess(freq);
-		};
-
-		this._dbLink.readTransaction(function(tx) {
-			// количество всех кроме удаленных
-			tx.executeSql("SELECT t.id, COUNT(m.rowid) AS total \
-							FROM tags_" + userId + " AS t \
-							JOIN pm_" + userId + " AS m ON t.id & m.tags \
-							WHERE t.id != ? AND m.tags & ? == 0 \
-							GROUP BY t.id", [trashTagId, trashTagId], function(tx, resultSet) {
-				var i, item;
-
-				for (i = 0; i < resultSet.rows.length; i++) {
-					item = resultSet.rows.item(i);
-					freq[item.id] = item.total;
-				}
-
-				fnAfterwards();
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+			var promises = {};
+			records.forEach(function (record) {
+				promises[record.key] = countTagOccurrences(record.key);
 			});
 
-			// количество удаленных
-			tx.executeSql("SELECT COUNT(rowid) AS total FROM pm_" + userId + " WHERE tags & ?", [trashTagId], function(tx, resultSet) {
-				freq[trashTagId] = resultSet.rows.item(0).total;
-				fnAfterwards();
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+			vow.all(promises).then(fnSuccess, function (err) {
+				fnFail(err.name + ": " + err.message);
 			});
 		});
 	},
 
 	/**
 	 * Получение сообщений определенного типа
-	 * @param {Array} tagsIds тэги [нужный тэг, trashTagId]
+	 * @param {String} tag
 	 * @param {Integer} startFrom
 	 * @param {Function} fnSuccess принимает {Array} [{Array} сообщения, {Integer} total]
 	 * @oaram {Function} fnFail принимает {String} errorMessage
 	 */
-	getMessagesByType: function(tagsIds, startFrom, fnSuccess, fnFail) {
-		var userId = this._userId,
-			isTrashFolder = (tagsIds[0] === tagsIds[1]),
-			sqlAfter = (isTrashFolder) ? "" : " AND m.tags & ? == 0",
-			bindings = (isTrashFolder) ? [tagsIds[0]] : tagsIds;
+	getMessagesByType: function DatabaseManager_getMessagesByType(tag, startFrom, fnSuccess, fnFail) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT (CASE m.chatid WHEN 0 THEN ('0_' || m.uid) ELSE m.chatid END) AS id, m.title, m.status, m.body, m.date, m.uid, m.mid, m.tags, c.first_name, c.last_name \
-							FROM pm_" + userId + " AS m \
-							JOIN contacts_" + userId + " AS c ON c.uid = m.uid \
-							WHERE m.tags & ?" + sqlAfter + " \
-							ORDER BY m.mid DESC", bindings, function(tx, resultSet) {
-				var total = resultSet.rows.length,
-					output = [[], total],
-					i, len;
-
-				for (i = startFrom, len = startFrom + 20; i < len; i++) {
-					if (i + 1 > total) {
-						break;
+		function countTagMessages() {
+			return new vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "tag",
+					range: IDBKeyRange.only(tag)
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total);
 					}
-
-					output[0].push(resultSet.rows.item(i));
-				}
-
-				fnSuccess(output);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				});
 			});
+		}
+
+		function getContactData(message) {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(message.uid)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						message.first_name = records.length ? records[0].value.first_name : "Not";
+						message.last_name = records.length ? records[0].value.last_name : "Found";
+
+						resolve();
+					}
+				});
+			});
+		}
+
+		function getTagMessages() {
+			return new vow.Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "tag",
+					range: IDBKeyRange.only(tag),
+					direction: sklad.DESC,
+					offset: startFrom,
+					limit: 20
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						var promises = [];
+						var output = [];
+
+						records.forEach(function (record) {
+							var message = {
+								id: record.value.chat,
+								title: record.value.title,
+								body: record.value.body,
+								date: record.value.date,
+								uid: record.value.uid,
+								mid: record.value.mid,
+								tags: record.value.tags,
+								status: Number(record.value.read)
+							};
+
+							output.push(message);
+							promises.push(getContactData(message));
+						});
+
+						Promise.all(promises).then(function () {
+							resolve(output);
+						}, reject);
+					}
+				});
+			});
+		}
+
+		vow.all([
+			getTagMessages(),
+			countTagMessages()
+		]).then(fnSuccess, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 
 	/**
 	 * Поиск контактов
-	 * @param {Array} searchItems массив искомых строк
-	 * @param {Integer} sortType типа сортировки: 0 - по дате последней переписки, 1 - по частоте переписки, 2 - по алфавиту
-	 * @param {Function} fnSuccess принимает {Array} массив объектов-контактов, {Integer} общее количество найденных контактов
-	 * @param {Function} fnFail принимает параметр {String} errorMessage
+	 *
+	 * @param {String} q
+	 * @param {Number} startFrom
+	 * @param {Function} fnSuccess принимает:
+	 *     {Array} массив объектов-контактов
+	 *     {Number} общее количество найденных контактов
+	 * @param {Function} fnFail принимает:
+	 *     {String} errorMessage
 	 */
-	searchContact: function(searchItems, sortType, startFrom, fnSuccess, fnFail) {
-		var userId = this._userId,
-			sql,
-			bind = [],
-			where = [];
+	searchContact: function DatabaseManager_searchContact(q, startFrom, fnSuccess, fnFail) {
+		q = q.toLowerCase();
 
-		searchItems.forEach(function(item) {
-			where.push("LIKE(?, ss)");
-			bind.push("%" + item + "%");
-		});
+		var userId = this._userId;
+		var conn = this._conn[userId];
+		var to = q.substr(0, q.length - 1) + String.fromCharCode(q.charCodeAt(q.length - 1) + 1);
+		var range = IDBKeyRange.bound(q, to, false, true);
 
-		switch (sortType) {
-			case 0 :
-				sql = "SELECT c.*, pm.date, (c.first_name || ' ' || c.last_name || ' ' || c.first_name) AS ss FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid WHERE " + where.join(" OR ") + " GROUP BY c.uid ORDER BY pm.date DESC, c.first_name, c.last_name";
-				break;
-
-			case 1 :
-				sql = "SELECT c.*, COUNT(pm.rowid) AS total, (c.first_name || ' ' || c.last_name || ' ' || c.first_name) AS ss FROM contacts_" + userId + " AS c LEFT JOIN pm_" + userId + " AS pm ON pm.uid = c.uid WHERE " + where.join(" OR ") + " GROUP BY c.uid ORDER BY total DESC, c.first_name, c.last_name";
-				break;
-
-			case 2 :
-				sql = "SELECT c.*, (c.first_name || ' ' || c.last_name || ' ' || c.first_name) AS ss FROM contacts_" + userId + " AS c WHERE " + where.join(" OR ") + " ORDER BY first_name, last_name";
-				break;
+		function countContacts() {
+			return new Promise(function (resolve, reject) {
+				conn.count("contacts", {
+					index: "fulltext",
+					range: range
+				}, function (err, total) {
+					if (err) {
+						reject(err)
+					} else {
+						resolve(total);
+					}
+				});
+			});
 		}
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql(sql, bind, function(tx, resultSet) {
-				var i, len,
-					total = resultSet.rows.length,
-					output = [];
-
-				for (i = startFrom, len = startFrom + 20; i < len; i++) {
-					if (i + 1 > total) {
-						break;
+		function searchContacts() {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					index: "fulltext",
+					range: range,
+					offset: startFrom,
+					limi: 20
+				}, function (err, records) {
+					if (err) {
+						reject(err)
+					} else {
+						resolve(records.map(function (record) {
+							return record.value;
+						}));
 					}
-
-					output.push(resultSet.rows.item(i));
-				}
-
-				fnSuccess(output, total);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				});
 			});
+		}
+
+		Promise.all([
+			searchContacts(),
+			countContacts()
+		]).then(function (res) {
+			fnSuccess.apply(null, res);
+		}, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 
 	/**
 	 * Поиск писем
 	 * @param {Object} params
-	 * @param {String} searchString
-	 * @param {Integer} trashTagId
-	 * @param {Function} fnSuccess принимает {Array} массив сообщений и {Integer} общее количество найденных сообщений
-	 * @param {Function} fnFail принимает {String} текст ошибки
+	 * @param {String} q
+	 * @param {Number} startFrom
+	 * @param {Function} fnSuccess принимает:
+	 *     {Array} массив сообщений
+	 *     {Number} общее количество найденных сообщений
+	 * @param {Function} fnFail принимает:
+	 *     {String} текст ошибки
 	 */
-	searchMail: function(params, searchString, trashTagId, startFrom, fnSuccess, fnFail) {
-		var userId = this._userId,
-			bindings, sqlWhere;
+	searchMail: function DatabaseManager_searchMail(params, q, startFrom, fnSuccess, fnFail) {
+		q = q.toLowerCase();
 
-		params = params || {};
+		var userId = this._userId;
+		var conn = this._conn[userId];
+		var to = q.substr(0, q.length - 1) + String.fromCharCode(q.charCodeAt(q.length - 1) + 1);
+		var range = IDBKeyRange.bound(q, to, false, true);
 
-		if (params.id !== undefined) {
-			sqlWhere = ["m.tags & ? == 0", "LIKE(?, m.body)", "id = ?"];
-			bindings = [trashTagId, "%" + searchString + "%", params.id];
-		} else if (params.tag !== undefined) {
-			if (trashTagId === params.tag) { // поиск в корзине
-				sqlWhere = ["LIKE(?, m.body)", "m.tags & ?"];
-				bindings = ["%" + searchString + "%", params.tag];
-			} else {
-				sqlWhere = ["m.tags & ? == 0", "LIKE(?, m.body)", "m.tags & ?"];
-				bindings = [trashTagId, "%" + searchString + "%", params.tag];
-			}
-		} else {
-			sqlWhere = ["m.tags & ? == 0", "LIKE(?, m.body)"];
-			bindings = [trashTagId, "%" + searchString + "%"]
+		function countMessages() {
+			return new vow.Promise(function (resolve, reject) {
+				conn.count("messages", {
+					index: "fulltext",
+					range: range
+				}, function (err, total) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(total)
+					}
+				});
+			});
+		}
+
+		function getMessages() {
+			return new vow.Promise(function (resolve, reject) {
+				conn.get("messages", {
+					index: "fulltext",
+					range: range,
+					offset: startFrom,
+					limit: 20,
+					direction: sklad.DESC
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else {
+						resolve(records);
+					}
+				});
+			});
+		}
+
+		function getContactById(record) {
+			return new vow.Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(record.uid)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else if (!records.length) {
+						resolve();
+					} else {
+						record.first_name = records[0].value.first_name;
+						record.last_name = records[0].value.last_name;
+
+						resolve();
+					}
+				});
+			});
 		}
 
 		/*
+			FIXME: was dropped in 4.11
 			params.id -> WHERE dialogId = ?
 			params.tag -> WHERE tag &
-		*/
+		 */
+		vow.all({
+			total: countMessages(),
+			messages: getMessages()
+		}).then(function (res) {
+			var total = res.total;
+			var promises = [];
+			var output = [];
 
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT \
-							(CASE m.chatid WHEN 0 THEN ('0_' || m.uid) ELSE m.chatid END) AS id, m.title, m.status, m.body, m.date, m.uid, m.mid, m.tags, c.first_name, c.last_name \
-							FROM pm_" + userId + " AS m \
-							JOIN \
-								contacts_" + userId + " AS c \
-								ON c.uid = m.uid \
-							WHERE " + sqlWhere.join(" AND ") + "\
-							GROUP BY m.mid \
-							ORDER BY m.mid DESC", bindings, function(tx, resultSet) {
-				var i, len,
-					total = resultSet.rows.length,
-					output = [];
+			res.messages.forEach(function (record) {
+				var message = {
+					id: record.value.chat,
+					mid: record.value.mid,
+					uid: record.value.uid,
+					title: record.value.title,
+					body: record.value.body,
+					status: Number(record.value.read),
+					date: record.value.date,
+					tags: record.value.tags
+				};
 
-				for (i = startFrom, len = startFrom + 20; i < len; i++) {
-					if (i + 1 > total) {
-						break;
-					}
-
-					output.push(resultSet.rows.item(i));
+				if (message.uid != userId) {
+					promises.push(getContactById(message));
 				}
 
-				fnSuccess(output, total);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				output.push(message);
 			});
+
+			Promise.all(promises).then(function () {
+				fnSuccess(output, total);
+			}, function (err) {
+				fnFail(err.name + ": " + err.message);
+			});
+		}, function (err) {
+			fnFail(err.name + ": " + err.message);
 		});
 	},
 
@@ -881,10 +1651,12 @@ var DatabaseManager = {
 	 * @param {String} data
 	 * @param {String} level
 	 */
-	log: function(data, level) {
-		this._dbLink.transaction(function(tx) {
-			tx.executeSql("INSERT INTO log (data, ts, level) VALUES (?, ?, ?)", [data, Date.now(), level]);
-		});
+	log: function DatabaseManager_log(data, level) {
+		this._meta.insert("log", {
+			data: data,
+			ts: Date.now(),
+			level: level
+		}, _.noop);
 	},
 
 	/**
@@ -893,37 +1665,33 @@ var DatabaseManager = {
 	 * @param {Function} fnSuccess принимает {Array} массив записей из лога, готовых к отправке, отсортированных по дате
 	 * @param {Function} fnFail текст ошибки
 	 */
-	collectLogData: function(fnSuccess, fnFail) {
-		this._dbLink.readTransaction(function(tx) {
-			tx.executeSql("SELECT * FROM log ORDER BY rowid", [], function(tx, resultSet) {
-				var logRecords = [],
-					i, item, date,
-					timeDiff, timeLast;
+	collectLogData: function DatabaseManager_collectLogData(fnSuccess, fnFail) {
+		this._meta.get("log", function (err, records) {
+			if (err) {
+				fnFail(err.name + ": " + err.message);
+				return;
+			}
 
-				for (i = 0; i < resultSet.rows.length; i++) {
-					item = resultSet.rows.item(i);
-					date = new Date(item.ts);
+			var timeLast = 0;
+			var logRecords = records.map(function (record, i) {
+				var item = record.value;
+				var date = new Date(item.ts);
 
-					if (i === 0) {
-						logRecords.push("[" + date + "] " + item.data);
-					} else {
-						timeDiff = item.ts - timeLast;
-						logRecords.push("[" + date + " +" + timeDiff + "ms] " + item.data);
-					}
+				var timeDiff = item.ts - timeLast;
+				timeLast = item.ts;
 
-					timeLast = item.ts;
-				}
-
-				fnSuccess(logRecords);
-			}, function(tx, err) {
-				if (typeof fnFail === "function") {
-					fnFail(err.message);
-				}
+				return (i > 0)
+					? "[" + date + " +" + timeDiff + "ms] " + item.data
+					: "[" + date + "] " + item.data;
 			});
+
+			fnSuccess(logRecords);
 		});
 	},
 
 	_dbLink: null,
 	_userId: null,
-	_cachedInitTags: {}
+
+	_conn: {},
+	_meta: null
 };

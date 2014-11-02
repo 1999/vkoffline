@@ -16,8 +16,9 @@ results
 
 npm-debug.log
 node_modules
+src/bower_components
 
 # builds
 dist
 src/_locales
-src/js/templates.js
+src/js/precompiledTemplates.js

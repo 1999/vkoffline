@@ -55,7 +55,7 @@ document.addEventListener("click", function (e) {
 					right: [
 						{"type" : "text", "name" : subject},
 						{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("backToDialogsList")},
-						{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
+						// {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
 						{"type" : "icon", "name" : "print", "title" : chrome.i18n.getMessage("printCorrespondence")}
 					]
 				}
@@ -71,14 +71,14 @@ document.addEventListener("click", function (e) {
 			var self = this;
 			var closestParent = target.closestParent("section.open") || target.closestParent("section.msg"),
 				msgId = closestParent.data("mid"),
-				tagListItemCounter = $("#content > section.left.manage-mail li[data-tid='" + self.CacheManager.tags.important + "'] span"),
+				tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='important'] span"),
 				counterValue;
 
 			if (target.hasClass("active")) {
 				chrome.runtime.sendMessage({
 					action: "unmarkMessageTag",
 					mid: msgId,
-					tagId: self.CacheManager.tags.important
+					tag: "important"
 				}, function (unmarked) {
 					if (unmarked) {
 						target.removeClass("active").removeAttr("title").removeData();
@@ -94,7 +94,7 @@ document.addEventListener("click", function (e) {
 				chrome.runtime.sendMessage({
 					action: "markMessageTag",
 					mid: msgId,
-					tagId: self.CacheManager.tags.important
+					tag: "important"
 				}, function (marked) {
 					if (marked) {
 						target.addClass("active").attr("title", chrome.i18n.getMessage("importantMessage"));
@@ -315,7 +315,7 @@ document.addEventListener("click", function (e) {
 					chrome.runtime.sendMessage({
 						action: "unmarkMessageTag",
 						mid: msgId,
-						tagId: self.CacheManager.tags.trash
+						tag: "trash"
 					}, function (ok) {
 						callback((ok) ? null : "Update database fail");
 					});
@@ -340,7 +340,7 @@ document.addEventListener("click", function (e) {
 					return;
 
 				// обновление счетчика корзины
-				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tid='" + self.CacheManager.tags.trash + "'] span");
+				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='trash'] span");
 				var counterValue = parseInt(tagListItemCounter.text(), 10);
 				tagListItemCounter.text(counterValue - 1);
 
@@ -350,11 +350,11 @@ document.addEventListener("click", function (e) {
 
 					// добавляем стартовые метки-папки
 					App.INIT_TAGS.forEach(function (tagName) {
-						var tagId = self.CacheManager.tags[tagName]
-						if ((tagName === "trash") || ((msgInfo.tags & tagId) === 0))
+						if (tagName === "trash" || msgInfo.tags.indexOf(tagName) === -1) {
 							return;
+						}
 
-						var counterElem = $(leftSection, "li[data-tid='" + tagId + "'] > span.total");
+						var counterElem = $(leftSection, "li[data-tag='" + tagName + "'] > span.total");
 						if (counterElem) {
 							counterValue = parseInt(counterElem.text(), 10) + 1;
 							counterElem.text(counterValue);
@@ -369,7 +369,8 @@ document.addEventListener("click", function (e) {
 			var msgSection = target.closestParent("section.open");
 			var msgId = msgSection.data("mid");
 			var leftSection = $("#content > section.left");
-			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && parseInt($(leftSection, "li.active").data("tid"), 10) === self.CacheManager.tags.trash);
+			var activeSectionTag = $(leftSection, "li.active").data("tag");
+			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && activeSectionTag === "trash");
 			var serverToo = (self.SettingsManager.DeleteUser !== 0);
 
 			if (isTrashFolderContents) {
@@ -388,7 +389,7 @@ document.addEventListener("click", function (e) {
 					chrome.runtime.sendMessage({
 						action: "markMessageTag",
 						mid: msgId,
-						tagId: self.CacheManager.tags.trash
+						tag: "trash"
 					}, function (ok) {
 						callback((ok) ? null : "Update database fail");
 					});
@@ -412,7 +413,7 @@ document.addEventListener("click", function (e) {
 
 				var openPrevAfterDelete = (msgSection !== msgSection.parentNode.firstElementChild && msgSection.previousElementSibling.hasClass("open") === false);
 				var sectionToOpen = (openPrevAfterDelete && msgSection.previousElementSibling.hasClass("half")) ? msgSection.previousElementSibling : $("#fold");
-				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tid='" + self.CacheManager.tags.trash + "'] span");
+				var tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='trash'] span");
 
 				msgSection.remove();
 				if (openPrevAfterDelete) {
@@ -434,11 +435,11 @@ document.addEventListener("click", function (e) {
 
 					// добавляем стартовые метки-папки
 					App.INIT_TAGS.forEach(function (tagName) {
-						var tagId = self.CacheManager.tags[tagName];
-						if ((tagName === "trash") || ((msgInfo.tags & tagId) === 0))
+						if (tagName === "trash" || msgInfo.tags.indexOf(tagName) === -1) {
 							return;
+						}
 
-						var counterElem = $(leftSection, "li[data-tid='" + tagId + "'] > span.total");
+						var counterElem = $(leftSection, "li[data-tag='" + tagName + "'] > span.total");
 						if (counterElem) {
 							counterValue = parseInt(counterElem.text(), 10) - 1;
 							counterElem.text(counterValue);
@@ -448,11 +449,11 @@ document.addEventListener("click", function (e) {
 			});
 		},
 		// открытие сообщений определенного типа
-		"#content > section.left.manage-mail li[data-tid]": function (target, evt) {
-			var tagId = parseInt(target.data("tid"), 10);
+		"#content > section.left.manage-mail li[data-tag]": function (target, evt) {
+			var tag = target.data("tag");
 			var containerSection = target.closestParent("#content > section.left");
 
-			$$(containerSection, "li[data-tid]").each(function () {
+			$$(containerSection, "li[data-tag]").each(function () {
 				if (target === this) {
 					this.addClass("active");
 				} else {
@@ -466,10 +467,10 @@ document.addEventListener("click", function (e) {
 					right: [
 						{"type" : "text", "name" : "..."},
 						{"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
-						{"type" : "icon", "name" : "search"}
+						// {"type" : "icon", "name" : "search"}
 					]
 				}
-			}, [tagId]);
+			}, [tag]);
 		}
 	};
 
@@ -979,13 +980,7 @@ var AppUI = {
 				if (leftHeaderText.text() === "...")
 					leftHeaderText.text(userData.first_name + " " + userData.last_name);
 
-				try {
-					userData.other_data = JSON.parse(userData.other_data);
-				} catch (e) {
-					userData.other_data = {
-						domain: "id" + uid
-					};
-				}
+				var userDomain = userData.domain || "id" + uid;
 
 				// avatar
 				var avatarSrc = "pic/question_th.gif";
@@ -997,18 +992,18 @@ var AppUI = {
 					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
 				}
 
-				var linkTitle = (/^id[0-9]+$/.test(userData.other_data.domain))
-					? "vk.com/" + userData.other_data.domain
-					: "@" + userData.other_data.domain;
+				var linkTitle = (/^id[0-9]+$/.test(userDomain))
+					? "vk.com/" + userDomain
+					: "@" + userDomain;
 
 				// birthday
 				var hasBirthday = false;
 				var birthday = "";
-				if (userData.other_data.bdate && userData.other_data.bdate.length) {
+				if (userData.bdate) {
 					hasBirthday = true;
 
 					var monthes = chrome.i18n.getMessage("monthes").split("|");
-					var splitUserData = userData.other_data.bdate.split(".");
+					var splitUserData = userData.bdate.split(".");
 					var isEnglishLocale = (chrome.i18n.getMessage('@@ui_locale').indexOf('en') !== -1);
 					var part;
 
@@ -1029,23 +1024,23 @@ var AppUI = {
 				// home phone
 				var hasHomePhone = false;
 				var homePhone;
-				if (userData.other_data.home_phone && userData.other_data.home_phone.length) {
+				if (userData.home_phone) {
 					hasHomePhone = true;
-					homePhone = userData.other_data.home_phone;
+					homePhone = userData.home_phone;
 				}
 
 				// mobile phone
 				var hasMobilePhone = false;
 				var mobilePhone;
-				if (userData.other_data.mobile_phone && userData.other_data.mobile_phone.length) {
+				if (userData.mobile_phone) {
 					hasMobilePhone = true;
-					mobilePhone = userData.other_data.mobile_phone;
+					mobilePhone = userData.mobile_phone;
 				}
 
 				var contents = Templates.render("contactInfo", {
 					avatarSrc: avatarSrc,
 					uid: uid,
-					linkToProfile: "http://vk.com/" + userData.other_data.domain,
+					linkToProfile: "http://vk.com/" + userDomain,
 					linkTitle: linkTitle,
 					hasBirthday: hasBirthday,
 					birthdayI18n: Utils.string.ucfirst(chrome.i18n.getMessage("birthdate")),
@@ -1764,17 +1759,17 @@ var AppUI = {
 					});
 				});
 
-				rightHeaderSearch.bind("click", function() {
-					self.view("searchMail", {
-						"uiType" : "partial",
-						"headers" : {
-							"right" : [
-								{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
-								{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
-							]
-						}
-					}, [{"id" : dialogId, "chatName" : rightHeaderText}]);
-				});
+				// rightHeaderSearch.bind("click", function() {
+				// 	self.view("searchMail", {
+				// 		"uiType" : "partial",
+				// 		"headers" : {
+				// 			"right" : [
+				// 				{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
+				// 				{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
+				// 			]
+				// 		}
+				// 	}, [{"id" : dialogId, "chatName" : rightHeaderText}]);
+				// });
 
 				if (this.prevShownView[0] === "showContact") {
 					var uid = this.prevShownView[1];
@@ -1840,7 +1835,7 @@ var AppUI = {
 					scrollToElem = $(right, "section.msg");
 
 				for (var i = startIndex; i >= 0; i--) {
-					isInboxMsg = (messages[i].tags & self.CacheManager.tags.inbox);
+					isInboxMsg = (messages[i].tags.indexOf("inbox") !== -1);
 					msgSenderUid = (isInboxMsg) ? messages[i].uid : self.AccountsManager.currentUserId;
 					msgSection = self._prepareMessage(messages[i]);
 
@@ -1926,7 +1921,7 @@ var AppUI = {
 					return;
 
 				folders.push({
-					tid: self.CacheManager.tags[tagName],
+					tag: tagName,
 					title: chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tagName) + "Name"),
 					total: 0
 				});
@@ -1935,45 +1930,31 @@ var AppUI = {
 			// добавляем "удаленные", "важные" и "с вложениями"
 			["trash", "important", "attachments"].forEach(function (tagName) {
 				folders.push({
-					tid: self.CacheManager.tags[tagName],
+					tag: tagName,
 					title: chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tagName) + "Name"),
 					classNames: "custom " + tagName,
 					total: 0
 				});
 			});
 
-			// добавляем кастомные тэги
-			for (var tagName in self.CacheManager.tags) {
-				if (App.INIT_TAGS.indexOf(tagName) !== -1)
-					continue;
-
-				folders.push({
-					tid: self.CacheManager.tags[tagName],
-					title: tagName,
-					total: 0
-				});
-			}
-
 			chrome.runtime.sendMessage({action: "getTagsFrequency"}, function (freq) {
 				folders.forEach(function (folder) {
-					folder.total = freq[folder.tid] || 0;
+					folder.total = freq[folder.tag] || 0;
 				});
 
 				var foldersHTML = Templates.render("mailFolders", {folders: folders});
 				leftSection.html(foldersHTML);
-				$(leftSection, "li[data-tid]").click();
+				$(leftSection, "li[data-tag]").click();
 			});
 		},
 
 		// список сообщений определенной папки
-		messagesOfType: function (tagId, startFrom) {
+		messagesOfType: function (tag, startFrom) {
 			var self = this;
 			var textHeader = $("#content > header.right > span.text");
 			var listHeader = $("#content > header.right > span.icon.list");
-			var searchHeader = $("#content > header.right > span.icon.search");
-			var rightSection = $("#content > section.right").data("tagId", tagId);
-
-			var isCustomTag = true;
+			// var searchHeader = $("#content > header.right > span.icon.search");
+			var rightSection = $("#content > section.right").data("tag", tag);
 			var tagTitle;
 
 			startFrom = startFrom || 0;
@@ -1984,19 +1965,9 @@ var AppUI = {
 
 				// устанавливаем span.text
 				for (i = 0; i < App.INIT_TAGS.length; i++) {
-					if (self.CacheManager.tags[App.INIT_TAGS[i]] === tagId) {
-						isCustomTag = false;
-						tagTitle = chrome.i18n.getMessage("tag" + Utils.string.ucfirst(App.INIT_TAGS[i]) + "Name");
+					if (tag === App.INIT_TAGS[i]) {
+						tagTitle = chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tag) + "Name");
 						break;
-					}
-				}
-
-				if (isCustomTag) {
-					for (var customTagTitle in self.CacheManager.tags) {
-						if (self.CacheManager.tags[customTagTitle] === tagId) {
-							tagTitle = customTagTitle;
-							break;
-						}
 					}
 				}
 
@@ -2013,17 +1984,17 @@ var AppUI = {
 					});
 				});
 
-				searchHeader.bind("click", function () {
-					self.view("searchMail", {
-						uiType: "partial",
-						headers: {
-							right: [
-								{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
-								{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
-							]
-						}
-					}, [{tag: tagId}]);
-				});
+				// searchHeader.bind("click", function () {
+				// 	self.view("searchMail", {
+				// 		uiType: "partial",
+				// 		headers: {
+				// 			right: [
+				// 				{"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
+				// 				{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
+				// 			]
+				// 		}
+				// 	}, [{tag: tag}]);
+				// });
 
 				rightSection.bind("scroll", function () {
 					var moreSection = $(this, "section.more");
@@ -2036,14 +2007,14 @@ var AppUI = {
 					}
 				}, true);
 
-				if (tagId === self.CacheManager.tags.important) {
+				if (tag === "important") {
 					chrome.runtime.sendMessage({"action" : "useImportantTag", "type" : "list"});
 				}
 			}
 
 			chrome.runtime.sendMessage({
-				action: "getMessagesByTagId",
-				tagId: tagId,
+				action: "getMessagesByTagName",
+				tag: tag,
 				totalShown: startFrom
 			}, function (data) {
 				var messagesData = data[0];
@@ -2060,18 +2031,19 @@ var AppUI = {
 				});
 
 				var sectionsHTML = Templates.render("halfSections", {sections: halfSections});
-				var tagIdTmp = rightSection.data("tagId");
-				rightSection.removeData().data("tagId", tagIdTmp).removeClass().addClass("right", "thread-container").append(sectionsHTML);
+				var tagTmp = rightSection.data("tag");
+				rightSection.removeData().data("tag", tagTmp).removeClass().addClass("right", "thread-container").append(sectionsHTML);
 
 				// добавляем при необходимости кнопку "еще"
 				var totalShown = $$(rightSection, "section[data-mid]").length + messagesData.length;
+
 				if (totalShown < total) {
 					var more = $("<section>").addClass("more").text(Utils.string.ucfirst(chrome.i18n.getMessage("more"))).bind("click", function () {
 						if (this.hasClass("loading"))
 							return;
 
 						this.html("&nbsp;").addClass("loading");
-						self.view("messagesOfType", {}, [tagId, totalShown]);
+						self.view("messagesOfType", {}, [tag, totalShown]);
 					});
 
 					rightSection.append(more);
@@ -2164,7 +2136,7 @@ var AppUI = {
 								"right" : [
 									{"type" : "text", "name" : chatName},
 									{"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("backToDialogsList")},
-									{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
+									// {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
 									{"type" : "icon", "name" : "print", "title" : chrome.i18n.getMessage("printCorrespondence")}
 								]
 							}
@@ -2179,7 +2151,7 @@ var AppUI = {
 								"right" : [
 									{"type" : "text", "name" : "..."},
 									{"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
-									{"type" : "icon", "name" : "search"}
+									// {"type" : "icon", "name" : "search"}
 								]
 							}
 						}, [params.tag]);
@@ -2218,6 +2190,9 @@ var AppUI = {
 
 				if (!value.length)
 					return $$(rightSection.removeClass("loading"), "section[data-mid]").remove();
+
+				if (value.length < 2)
+					return;
 
 				$$(rightSection.addClass("loading"), "section[data-mid]").remove();
 				chrome.runtime.sendMessage({
@@ -2632,7 +2607,7 @@ var AppUI = {
 
 	addReceivedMessage: function (msgData) {
 		var self = this,
-			isInboxMsg = (msgData.tags & self.CacheManager.tags.inbox),
+			isInboxMsg = (msgData.tags.indexOf("inbox") !== -1),
 			msgSenderUid = (isInboxMsg) ? msgData.uid : self.AccountsManager.currentUserId,
 			chatContainer = $("#content > section.chat-container"),
 			msgDataObj = self._prepareMessage(msgData, true),
@@ -2670,7 +2645,7 @@ var AppUI = {
 	 */
 	_prepareHalfSection: function (msgData, searchTerm) {
 		var self = this;
-		var isInboxMsg = Boolean(msgData.tags & self.CacheManager.tags.inbox);
+		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
 		var uid = isInboxMsg ? msgData.uid : self.AccountsManager.currentUserId;
 
 		var avatarSrc = "pic/question_th.gif";
@@ -2699,7 +2674,7 @@ var AppUI = {
 		}
 
 		var output = {
-			is_new: (msgData.status === 0 && msgData.tags & self.CacheManager.tags.inbox),
+			is_new: (msgData.tags.indexOf("inbox") !== -1 && msgData.status === 0),
 			mid: msgData.mid,
 			avatarSrc: avatarSrc,
 			uid: uid,
@@ -2738,17 +2713,12 @@ var AppUI = {
 		}
 
 		var phones = [];
-		var otherData = {};
 
-		try {
-			otherData = JSON.parse(userData.other_data);
-		} catch (e) {}
+		if (userData.home_phone)
+			phones.push(userData.home_phone);
 
-		if (otherData.home_phone && otherData.home_phone.length)
-			phones.push(otherData.home_phone);
-
-		if (otherData.mobile_phone && otherData.mobile_phone.length)
-			phones.push(otherData.mobile_phone);
+		if (userData.mobile_phone)
+			phones.push(userData.mobile_phone);
 
 		var avatarSrc = "pic/question_th.gif";
 		if (this.CacheManager.avatars[userData.uid]) {
@@ -2773,19 +2743,16 @@ var AppUI = {
 	 */
 	_prepareMessage: function (msgData, forceShowUnread) {
 		var self = this;
-		var isInbox = (msgData.tags & self.CacheManager.tags.inbox);
+		var isInbox = (msgData.tags.indexOf("inbox") !== -1);
 		var unread = forceShowUnread || (msgData.status === 0 && isInbox);
 
 		var attachments = [];
 		var msgObj;
 
-		try {
-			msgObj = JSON.parse(msgData.other_data);
-		} catch (e) {}
-
 		msgData.body = Utils.string.replaceLinks(msgData.body);
-		if (msgObj && msgObj.emoji)
+		if (msgData.has_emoji) {
 			msgData.body = Utils.string.emoji(msgData.body, true);
+		}
 
 		var output = {
 			unread: unread,
@@ -2794,7 +2761,7 @@ var AppUI = {
 			date: msgData.date,
 			localizedDate: (new Date(msgData.date * 1000)).toLocaleString().replace(/\sGMT.*/, ""),
 			humanDate: Utils.string.humanDate(msgData.date),
-			important: (msgData.tags & self.CacheManager.tags.important),
+			important: (msgData.tags.indexOf("important") !== -1),
 			importantTitle: chrome.i18n.getMessage("importantMessage"),
 			body: msgData.body,
 			attachments: []
@@ -2890,7 +2857,8 @@ var AppUI = {
 			action: "getMessageInfo",
 			mid: msgId
 		}, function (msgInfo) {
-			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && parseInt($(leftSection, "li.active").data("tid"), 10) === self.CacheManager.tags.trash);
+			var activeSectionTag = $(leftSection, "li.active").data("tag");
+			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && activeSectionTag === "trash");
 
 			var msgTplData = self._prepareHalfSection(msgInfo);
 			msgTplData.fio = fromFio;
@@ -2901,7 +2869,7 @@ var AppUI = {
 			msgTplData.deleteText = chrome.i18n.getMessage("deleteMessage");
 			msgTplData.replyText = chrome.i18n.getMessage("respondMessage");
 			msgTplData.startTyping = chrome.i18n.getMessage("startTypingMessage");
-			msgTplData.important = (!isTrashFolderContents && (msgInfo.tags & self.CacheManager.tags.important));
+			msgTplData.important = (!isTrashFolderContents && msgInfo.tags.indexOf("important") !== -1);
 			msgTplData.importantText = chrome.i18n.getMessage("importantMessage");
 			msgTplData.attachments = [];
 
@@ -3118,7 +3086,7 @@ var AppUI = {
 			currentMsgSection.after(msgSection).remove();
 
 			// помечаем сообщение как прочитанное
-			if (msgInfo.status === 0 && (msgInfo.tags & self.CacheManager.tags.inbox))
+			if (msgInfo.status === 0 && msgInfo.tags.indexOf("inbox") !== -1)
 				chrome.runtime.sendMessage({action: "markAsRead", mid: msgInfo.mid});
 
 			// закрываем уведомление
@@ -3167,7 +3135,7 @@ var AppUI = {
 	},
 
 	_drawUserSpeechSection: function (msgData) {
-		var isInboxMsg = (msgData.tags & this.CacheManager.tags.inbox);
+		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
 		var msgSenderUid = isInboxMsg ? msgData.uid : this.AccountsManager.currentUserId;
 		var fio = isInboxMsg ? msgData.first_name + " " + msgData.last_name : this.AccountsManager.current.fio;
 

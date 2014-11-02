@@ -22,11 +22,11 @@
 	width: 8px;
 	height: 8px;
 }
- 
+
 ::-webkit-scrollbar-track-piece {
 	background-color: #eee;
 }
- 
+
 ::-webkit-scrollbar-thumb {
 	background-color: #bfbfbf;
 	border-radius: 8px;
@@ -459,7 +459,7 @@ body:not(.grey) #content:after {
 	height: 30px;
 	line-height: 30px;
 	font-size: 15px;
-	
+
 	padding: 3px 5px;
 	border: 1px solid #ddd;
 	border-left: none;
@@ -771,7 +771,7 @@ body:not(.grey) #content:after {
 	display: block;
 }
 
-#content > section.manage-mail li[data-tid] {
+#content > section.manage-mail li[data-tag] {
 	line-height: 32px;
 	text-indent: 8px;
 	border-top-right-radius: 3px;
@@ -783,22 +783,22 @@ body:not(.grey) #content:after {
 	border-left: 3px solid transparent;
 }
 
-#content > section.manage-mail li[data-tid]:hover {
+#content > section.manage-mail li[data-tag]:hover {
 	background: #eee;
 }
 
-#content > section.manage-mail li.active[data-tid] {
+#content > section.manage-mail li.active[data-tag] {
 	border-color: #3f658f;
 }
 
-#content > section.manage-mail li[data-tid] span.total {
+#content > section.manage-mail li[data-tag] span.total {
 	margin-left: 4px;
 }
 
-#content > section.manage-mail li[data-tid] span.total:before { content: "("; }
-#content > section.manage-mail li[data-tid] span.total:after { content: ")"; }
+#content > section.manage-mail li[data-tag] span.total:before { content: "("; }
+#content > section.manage-mail li[data-tag] span.total:after { content: ")"; }
 
-#content > section.manage-mail li[data-tid].custom:before {
+#content > section.manage-mail li[data-tag].custom:before {
 	font-size: 22px;
 	font-family: "Modern Pictograms";
 	padding-right: 8px;
@@ -806,10 +806,10 @@ body:not(.grey) #content:after {
 	color: #bbb;
 }
 
-#content > section.manage-mail li[data-tid].custom:before { content: "J"; }
-#content > section.manage-mail li[data-tid].custom.attachments:before { content: "D"; }
-#content > section.manage-mail li[data-tid].custom.important:before { content: "*"; }
-#content > section.manage-mail li[data-tid].custom.trash:before { content: "I"; }
+#content > section.manage-mail li[data-tag].custom:before { content: "J"; }
+#content > section.manage-mail li[data-tag].custom.attachments:before { content: "D"; }
+#content > section.manage-mail li[data-tag].custom.important:before { content: "*"; }
+#content > section.manage-mail li[data-tag].custom.trash:before { content: "I"; }
 
 /* сообщение об ошибке */
 #content > section.error-container {}

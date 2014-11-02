@@ -47,6 +47,13 @@
 			}
 
 			StorageManager.remove("requests");
+		} else if (alarmInfo.name === "actualizeChats") {
+			DatabaseManager.actualizeChatDates();
+		} else if (alarmInfo.name === "actualizeContacts") {
+			DatabaseManager.actualizeContacts().catch(function (errMsg) {
+				LogManager.error(errMsg);
+				statSend("Custom-Errors", "Database error", errMsg);
+			});
 		}
 	});
 
@@ -68,22 +75,22 @@ function statSend(category, action, optLabel, optValue) {
 	var args = [];
 
 	for (var i = 0, len = Math.min(arguments.length, 4); i < len; i++) {
-        if (i === 3) {
-            if (typeof optValue === "boolean") {
-                optValue = Number(optValue);
-            } else if (typeof optValue !== "number") {
-                optValue = parseInt(optValue, 10) || 0;
-            }
+		if (i === 3) {
+			if (typeof optValue === "boolean") {
+				optValue = Number(optValue);
+			} else if (typeof optValue !== "number") {
+				optValue = parseInt(optValue, 10) || 0;
+			}
 
-            args.push(optValue);
-        } else {
-            if (typeof arguments[i] !== "string") {
-                args.push(JSON.stringify(arguments[i]));
-            } else {
-                args.push(arguments[i]);
-            }
-        }
-    }
+			args.push(optValue);
+		} else {
+			if (typeof arguments[i] !== "string") {
+				args.push(JSON.stringify(arguments[i]));
+			} else {
+				args.push(arguments[i]);
+			}
+		}
+	}
 
 	try {
 		window._gaq.push(["_trackEvent"].concat(args));
@@ -95,12 +102,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	// notification click handlers
 	var notificationHandlers = {};
-	var noop = function () {}
 	chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
 		if (!notificationHandlers[notificationId])
 			return;
 
-		chrome.notifications.clear(notificationId, noop);
+		chrome.notifications.clear(notificationId, _.noop);
 		notificationHandlers[notificationId]();
 
 		delete notificationHandlers[notificationId];
@@ -157,7 +163,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			if (data.timeout) {
 				setTimeout(function () {
-					chrome.notifications.clear(notificationId, noop);
+					chrome.notifications.clear(notificationId, _.noop);
 				}, data.timeout * 1000);
 			}
 		});
@@ -279,12 +285,10 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 	}
 
-	// записываем дату установки
-	if (StorageManager.get("app_install_time") === null)
-		StorageManager.set("app_install_time", Date.now());
-
-	// начинаем работу с БД и ФС
 	Utils.async.parallel({
+		storage: function (callback) {
+			StorageManager.load(callback);
+		},
 		fs: function (callback) {
 			(window.webkitRequestFileSystem || window.requestFileSystem)(window.PERSISTENT, 0, function (windowFsLink) {
 				callback(null, windowFsLink);
@@ -299,597 +303,543 @@ document.addEventListener("DOMContentLoaded", function () {
 			});
 		},
 		db: function (callback) {
-			var dbLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
-			dbLink.transaction(function (tx) {
-				tx.executeSql("CREATE TABLE IF NOT EXISTS log (data TEXT, ts INTEGER, level TEXT)", [], function () {
-					callback(null, dbLink);
-				}, function (tx, err) {
-					statSend("Critical-Errors", "Database Log Error", err.message);
-					callback(err);
-				});
-			});
+			DatabaseManager.initMeta(callback);
+		},
+		// 4.11 - это последняя legacy packaged app версия приложения
+		// ее предназначение - сконвертировать данные в новые, поддерживаемые в Chrome Packaged Apps
+		// LocalStorage -> chrome.storage.local, WebDatabase -> IndexedDB
+		// Также задача заставлять пользователей обновить апп до 5
+		migration: function (callback) {
+			MigrationManager.start(callback);
 		}
 	}, function readyToGo(err, results) {
-		var dbLink = results.db;
 		var fsLink = results.fs;
 
-		// инициализируем менеджер работы с БД
-		DatabaseManager.init(dbLink);
+		// записываем дату установки
+		if (StorageManager.get("app_install_time") === null) {
+			StorageManager.set("app_install_time", Date.now());
+		}
+
 		ReqManager.init(statSend);
 		LogManager.config("App started");
 
-		// проверка на обновление версии, уведомление
-		MigrationManager.start(fsLink, function (appState) {
-			chrome.alarms.get("dayuse", function (alarmInfo) {
-				if (!alarmInfo) {
-					chrome.alarms.create("dayuse", {
-						delayInMinutes: 24 * 60,
-						periodInMinutes: 24 * 60
-					});
-				}
-			});
-
-			switch (appState) {
-				case MigrationManager.INSTALLED:
-					statSend("App-Data", "New User");
-					break;
-
-				case MigrationManager.UNCHANGED:
-					statSend("App-Data", "App Version", App.VERSION);
-					break;
-
-				case MigrationManager.UPDATE_FAILED:
-					statSend("Critical-Errors", "Migrate error", MigrationManager.lastError.message);
-					throw MigrationManager.lastError;
-					break;
-
-				case MigrationManager.UPDATED:
-					statSend("App-Data", "App Version", App.VERSION);
-					chrome.alarms.clear("listen_contest");
-
-					/* var updateText = chrome.i18n.getMessage("appUpdated").replace("%appname%", App.NAME).replace("%appversion%", App.VERSION);
-					var notification = window.webkitNotifications.createNotification(App.resolveURL("pic/icon48.png"), App.NAME, updateText);
-
-					notification.onclick = function () {
-						notification.cancel();
-						statSend("App-Actions", "Upgrade NW click");
-
-						// закрываем все вкладки с приложением
-						focusAppTab(true);
-					};
-
-					notification.show();
-					statSend("App-Actions", "Upgrade NW show");
-
-					window.setTimeout(function() {
-						notification.cancel();
-					}, 5000); */
-
-					break;
+		chrome.alarms.get("dayuse", function (alarmInfo) {
+			if (!alarmInfo) {
+				chrome.alarms.create("dayuse", {
+					delayInMinutes: 24 * 60,
+					periodInMinutes: 24 * 60
+				});
 			}
+		});
 
-			var OAuthTabData = []; // массив открытых вкладок авторизации OAuth
-			var oAuthRequestData; // "new", "add", "update" (варианты получения токена ВКонтакте)
+		var OAuthTabData = []; // массив открытых вкладок авторизации OAuth
+		var oAuthRequestData; // "new", "add", "update" (варианты получения токена ВКонтакте)
 
-			var updateTokenForUserId = null, // при обновлении токенов нужно запоминать для какого пользователя требовалось обновление
-				syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
-				cachedUIDs = [],
-				uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...}
+		var updateTokenForUserId = null, // при обновлении токенов нужно запоминать для какого пользователя требовалось обновление
+			syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
+			uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...}
 
-			var clearSyncingDataCounters = function(userId) {
-				if (syncingData[userId] !== undefined) {
-					syncingData[userId].contacts[0] = 0;
-					syncingData[userId].contacts[1] = 0;
+		var clearSyncingDataCounters = function(userId) {
+			if (syncingData[userId] !== undefined) {
+				syncingData[userId].contacts[0] = 0;
+				syncingData[userId].contacts[1] = 0;
 
-					syncingData[userId].inbox[0] = 0;
-					syncingData[userId].inbox[1] = 0;
+				syncingData[userId].inbox[0] = 0;
+				syncingData[userId].inbox[1] = 0;
 
-					syncingData[userId].sent[0] = 0;
-					syncingData[userId].sent[1] = 0;
-
-					cachedUIDs.length = 0;
-				} else {
-					syncingData[userId] = {
-						"contacts" : [0, 0], // [total, current]
-						"inbox" : [0, 0],
-						"sent" : [0, 0]
-					};
-				}
-			};
+				syncingData[userId].sent[0] = 0;
+				syncingData[userId].sent[1] = 0;
+			} else {
+				syncingData[userId] = {
+					"contacts" : [0, 0], // [total, current]
+					"inbox" : [0, 0],
+					"sent" : [0, 0]
+				};
+			}
+		};
 
 
-			// устанавливаем обработчики offline-событий
-			window.addEventListener("online", function (e) {
-				chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "online"});
+		// устанавливаем обработчики offline-событий
+		window.addEventListener("online", function (e) {
+			chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "online"});
 
-				// на самом деле сеть может быть, а связи с интернетом - нет
-				if (AccountsManager.currentUserId) {
-					startUserSession();
-				}
-			}, false);
+			// на самом деле сеть может быть, а связи с интернетом - нет
+			if (AccountsManager.currentUserId) {
+				startUserSession();
+			}
+		}, false);
 
-			window.addEventListener("offline", function (e) {
-				ReqManager.abortAll();
-				chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "offline"});
-			}, false);
+		window.addEventListener("offline", function (e) {
+			ReqManager.abortAll();
+			chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "offline"});
+		}, false);
 
+		var loadAvatar = function(contactId, fnSuccess, fnFail) {
+			CacheManager.avatars[contactId] = ""; // положение обозначает, что данные загружаются
 
+			if (fsLink === null) {
+				DatabaseManager.getContactById(AccountsManager.currentUserId, contactId, function (userDoc) {
+					var photoGot = false;
 
-
-			var loadAvatar = function(contactId, fnSuccess, fnFail) {
-				CacheManager.avatars[contactId] = ""; // положение обозначает, что данные загружаются
-
-				if (fsLink === null) {
-					DatabaseManager.getContactById(AccountsManager.currentUserId, contactId, function(userDoc) {
-						var photoGot = false;
-
-						try {
-							CacheManager.avatars[contactId] = JSON.parse(userDoc.other_data).photo;
-							photoGot = true;
-						} catch (e) {
-							statSend("Custom-Errors", "Exception error", e.message);
-							delete CacheManager.avatars[contactId];
-
-							if (typeof fnFail === "function") {
-								fnFail();
-							}
-						}
-
-						if (photoGot) {
-							fnSuccess();
-						}
-					}, function(isDatabaseError, errMsg) {
-						if (isDatabaseError) {
-							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
-						}
-
+					try {
+						CacheManager.avatars[contactId] = userDoc.photo;
+						photoGot = true;
+					} catch (e) {
+						statSend("Custom-Errors", "Exception error", e.message);
 						delete CacheManager.avatars[contactId];
 
 						if (typeof fnFail === "function") {
 							fnFail();
 						}
-					});
-				} else {
-					fsLink.root.getFile(contactId + "_th.jpg", {"create" : false}, function(fileEntry) {
-						CacheManager.avatars[contactId] = fileEntry.toURL();
+					}
+
+					if (photoGot) {
 						fnSuccess();
-					}, function(err) {
-						statSend("Custom-Errors", "Filesystem error", err.message)
+					}
+				}, function (err) {
+					delete CacheManager.avatars[contactId];
 
-						delete CacheManager.avatars[contactId];
+					if (typeof fnFail === "function") {
+						fnFail();
+					}
+				});
+			} else {
+				fsLink.root.getFile(contactId + "_th.jpg", {"create" : false}, function(fileEntry) {
+					CacheManager.avatars[contactId] = fileEntry.toURL();
+					fnSuccess();
+				}, function(err) {
+					statSend("Custom-Errors", "Filesystem error", err.message)
 
-						if (typeof fnFail === "function") {
-							fnFail();
-						}
-					});
+					delete CacheManager.avatars[contactId];
+
+					if (typeof fnFail === "function") {
+						fnFail();
+					}
+				});
+			}
+		};
+
+
+		var longPollEventsRegistrar = {
+			init: function(currentUserId) {
+				// обрываем LP-запрос старого пользователя
+				if (this._longPollXhrIds[currentUserId]) {
+					ReqManager.abort(this._longPollXhrIds[currentUserId]);
+					delete this._longPollXhrIds[currentUserId];
 				}
-			};
 
+				// [ISSUES6] решение проблемы
+				this._longPollXhrIds[currentUserId] = null;
+				this._getCredentials(currentUserId);
+			},
 
-			var longPollEventsRegistrar = {
-				init: function(currentUserId, tags) {
-					this._tags[currentUserId] = tags || CacheManager.tags;
+			_onLoad: function(currentUserId, res) {
+				var self = this;
 
-					// обрываем LP-запрос старого пользователя
-					if (this._longPollXhrIds[currentUserId]) {
-						ReqManager.abort(this._longPollXhrIds[currentUserId]);
-						delete this._longPollXhrIds[currentUserId];
+				if (res.failed !== undefined) {
+					if (res.failed === 2) { // ключ устарел
+						LogManager.warn("LongPoll server key is now obsolete. Re-requesting a new key..." + " [" + this._longPollXhrIds[currentUserId] + "]");
+					} else {
+						LogManager.error("LongPoll server request failed: " + JSON.stringify(res) + " [" + this._longPollXhrIds[currentUserId] + "]");
 					}
 
-					// [ISSUES6] решение проблемы
-					this._longPollXhrIds[currentUserId] = null;
-					this._getCredentials(currentUserId);
-				},
+					delete this._longPollXhrIds[currentUserId];
 
-				_onLoad: function(currentUserId, res) {
-					var self = this;
+					this.init(currentUserId);
+					return;
+				}
 
-					if (res.failed !== undefined) {
-						if (res.failed === 2) { // ключ устарел
-							LogManager.warn("LongPoll server key is now obsolete. Re-requesting a new key..." + " [" + this._longPollXhrIds[currentUserId] + "]");
-						} else {
-							LogManager.error("LongPoll server request failed: " + JSON.stringify(res) + " [" + this._longPollXhrIds[currentUserId] + "]");
-						}
+				LogManager.info(JSON.stringify(res));
 
-						delete this._longPollXhrIds[currentUserId];
-
-						this.init(currentUserId, this._tags[currentUserId]);
-						return;
-					}
-
-					LogManager.info(JSON.stringify(res));
-
-					res.updates.forEach(function (data) {
-						switch (data[0]) {
-							case 2 :
-								if (data[2] & 128) {
-									// Сообщение удалено на сайте.
-									// в идеале нужно менять соответствующий индекс массива "messagesGot" для корректной работы mailSync
-									// В то же время и для исходящих, и для входящих сообщений data[2] === 128, и чтобы определить входящее сообщение или нет, необходимо делать доп. запрос.
-									// За это время может произойти ошибка duplicate key
-								} else {
-									DatabaseManager.markAsUnread(data[1], function() {
-										chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
-									}, function(isDatabaseError, errMsg) {
-										if (isDatabaseError) {
-											LogManager.error(errMsg);
-											statSend("Custom-Errors", "Database error", errMsg);
-										}
-									});
-								}
-
-								break;
-
-							case 3 :
-								DatabaseManager.markAsRead(data[1], function() {
-									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
-								}, function(isDatabaseError, errMsg) {
+				res.updates.forEach(function (data) {
+					switch (data[0]) {
+						case 2 :
+							if (data[2] & 128) {
+								// Сообщение удалено на сайте.
+								// в идеале нужно менять соответствующий индекс массива "messagesGot" для корректной работы mailSync
+								// В то же время и для исходящих, и для входящих сообщений data[2] === 128, и чтобы определить входящее сообщение или нет, необходимо делать доп. запрос.
+								// За это время может произойти ошибка duplicate key
+							} else if (data[2] & 8) {
+								// сообщение отмечено как важное
+								DatabaseManager.markMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
 										statSend("Custom-Errors", "Database error", errMsg);
 									}
 								});
+							} else if (data[2] & 1) {
+								DatabaseManager.markAsUnread(data[1], function () {
+									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
+								}, function (errMsg) {
+									LogManager.error(errMsg);
+									statSend("Custom-Errors", "Database error", errMsg);
+								});
+							}
 
-								break;
+							break;
 
-							case 4 :
-								var uid = (data[7].from !== undefined) ? data[7].from : data[3],
-									mailType = (data[2] & 2) ? "sent" : "inbox",
-									onUserDataReady;
-
-								syncingData[currentUserId][mailType][1] += 1;
-
-								onUserDataReady = function(userData) {
-									var attachments = [];
-									var msgData = {};
-
-									for (var field in data[7]) {
-										var matches = field.match(/^attach([\d]+)$/);
-										if (!matches)
-											continue;
-
-										var attachType = data[7]["attach" + matches[1] + "_type"];
-										attachments.push([attachType].concat(data[7][field].split("_")));
+						case 3 :
+							if (data[2] & 128) {
+								// сообщение восстановлено на сайте
+								DatabaseManager.unmarkMessageWithTag(data[1], "trash", _.noop, function (isDatabaseError, errMsg) {
+									if (isDatabaseError) {
+										LogManager.error(errMsg);
+										statSend("Custom-Errors", "Database error", errMsg);
 									}
-
-									if (data[7].geo !== undefined) {
-										attachments.push(["geopoint", data[7].geo]);
+								});
+							} else if (data[2] & 8) {
+								// сообщение больше не важное
+								DatabaseManager.unmarkMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
+									if (isDatabaseError) {
+										LogManager.error(errMsg);
+										statSend("Custom-Errors", "Database error", errMsg);
 									}
+								});
+							} else if (data[2] & 1) {
+								DatabaseManager.markAsRead(data[1], function () {
+									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
+								}, function (errMsg) {
+									LogManager.error(errMsg);
+									statSend("Custom-Errors", "Database error", errMsg);
+								});
+							}
 
-									msgData.mid = data[1];
-									msgData.uid = userData.uid;
-									msgData.date = data[4];
-									msgData.title = data[5];
-									msgData.body = data[6];
-									msgData.read_state = (data[2] & 1) ? 0 : 1;
-									msgData.attachments = attachments;
-									msgData.chat_id = (data[7].from !== undefined) ? data[3] - 2000000000 : 0;
-									msgData.tags = self._tags[currentUserId][mailType];
+							break;
 
-									if (data[7].emoji)
-										msgData.emoji = 1;
+						case 4 :
+							var uid = (data[7].from !== undefined) ? data[7].from : data[3],
+								mailType = (data[2] & 2) ? "sent" : "inbox",
+								onUserDataReady;
 
-									if (attachments.length)
-										msgData.tags |= self._tags[currentUserId].attachments;
+							syncingData[currentUserId][mailType][1] += 1;
 
-									DatabaseManager.insertMessages(currentUserId, {"firstSync" : false, "messages" : [msgData]}, function(msgData) {
-										// обновляем фронтенд
-										chrome.runtime.sendMessage({"action" : "messageReceived", "data" : msgData, "userdata" : userData});
+							onUserDataReady = function(userData) {
+								var attachments = [];
+								var msgData = {};
 
-										if (mailType === "inbox") {
-											if (CacheManager.avatars[msgData.uid] !== undefined && CacheManager.avatars[msgData.uid].length) {
+								for (var field in data[7]) {
+									var matches = field.match(/^attach([\d]+)$/);
+									if (!matches)
+										continue;
+
+									var attachType = data[7]["attach" + matches[1] + "_type"];
+									attachments.push([attachType].concat(data[7][field].split("_")));
+								}
+
+								if (data[7].geo !== undefined) {
+									attachments.push(["geopoint", data[7].geo]);
+								}
+
+								msgData.mid = data[1];
+								msgData.uid = userData.uid;
+								msgData.date = data[4];
+								msgData.title = data[5];
+								msgData.body = data[6];
+								msgData.read_state = (data[2] & 1) ? 0 : 1;
+								msgData.attachments = attachments;
+								msgData.chat_id = (data[7].from !== undefined) ? data[3] - 2000000000 : 0;
+								msgData.tags = [mailType];
+								msgData.emoji = data[7].emoji ? 1 : 0;
+
+								if (attachments.length) {
+									msgData.tags.push("attachments");
+								}
+
+								DatabaseManager.insertMessages(currentUserId, [msgData], function () {
+									// обновляем фронтенд
+									chrome.runtime.sendMessage({
+										action: "messageReceived",
+										data: msgData,
+										userdata: userData
+									});
+
+									if (mailType === "inbox") {
+										if (CacheManager.avatars[msgData.uid] !== undefined && CacheManager.avatars[msgData.uid].length) {
+											showNotification(CacheManager.avatars[msgData.uid]);
+										} else {
+											loadAvatar(msgData.uid, function() {
 												showNotification(CacheManager.avatars[msgData.uid]);
-											} else {
-												loadAvatar(msgData.uid, function() {
-													showNotification(CacheManager.avatars[msgData.uid]);
-												}, function() {
-													showNotification(App.resolveURL("pic/question_th.gif"));
-												});
-											}
-										}
-
-										function showNotification(avatarUrl) {
-											if (SettingsManager.NotificationsTime === 0)
-												return;
-
-											// ищем открытые вкладки ВКонтакте
-											chrome.windows.getAll({populate: true}, function (windows) {
-												var vkTabFound = false;
-												var appTabActive = false;
-												var appFrontendUrl = App.resolveURL("main.html");
-
-												windows.forEach(function (windowElem) {
-													windowElem.tabs.forEach(function (tab) {
-														if (/^https?:\/\/vk\.com\//.test(tab.url)) {
-															vkTabFound = true;
-														}
-
-														if (windowElem.focused && tab.active && tab.url.indexOf(appFrontendUrl) === 0) {
-															appTabActive = true;
-														}
-													});
-												});
-
-												if (SettingsManager.ShowWhenVK === 0 && vkTabFound)
-													return;
-
-												// не показываем уведомления, когда активен таб приложения
-												if (appTabActive)
-													return;
-
-												showChromeNotification({
-													title: fio,
-													message: msgData.body.replace(/<br>/gm, "\n"),
-													icon: avatarUrl,
-													sound: "message",
-													timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
-													onclick: function () {
-														LogManager.config("Clicked notification with message #" + msgData.mid);
-														focusAppTab();
-													}
-												});
-
-												LogManager.config("Open notification with message #" + msgData.mid);
+											}, function() {
+												showNotification(App.resolveURL("pic/question_th.gif"));
 											});
 										}
-									});
-								};
-
-								DatabaseManager.getContactById(currentUserId, uid, onUserDataReady, function(isDatabaseError, errMsg) {
-									if (isDatabaseError) {
-										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
 									}
 
-									// теоретически может измениться currentUserId
-									if (currentUserId === AccountsManager.currentUserId) {
-										getUserProfile(currentUserId, parseInt(uid, 10), onUserDataReady);
+									function showNotification(avatarUrl) {
+										if (SettingsManager.NotificationsTime === 0)
+											return;
+
+										// ищем открытые вкладки ВКонтакте
+										chrome.windows.getAll({populate: true}, function (windows) {
+											var vkTabFound = false;
+											var appTabActive = false;
+											var appFrontendUrl = App.resolveURL("main.html");
+
+											windows.forEach(function (windowElem) {
+												windowElem.tabs.forEach(function (tab) {
+													if (/^https?:\/\/vk\.com\//.test(tab.url)) {
+														vkTabFound = true;
+													}
+
+													if (windowElem.focused && tab.active && tab.url.indexOf(appFrontendUrl) === 0) {
+														appTabActive = true;
+													}
+												});
+											});
+
+											if (SettingsManager.ShowWhenVK === 0 && vkTabFound)
+												return;
+
+											// не показываем уведомления, когда активен таб приложения
+											if (appTabActive)
+												return;
+
+											showChromeNotification({
+												title: fio,
+												message: msgData.body.replace(/<br>/gm, "\n"),
+												icon: avatarUrl,
+												sound: "message",
+												timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
+												onclick: function () {
+													LogManager.config("Clicked notification with message #" + msgData.mid);
+													focusAppTab();
+												}
+											});
+
+											LogManager.config("Open notification with message #" + msgData.mid);
+										});
 									}
 								});
+							};
 
-								break;
-
-							case 8 : // пользователь -data[1] онлайн
-								if (SettingsManager.ShowOnline === 1) {
-									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : true});
+							DatabaseManager.getContactById(currentUserId, uid, onUserDataReady, function (err) {
+								// теоретически может измениться currentUserId
+								if (currentUserId === AccountsManager.currentUserId) {
+									getUserProfile(currentUserId, parseInt(uid, 10), onUserDataReady);
 								}
+							});
 
-								break;
+							break;
 
-							case 9 : // пользователь -data[1] оффлайн (нажал кнопку "выйти" если data[2] === 0, иначе по таймауту)
-								if (SettingsManager.ShowOnline === 1) {
-									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : false});
-								}
+						case 8 : // пользователь -data[1] онлайн
+							if (SettingsManager.ShowOnline === 1) {
+								chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : true});
+							}
 
-								break;
+							break;
 
-							case 61 : // пользователь data[1] начал набирать текст в диалоге
-							case 62 : // пользователь data[1] начал набирать текст в беседе data[2]
-								break;
+						case 9 : // пользователь -data[1] оффлайн (нажал кнопку "выйти" если data[2] === 0, иначе по таймауту)
+							if (SettingsManager.ShowOnline === 1) {
+								chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : -data[1], "online" : false});
+							}
 
-							default :
-								LogManager.info([data[0], data]);
-						}
-					});
+							break;
 
-					if (AccountsManager.currentUserId === currentUserId) {
-						this._longPollData[currentUserId].ts = res.ts;
-						this._longPollInit(currentUserId);
+						case 61 : // пользователь data[1] начал набирать текст в диалоге
+						case 62 : // пользователь data[1] начал набирать текст в беседе data[2]
+							break;
+
+						default :
+							LogManager.info([data[0], data]);
 					}
-				},
-
-				_onError: function(currentUserId, errorCode, errorData) {
-					delete this._longPollXhrIds[currentUserId];
-					if (errorCode === ReqManager.ABORT)
-						return;
-
-					this.init(currentUserId, this._tags[currentUserId]);
-
-					if (AccountsManager.currentUserId === currentUserId) {
-						mailSync(currentUserId, "inbox", [this._tags[currentUserId].inbox, this._tags[currentUserId].attachments]);
-						mailSync(currentUserId, "sent", [this._tags[currentUserId].sent, this._tags[currentUserId].attachments]);
-					}
-				},
-
-				_getCredentials: function(currentUserId) {
-					var self = this;
-
-					ReqManager.apiMethod("messages.getLongPollServer", function (data) {
-						if (AccountsManager.currentUserId !== currentUserId)
-							return;
-
-						self._longPollData[currentUserId] = data.response;
-						self._longPollInit(currentUserId);
-					}, function (errCode) {
-						delete self._longPollXhrIds[currentUserId];
-
-						if (errCode === ReqManager.ACCESS_DENIED)
-							CacheManager.isTokenExpired = true;
-
-						switch (errCode) {
-							case ReqManager.ABORT:
-							case ReqManager.ACCESS_DENIED:
-								return;
-						}
-
-						window.setTimeout(self.init.bind(self), 5000, currentUserId, self._tags[currentUserId]);
-					});
-				},
-
-				_longPollInit: function(currentUserId) {
-					var domain = this._longPollData[currentUserId].server.replace("vkontakte.ru", "vk.com");
-
-					this._longPollXhrIds[currentUserId] = ReqManager.forceUrlGet("http://" + domain, {
-						"act" : "a_check",
-						"key" : this._longPollData[currentUserId].key,
-						"ts" : this._longPollData[currentUserId].ts,
-						"wait" : 25,
-						"mode" : 2,
-						"timeout" : 30
-					}, this._onLoad.bind(this, currentUserId), this._onError.bind(this, currentUserId));
-				},
-
-				_longPollData: {},
-				_longPollXhrIds: {},
-				_tags: {}
-			};
-
-			/**
-			 * Запрос к API ВКонтакте за пользователями и последующая запись их в БД
-			 *
-			 * @param {Integer} currentUserId
-			 * @param {Array or Integer} массив UIDs или один UID
-			 * @param {Function} callback функция, в которую передается весь объект-ответ для каждого из UIDs от API ВКонтакте
-			 * @param {Function} callbackFinally итоговая функция, которая вызывается после всех манипуляций с БД
-			 */
-			var getUserProfile = function(currentUserId, uids, callback, callbackFinally) {
-				var tokenForRequest = AccountsManager.list[currentUserId].token,
-					uidsForRequest = [];
-
-				if ((uids instanceof Array) === false) {
-					uids = [uids];
-				}
-
-				if (uidsProcessing[currentUserId] === undefined) {
-					uidsProcessing[currentUserId] = {};
-				}
-
-				// проверяем UIDs на нахождение в списке обрабатываемых
-				uids.forEach(function(uid) {
-					if (uidsProcessing[currentUserId][uid] !== undefined) {
-						return;
-					}
-
-					uidsForRequest.push(uid);
 				});
 
-				if (uidsForRequest.length === 0) {
-					if (typeof callbackFinally === "function") {
-						callbackFinally();
-					}
-
-					return;
+				if (AccountsManager.currentUserId === currentUserId) {
+					this._longPollData[currentUserId].ts = res.ts;
+					this._longPollInit(currentUserId);
 				}
+			},
 
-				ReqManager.apiMethod("users.get", {
-					"uids" : uidsForRequest.join(","),
-					"fields" : "first_name,last_name,sex,domain,bdate,photo,contacts",
-					"access_token" : tokenForRequest
-				}, function(data) {
-					// записываем данные друзей в БД и скачиваем их аватарки
-					updateUsersData(currentUserId, data.response, function(userData) {
-						// удаляем из списка обрабатываемых
-						delete uidsProcessing[currentUserId][userData.uid];
+			_onError: function(currentUserId, errorCode, errorData) {
+				delete this._longPollXhrIds[currentUserId];
+				if (errorCode === ReqManager.ABORT)
+					return;
 
-						if (typeof callback === "function") {
-							callback(userData);
-						}
-					}, callbackFinally);
-				}, function(errCode, errData) {
+				this.init(currentUserId);
+
+				if (AccountsManager.currentUserId === currentUserId) {
+					mailSync(currentUserId, "inbox");
+					mailSync(currentUserId, "sent");
+				}
+			},
+
+			_getCredentials: function(currentUserId) {
+				var self = this;
+
+				ReqManager.apiMethod("messages.getLongPollServer", function (data) {
+					if (AccountsManager.currentUserId !== currentUserId)
+						return;
+
+					self._longPollData[currentUserId] = data.response;
+					self._longPollInit(currentUserId);
+				}, function (errCode) {
+					delete self._longPollXhrIds[currentUserId];
+
+					if (errCode === ReqManager.ACCESS_DENIED)
+						CacheManager.isTokenExpired = true;
+
 					switch (errCode) {
-						case ReqManager.ABORT :
-						case ReqManager.ACCESS_DENIED :
+						case ReqManager.ABORT:
+						case ReqManager.ACCESS_DENIED:
 							return;
 					}
 
-					window.setTimeout(getUserProfile, 5*1000, currentUserId, uids, callback, callbackFinally);
+					window.setTimeout(self.init.bind(self), 5000, currentUserId);
 				});
-			};
+			},
 
-			/**
-			 * Синхронизация списка друзей
-			 * @param {Integer} currentUserId
-			 */
-			var friendsSync = function (currentUserId) {
-				if (friendsSync.running)
-					return;
+			_longPollInit: function(currentUserId) {
+				var domain = this._longPollData[currentUserId].server.replace("vkontakte.ru", "vk.com");
 
-				// флаг, чтобы не вызывать метод одновременно несколько раз подряд
-				friendsSync.running = true;
+				this._longPollXhrIds[currentUserId] = ReqManager.forceUrlGet("http://" + domain, {
+					"act" : "a_check",
+					"key" : this._longPollData[currentUserId].key,
+					"ts" : this._longPollData[currentUserId].ts,
+					"wait" : 25,
+					"mode" : 2,
+					"timeout" : 30
+				}, this._onLoad.bind(this, currentUserId), this._onError.bind(this, currentUserId));
+			},
 
-				var friendsSyncTimes = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
-				var milliSecondsTimeout = App.FRIENDS_UPDATE_TIMEOUT * 1000;
-				var nextRequestTimeout;
+			_longPollData: {},
+			_longPollXhrIds: {},
+			_tags: {}
+		};
 
-				// проверяем, чтобы запросы на синхронизацию шли только от текущего активного пользователя
-				if (currentUserId !== AccountsManager.currentUserId) {
+		/**
+		 * Запрос к API ВКонтакте за пользователями и последующая запись их в БД
+		 *
+		 * @param {Number} currentUserId
+		 * @param {Number} uid
+		 * @param {Function} callback функция, в которую передается весь объект-ответ от API ВКонтакте
+		 */
+		function getUserProfile(currentUserId, uid, callback) {
+			var tokenForRequest = AccountsManager.list[currentUserId].token;
+
+			uidsProcessing[currentUserId] = uidsProcessing[currentUserId] || {};
+			callback = callback || _.noop;
+
+			// проверяем uid на нахождение в списке обрабатываемых
+			if (uidsProcessing[currentUserId][uid]) {
+				return;
+			}
+
+			ReqManager.apiMethod("users.get", {
+				uids: String(uid),
+				fields: "first_name,last_name,sex,domain,bdate,photo,contacts",
+				access_token: tokenForRequest
+			}, function (data) {
+				// записываем данные друзей в БД и скачиваем их аватарки
+				updateUsersData(currentUserId, data.response).then(function (users) {
+					var userData = users[0];
+
+					// удаляем из списка обрабатываемых
+					delete uidsProcessing[currentUserId][userData.uid];
+
+					callback(userData);
+				});
+			}, function (errCode, errData) {
+				switch (errCode) {
+					case ReqManager.ABORT :
+					case ReqManager.ACCESS_DENIED :
+						return;
+				}
+
+				window.setTimeout(getUserProfile, 5*1000, currentUserId, uid, callback);
+			});
+		}
+
+		/**
+		 * Синхронизация списка друзей
+		 * @param {Integer} currentUserId
+		 */
+		var friendsSync = function (currentUserId) {
+			if (friendsSync.running)
+				return;
+
+			// флаг, чтобы не вызывать метод одновременно несколько раз подряд
+			friendsSync.running = true;
+
+			var friendsSyncTimes = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
+			var milliSecondsTimeout = App.FRIENDS_UPDATE_TIMEOUT * 1000;
+			var nextRequestTimeout;
+
+			// проверяем, чтобы запросы на синхронизацию шли только от текущего активного пользователя
+			if (currentUserId !== AccountsManager.currentUserId) {
+				friendsSync.running = false;
+				return;
+			}
+
+			// проверяем, чтобы не было слишком частых запросов
+			if (friendsSyncTimes[currentUserId]) {
+				nextRequestTimeout = Math.max((milliSecondsTimeout - Math.abs(Date.now() - friendsSyncTimes[currentUserId])), 0);
+				if (nextRequestTimeout > 0) {
+					window.setTimeout(friendsSync, nextRequestTimeout, currentUserId);
+
 					friendsSync.running = false;
 					return;
 				}
+			}
 
-				// проверяем, чтобы не было слишком частых запросов
-				if (friendsSyncTimes[currentUserId]) {
-					nextRequestTimeout = Math.max((milliSecondsTimeout - Math.abs(Date.now() - friendsSyncTimes[currentUserId])), 0);
-					if (nextRequestTimeout > 0) {
-						window.setTimeout(friendsSync, nextRequestTimeout, currentUserId);
-
-						friendsSync.running = false;
-						return;
-					}
-				}
-
-				// поздравляем текущего пользователя с ДР
-				getUserProfile(currentUserId, currentUserId, function (currentUserData) {
-					// пробуем сразу же загрузить аватарку активного профиля
-					loadAvatar(currentUserId, function() {
-						chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : currentUserId});
-					});
-
-					try {
-						currentUserData.other_data = JSON.parse(currentUserData.other_data);
-					} catch (e) {
-						currentUserData.other_data = {};
-					}
-
-					var nowDate = new Date(),
-						nowDay = nowDate.getDate(),
-						nowYear = nowDate.getFullYear(),
-						nowMonth = nowDate.getMonth() + 1,
-						bDate, i, notification, msg;
-
-					if (currentUserData.other_data.bdate === undefined || currentUserData.other_data.bdate.length === 0)
-						return;
-
-					// разбиваем и преобразуем в числа
-					bDate = currentUserData.other_data.bdate.split(".");
-					for (i = 0; i < bDate.length; i++)
-						bDate[i] = parseInt(bDate[i], 10);
-
-					if (bDate[0] !== nowDay || bDate[1] !== nowMonth)
-						return;
-
-					showChromeNotification({
-						title: App.NAME,
-						message: chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME),
-						icon: App.resolveURL("pic/smile.png"),
-						sound: "message",
-						onclick: function () {
-							statSend("App-Actions", "BD notification click");
-							focusAppTab();
-						}
-					});
-
-					statSend("App-Data", "Show BD notification");
+			// поздравляем текущего пользователя с ДР
+			getUserProfile(currentUserId, currentUserId, function (currentUserData) {
+				// пробуем сразу же загрузить аватарку активного профиля
+				loadAvatar(currentUserId, function() {
+					chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : currentUserId});
 				});
 
-				ReqManager.apiMethod("friends.get", {fields: "first_name,last_name,sex,domain,bdate,photo,contacts"}, function (data) {
-					var nowDate = new Date(),
-						nowDay = nowDate.getDate(),
-						nowYear = nowDate.getFullYear(),
-						nowMonth = nowDate.getMonth() + 1;
+				var nowDate = new Date(),
+					nowDay = nowDate.getDate(),
+					nowYear = nowDate.getFullYear(),
+					nowMonth = nowDate.getMonth() + 1,
+					bDate, i, notification, msg;
 
-					syncingData[currentUserId].contacts[0] += data.response.length;
+				if (currentUserData.bdate === undefined || currentUserData.bdate.length === 0)
+					return;
 
-					// кэшируем ID
-					for (var i = 0; i < data.response.length; i++) {
-						if (cachedUIDs.indexOf(data.response[i].uid) === -1) {
-							cachedUIDs.push(data.response[i].uid);
-						}
+				// разбиваем и преобразуем в числа
+				bDate = currentUserData.bdate.split(".");
+				for (i = 0; i < bDate.length; i++)
+					bDate[i] = parseInt(bDate[i], 10);
+
+				if (bDate[0] !== nowDay || bDate[1] !== nowMonth)
+					return;
+
+				showChromeNotification({
+					title: App.NAME,
+					message: chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME),
+					icon: App.resolveURL("pic/smile.png"),
+					sound: "message",
+					onclick: function () {
+						statSend("App-Actions", "BD notification click");
+						focusAppTab();
+					}
+				});
+
+				statSend("App-Data", "Show BD notification");
+			});
+
+			ReqManager.apiMethod("friends.get", {fields: "first_name,last_name,sex,domain,bdate,photo,contacts"}, function (data) {
+				var nowDate = new Date(),
+					nowDay = nowDate.getDate(),
+					nowYear = nowDate.getFullYear(),
+					nowMonth = nowDate.getMonth() + 1;
+
+				syncingData[currentUserId].contacts[0] += data.response.length;
+
+				// записываем данные друзей в БД и скачиваем их аватарки
+				updateUsersData(currentUserId, data.response).then(function (users) {
+					function showBirthdayNotification(title, message, avatar) {
+						showChromeNotification({
+							title: title,
+							message: message,
+							icon: avatar,
+							sound: "message",
+							onclick: focusAppTab
+						});
 					}
 
-					// записываем данные друзей в БД и скачиваем их аватарки
-					updateUsersData(currentUserId, data.response, function (userDoc) {
+					users.forEach(function (userDoc) {
 						var bDate, i;
 
 						// удаляем из списка обрабатываемых
@@ -908,17 +858,11 @@ document.addEventListener("DOMContentLoaded", function () {
 							return;
 
 						// показываем уведомление, если у кого-то из друзей ДР
-						try {
-							userDoc.other_data = JSON.parse(userDoc.other_data);
-						} catch (e) {
-							userDoc.other_data = {};
-						}
-
-						if (userDoc.other_data.bdate === undefined || userDoc.other_data.bdate.length === 0)
+						if (userDoc.bdate === undefined || userDoc.bdate.length === 0)
 							return;
 
 						// разбиваем и преобразуем в числа
-						bDate = userDoc.other_data.bdate.split(".");
+						bDate = userDoc.bdate.split(".");
 						for (i = 0; i < bDate.length; i++)
 							bDate[i] = parseInt(bDate[i], 10);
 
@@ -931,8 +875,8 @@ document.addEventListener("DOMContentLoaded", function () {
 							hisHerMatches = i18nBirthDay[0].match(/([^\s]+)-([^\s]+)/),
 							msg, yoNow, notification;
 
-						userDoc.other_data.sex = userDoc.other_data.sex || 0;
-						switch (userDoc.other_data.sex) {
+						userDoc.sex = userDoc.sex || 0;
+						switch (userDoc.sex) {
 							case 1 : // female
 								msg = i18nBirthDay[0].replace(hisHerMatches[0], hisHerMatches[2]) + "!";
 								break;
@@ -959,75 +903,77 @@ document.addEventListener("DOMContentLoaded", function () {
 								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, App.resolveURL("pic/question_th.gif"));
 							});
 						}
+					});
 
-						function showBirthdayNotification(title, message, avatar) {
-							showChromeNotification({
-								title: title,
-								message: message,
-								icon: avatar,
-								sound: "message",
-								onclick: focusAppTab
+					var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
+					var sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
+
+					friendsSyncTimes[currentUserId] = Date.now();
+					StorageManager.set("friends_sync_time", friendsSyncTimes);
+
+					// следующая синхронизация должна начаться через FRIENDS_UPDATE_TIMEOUT
+					window.setTimeout(friendsSync, milliSecondsTimeout, currentUserId);
+
+					// если к этому моменту уже синхронизированы входящие и исходящие
+					if (AccountsManager.currentUserId === currentUserId) {
+						if (inboxSynced && sentSynced) {
+							// сбрасываем счетчик синхронизации
+							clearSyncingDataCounters(currentUserId);
+
+							Promise.all([
+								DatabaseManager.actualizeContacts(currentUserId),
+								DatabaseManager.actualizeChatDates(currentUserId)
+							]).then(function () {
+								chrome.runtime.sendMessage({
+									action: "ui",
+									which: "user"
+								});
 							});
 						}
-					}, function () {
-						var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null),
-							sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
-
-						friendsSyncTimes[currentUserId] = Date.now();
-						StorageManager.set("friends_sync_time", friendsSyncTimes);
-
-						// следующая синхронизация должна начаться через FRIENDS_UPDATE_TIMEOUT
-						window.setTimeout(friendsSync, milliSecondsTimeout, currentUserId);
-
-						// если к этому моменту уже синхронизированы входящие и исходящие
-						if (AccountsManager.currentUserId === currentUserId) {
-							if (inboxSynced && sentSynced) {
-								// сбрасываем счетчик синхронизации
-								clearSyncingDataCounters(currentUserId);
-
-								chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
-							}
-						}
-
-						friendsSync.running = false;
-					});
-				}, function (errCode, errData) {
-					friendsSync.running = false;
-
-					switch (errCode) {
-						case ReqManager.ABORT :
-						case ReqManager.ACCESS_DENIED :
-							return;
 					}
 
-					window.setTimeout(friendsSync, 5*1000, currentUserId);
+					friendsSync.running = false;
 				});
-			};
+			}, function (errCode, errData) {
+				friendsSync.running = false;
 
-			/**
-			 * Функция-обработчик, которая запускается в методах friends.get/users.get, поскольку оба метода возвращают примерно
-			 * одинаковый ответ и имеют общую логику записи данных в БД
-			 */
-			var updateUsersData = function (currentUserId, userObjectsArray, callback, callbackFinally) {
+				switch (errCode) {
+					case ReqManager.ABORT :
+					case ReqManager.ACCESS_DENIED :
+						return;
+				}
+
+				window.setTimeout(friendsSync, 5*1000, currentUserId);
+			});
+		};
+
+		/**
+		 * Функция-обработчик, которая запускается в методах friends.get/users.get, поскольку оба метода возвращают примерно
+		 * одинаковый ответ и имеют общую логику записи данных в БД
+		 *
+		 * @param {Number} currentUserId
+		 * @param {Array} users
+		 * @return {Promise} [description]
+		 */
+		function updateUsersData(currentUserId, users) {
+			return new Promise(function (resolve, reject) {
 				var dataToReplace = [];
+				uidsProcessing[currentUserId] = uidsProcessing[currentUserId] || {};
 
-				if (!uidsProcessing[currentUserId])
-					uidsProcessing[currentUserId] = {};
-
-				userObjectsArray.forEach(function (userData) {
-					// добавляем UID в список обрабатываемых
+				users.forEach(function (userData) {
+					// добавляем uid в список обрабатываемых
 					uidsProcessing[currentUserId][userData.uid] = true;
 
 					// скачиваем аватарку
 					if (fsLink) {
 						fetchPhoto(userData.photo, function (blob) {
 							fsLink.root.getFile(userData.uid + "_th.jpg", {create: true}, function(fileEntry) {
-								fileEntry.createWriter(function(fileWriter) {
+								fileEntry.createWriter(function (fileWriter) {
 									fileWriter.write(blob);
-								}, function(err) {
+								}, function (err) {
 									LogManager.warn(err.message);
 								});
-							}, function(err) {
+							}, function (err) {
 								LogManager.warn(err.message);
 							});
 						});
@@ -1037,267 +983,308 @@ document.addEventListener("DOMContentLoaded", function () {
 					delete CacheManager.avatars[userData.uid];
 
 					// обновляем ФИО пользователя
-					if (currentUserId === userData.uid)
+					if (currentUserId === userData.uid) {
 						AccountsManager.setFio(currentUserId, userData.first_name + " " + userData.last_name);
-
-					dataToReplace.push([userData.uid, userData.first_name, userData.last_name, JSON.stringify(userData), ""]);
-				});
-
-				if (dataToReplace.length === 0) {
-					if (typeof callbackFinally === "function") {
-						callbackFinally();
 					}
 
+					dataToReplace.push([userData.uid, userData.first_name, userData.last_name, userData]);
+				});
+
+				if (!dataToReplace.length) {
+					resolve([]);
 					return;
 				}
 
-				DatabaseManager.replaceContacts(currentUserId, dataToReplace, callback, function(uid, errMessage) {
+				DatabaseManager.replaceContacts(currentUserId, dataToReplace).then(resolve, function (err) {
+					var errMessage = err.name + ": " + err.message;
+
 					LogManager.error(errMessage);
 					statSend("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
-				}, callbackFinally);
-			};
 
-			/**
-			 * Особенность mailSync заключается в том, что она должна запускаться редко и из startUserSession
-			 * К моменту начала работы mailSync текущий активный пользователь может смениться. Тем не менее
-			 * функция должна отработать до конца, то есть или скачать все сообщения до нуля in descending order, или
-			 * дойти до момента, когда внутреннняя функция записи сообщений в БД вернет ошибку DUPLICATE ID. mailSync не должна
-			 * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
-			 */
-			var mailSync = function(currentUserId, mailType, referTagIds) {
-				var reqData = {},
-					userDataForRequest = AccountsManager.list[currentUserId],
-					compatName = (mailType === "inbox") ? "inbox" : "outbox",
-					permKey = "perm_" + compatName + "_" + currentUserId,
-					firstSync = (StorageManager.get(permKey) === null);
+					reject(errMessage);
+				});
+			});
+		}
 
-				reqData.offset = syncingData[currentUserId][mailType][1];
-				reqData.access_token = userDataForRequest.token;
-				reqData.count = 200;
-				reqData.preview_length = 0;
-				if (mailType === "sent") {
-					reqData.out = 1;
-				}
+		/**
+		 * Особенность mailSync заключается в том, что она должна запускаться редко и из startUserSession
+		 * К моменту начала работы mailSync текущий активный пользователь может смениться. Тем не менее
+		 * функция должна отработать до конца, то есть или скачать все сообщения до нуля in descending order, или
+		 * дойти до момента, когда внутреннняя функция записи сообщений в БД вернет ошибку DUPLICATE ID. mailSync не должна
+		 * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
+		 */
+		var mailSync = function(currentUserId, mailType) {
+			var reqData = {},
+				userDataForRequest = AccountsManager.list[currentUserId],
+				compatName = (mailType === "inbox") ? "inbox" : "outbox",
+				permKey = "perm_" + compatName + "_" + currentUserId,
+				firstSync = (StorageManager.get(permKey) === null);
 
-				ReqManager.apiMethod("messages.get", reqData, function(data) {
-					var messages = [],
-						dataSyncedFn;
+			reqData.offset = syncingData[currentUserId][mailType][1];
+			reqData.access_token = userDataForRequest.token;
+			reqData.count = 200;
+			reqData.preview_length = 0;
+			if (mailType === "sent") {
+				reqData.out = 1;
+			}
 
-					dataSyncedFn = function() {
-						var inboxSynced, sentSynced, friendsSynced,
-							wallTokenUpdated;
+			ReqManager.apiMethod("messages.get", reqData, function(data) {
+				var messages = [],
+					dataSyncedFn;
 
-						StorageManager.set(permKey, 1);
+				dataSyncedFn = function() {
+					var inboxSynced, sentSynced, friendsSynced,
+						wallTokenUpdated;
 
-						inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
-						sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
-						friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[currentUserId] !== undefined);
+					StorageManager.set(permKey, 1);
 
-						if (AccountsManager.currentUserId === currentUserId) {
-							// если к этому моменту вся почта синхронизирована и друзья тоже, то перерисовываем фронт
-							if (inboxSynced && sentSynced && friendsSynced) {
-								// сбрасываем счетчик синхронизации
-								clearSyncingDataCounters(currentUserId);
+					inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
+					sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
+					friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[currentUserId] !== undefined);
 
-								// маленькое замечение: после того как аккаунт мигрирован с 3 на 4 версию, стартует startUserSession()
-								// она запускает mailSync(), что в свою очередь породит перерисовку фронта на "ui" => "user"
-								// чтобы защититься от этого проверяем, был ли обновлен токен
-								wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
-								if (wallTokenUpdated) {
-									chrome.runtime.sendMessage({"action" : "ui", "which" : "user"});
-								}
+					if (AccountsManager.currentUserId === currentUserId) {
+						// если к этому моменту вся почта синхронизирована и друзья тоже, то перерисовываем фронт
+						if (inboxSynced && sentSynced && friendsSynced) {
+							// сбрасываем счетчик синхронизации
+							clearSyncingDataCounters(currentUserId);
+
+							// маленькое замечение: после того как аккаунт мигрирован с 3 на 4 версию, стартует startUserSession()
+							// она запускает mailSync(), что в свою очередь породит перерисовку фронта на "ui" => "user"
+							// чтобы защититься от этого проверяем, был ли обновлен токен
+							wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+							if (wallTokenUpdated) {
+								Promise.all([
+									DatabaseManager.actualizeContacts(currentUserId),
+									DatabaseManager.actualizeChatDates(currentUserId)
+								]).then(function () {
+									chrome.runtime.sendMessage({
+										action: "ui",
+										which: "user"
+									});
+								});
 							}
 						}
-					};
+					}
+				};
 
-					// все получили
-					if (data.response === 0 || (data.response instanceof Array && data.response.length === 1)) {
+				// все получили
+				if (data.response === 0 || (data.response instanceof Array && data.response.length === 1)) {
+					dataSyncedFn();
+					return;
+				}
+
+				syncingData[currentUserId][mailType][0] = data.response[0];
+
+				if (uidsProcessing[currentUserId] === undefined) {
+					uidsProcessing[currentUserId] = {};
+				}
+
+				// отсекаем общий счетчик сообщений
+				data.response.forEach(function (msgData, index) {
+					var coords;
+
+					// пропускаем общий счетчик
+					if (!index)
+						return;
+
+					// backwards-compatibility. До 4 версии при отсутствии вложений писался пустой объект
+					// теперь мы определяем это на фронте при отрисовке
+					msgData.attachments = msgData.attachments || [];
+
+					// геоданные также пишем как вложение
+					if (msgData.geo && msgData.geo.type === "point") {
+						coords = msgData.geo.coordinates.split(" ");
+
+						msgData.attachments.push({
+							type: "geopoint",
+							geopoint: {
+								lat: coords[0],
+								lng: coords[1]
+							}
+						});
+					}
+
+					msgData.chat_id = msgData.chat_id || 0;
+					msgData.tags = [mailType];
+
+					if (msgData.attachments.length)
+						msgData.tags.push('attachments');
+
+					// проверяем существует ли пользователь
+					if (!uidsProcessing[currentUserId][msgData.uid]) {
+						DatabaseManager.getContactById(currentUserId, msgData.uid, null, function (err) {
+							getUserProfile(currentUserId, msgData.uid);
+						});
+					}
+
+					messages.push(msgData);
+					if (msgData.read_state === 0 && StorageManager.get(permKey) === null) {
+						// до 4 версии здесь показывалось уведомление
+						// TODO учесть var isSupportAccount = (userData.uid === config.VkSupportUid),
+					}
+				});
+
+				DatabaseManager.insertMessages(currentUserId, messages, function () {
+					syncingData[currentUserId][mailType][1] += messages.length;
+
+					chrome.runtime.sendMessage({
+						"action" : "syncProgress",
+						"userId" : currentUserId,
+						"type" : mailType,
+						"total" : syncingData[currentUserId][mailType][0],
+						"current" : syncingData[currentUserId][mailType][1]
+					});
+
+					if (syncingData[currentUserId][mailType][1] > data.response[0]) {
 						dataSyncedFn();
 						return;
 					}
 
-					syncingData[currentUserId][mailType][0] = data.response[0];
+					window.setTimeout(mailSync, 350, currentUserId, mailType);
+				}, _.noop);
+			}, function (errCode, errData) {
+				switch (errCode) {
+					case ReqManager.ACCESS_DENIED :
+						// TODO error
+						break;
 
-					if (uidsProcessing[currentUserId] === undefined) {
-						uidsProcessing[currentUserId] = {};
-					}
+					default :
+						window.setTimeout(mailSync, 5000, currentUserId, mailType);
+						break;
+				}
+			});
+		};
 
-					// отсекаем общий счетчик сообщений
-					data.response.forEach(function(msgData, index) {
-						var coords;
+		/**
+		 * Должен запускаться только в четырех случаях: при старте приложения (то есть при загрузке ОС), при смене аккаунта,
+		 * при добавлении и при удалении аккаунта. При отрисовке UI ничего запускать не нужно - она должна работать с кэшем и событиями.
+		 * Отличие же friendsSync/eventsRegistrar/mailSync в том, что первые два независимы и работают только для текущего пользователя,
+		 * а mailSync должен уметь работать не зная кто является текущим
+		 */
+		var startUserSession = function(callback) {
+			var currentUserId = AccountsManager.currentUserId;
 
-						// пропускаем общий счетчик
-						if (!index)
-							return;
+			// сбрасываем все XHR-запросы
+			ReqManager.abortAll();
 
-						// backwards-compatibility. До 4 версии при отсутствии вложений писался пустой объект
-						// теперь мы определяем это на фронте при отрисовке
-						msgData.attachments = msgData.attachments || [];
+			// инициализация кэша URL аватарок
+			CacheManager.init(AccountsManager.currentUserId, "avatars");
+			CacheManager.init(AccountsManager.currentUserId, "isTokenExpired", false);
 
-						// геоданные также пишем как вложение
-						if (msgData.geo && msgData.geo.type === "point") {
-							coords = msgData.geo.coordinates.split(" ");
-
-							msgData.attachments.push({
-								type: "geopoint",
-								geopoint: {
-									lat: coords[0],
-									lng: coords[1]
-								}
-							});
-						}
-
-						msgData.chat_id = msgData.chat_id || 0;
-						msgData.tags = referTagIds[0];
-
-						if (msgData.attachments.length)
-							msgData.tags |= referTagIds[1];
-
-						// проверяем существует ли пользователь
-						if (uidsProcessing[currentUserId][msgData.uid] === undefined && cachedUIDs.indexOf(msgData.uid) === -1) {
-							cachedUIDs.push(msgData.uid);
-
-							DatabaseManager.getContactById(currentUserId, msgData.uid, null, function(isDatabaseError, errMsg) {
-								if (isDatabaseError) {
-									LogManager.error(errMsg);
-									statSend("Custom-Errors", "Database error", errMsg);
-								}
-
-								getUserProfile(currentUserId, msgData.uid);
-							});
-						}
-
-						messages.push(msgData);
-						if (msgData.read_state === 0 && StorageManager.get(permKey) === null) {
-							// до 4 версии здесь показывалось уведомление
-							// TODO учесть var isSupportAccount = (userData.uid === config.VkSupportUid),
-						}
-					});
-
-					DatabaseManager.insertMessages(currentUserId, {"firstSync" : firstSync, "messages" : messages}, function(msgData, queryIsOk) {
-						if (queryIsOk) {
-							syncingData[currentUserId][mailType][1] += 1;
-
-							chrome.runtime.sendMessage({
-								"action" : "syncProgress",
-								"userId" : currentUserId,
-								"type" : mailType,
-								"total" : syncingData[currentUserId][mailType][0],
-								"current" : syncingData[currentUserId][mailType][1]
-							});
-						}
-					}, function (msgInsertedNum, msgInsertFailedNum) {
-						if (msgInsertFailedNum > 0 || syncingData[currentUserId][mailType][1] > data.response[0]) {
-							dataSyncedFn();
-							return;
-						}
-
-						window.setTimeout(mailSync, 350, currentUserId, mailType, referTagIds);
-					});
-				}, function(errCode, errData) {
-					switch (errCode) {
-						case ReqManager.ACCESS_DENIED :
-							// TODO error
-							break;
-
-						default :
-							window.setTimeout(mailSync, 5000, currentUserId, mailType, referTagIds);
-							break;
-					}
-				});
-			};
-
-			/**
-			 * Должен запускаться только в четырех случаях: при старте приложения (то есть при загрузке ОС), при смене аккаунта,
-			 * при добавлении и при удалении аккаунта. При отрисовке UI ничего запускать не нужно - она должна работать с кэшем и событиями.
-			 * Отличие же friendsSync/eventsRegistrar/mailSync в том, что первые два независимы и работают только для текущего пользователя,
-			 * а mailSync должен уметь работать не зная кто является текущим
-			 */
-			var startUserSession = function(callback) {
-				var currentUserId = AccountsManager.currentUserId;
-
-				// сбрасываем все XHR-запросы
-				ReqManager.abortAll();
-
-				// сбрасываем закэшированные ID контактов
-				cachedUIDs.length = 0;
-
-				// инициализация кэша URL аватарок
-				CacheManager.init(AccountsManager.currentUserId, "avatars");
-				CacheManager.init(AccountsManager.currentUserId, "isTokenExpired", false);
-
-				// инициализируем БД
-				DatabaseManager.initUser(currentUserId, App.INIT_TAGS, function(tagsInDatabase) {
-					if (AccountsManager.currentUserId !== currentUserId)
-						return;
-
-					// сбрасываем счетчики синхронизации
-					clearSyncingDataCounters(AccountsManager.currentUserId);
-
-					// записываем метки в кэш
-					CacheManager.init(AccountsManager.currentUserId, "tags");
-					CacheManager.tags = tagsInDatabase;
-
-					if (navigator.onLine) {
-						friendsSync(AccountsManager.currentUserId);
-						longPollEventsRegistrar.init(AccountsManager.currentUserId);
-
-						mailSync(AccountsManager.currentUserId, "inbox", [tagsInDatabase.inbox, tagsInDatabase.attachments]);
-						mailSync(AccountsManager.currentUserId, "sent", [tagsInDatabase.sent, tagsInDatabase.attachments]);
-					}
-
-					if (typeof callback === "function") {
-						callback();
-					}
-				}, function (errMsg) {
-					LogManager.error(errMsg);
-					statSend("Critical-Errors", "Database init user", errMsg);
-				});
-			};
-
-			/**
-			 * Обработка результатов OAuth-авторизации
-			 */
-			chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-				var tabIndex = OAuthTabData.indexOf(tabId);
-				if (tabIndex === -1 || !changeInfo.url)
+			// инициализируем БД
+			DatabaseManager.initUser(currentUserId, function () {
+				if (AccountsManager.currentUserId !== currentUserId)
 					return;
 
-				if (changeInfo.url.indexOf("#error") !== -1 || changeInfo.url.indexOf("security breach") !== -1) {
-					OAuthTabData.splice(tabIndex, 1);
-					statSend("App-Actions", "OAuth access cancelled");
+				// сбрасываем счетчики синхронизации
+				clearSyncingDataCounters(AccountsManager.currentUserId);
 
-					// закрываем таб oAuth
-					chrome.tabs.remove(tabId);
+				if (navigator.onLine) {
+					friendsSync(AccountsManager.currentUserId);
+					longPollEventsRegistrar.init(AccountsManager.currentUserId);
 
-					focusAppTab(true, function () {
-						var failReason = (changeInfo.url.indexOf("security breach") !== -1) ? "securityBreach" : "denyAccess";
-
-						chrome.runtime.sendMessage({
-							action: "appWontWorkWithoutAccessGranted",
-							from: oAuthRequestData,
-							reason: failReason
-						});
-					});
-
-					return;
+					mailSync(AccountsManager.currentUserId, "inbox");
+					mailSync(AccountsManager.currentUserId, "sent");
 				}
 
-				var tokenMatches = changeInfo.url.match(/#access_token=(\w+).*user_id=(\d+)/);
-				if (tokenMatches) {
-					var token = tokenMatches[1];
-					var userId = tokenMatches[2];
+				if (typeof callback === "function") {
+					callback();
+				}
+			}, function (errMsg) {
+				LogManager.error(errMsg);
+				statSend("Critical-Errors", "Database init user", errMsg);
+			});
+		};
 
-					OAuthTabData.splice(tabIndex, 1);
-					statSend("App-Actions", "OAuth access granted", userId);
+		/**
+		 * Обработка результатов OAuth-авторизации
+		 */
+		chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+			var tabIndex = OAuthTabData.indexOf(tabId);
+			if (tabIndex === -1 || !changeInfo.url)
+				return;
 
-					chrome.tabs.remove(tabId);
+			if (changeInfo.url.indexOf("#error") !== -1 || changeInfo.url.indexOf("security breach") !== -1) {
+				OAuthTabData.splice(tabIndex, 1);
+				statSend("App-Actions", "OAuth access cancelled");
 
-					findFrontendTabs(function (chromeWindowsExist, tabsList) {
-						var appFrontendUrl = App.resolveURL("main.html");
+				// закрываем таб oAuth
+				chrome.tabs.remove(tabId);
 
-						switch (oAuthRequestData) {
-							case "new" :
+				focusAppTab(true, function () {
+					var failReason = (changeInfo.url.indexOf("security breach") !== -1) ? "securityBreach" : "denyAccess";
+
+					chrome.runtime.sendMessage({
+						action: "appWontWorkWithoutAccessGranted",
+						from: oAuthRequestData,
+						reason: failReason
+					});
+				});
+
+				return;
+			}
+
+			var tokenMatches = changeInfo.url.match(/#access_token=(\w+).*user_id=(\d+)/);
+			if (tokenMatches) {
+				var token = tokenMatches[1];
+				var userId = tokenMatches[2];
+
+				OAuthTabData.splice(tabIndex, 1);
+				statSend("App-Actions", "OAuth access granted", userId);
+
+				chrome.tabs.remove(tabId);
+
+				findFrontendTabs(function (chromeWindowsExist, tabsList) {
+					var appFrontendUrl = App.resolveURL("main.html");
+
+					switch (oAuthRequestData) {
+						case "new" :
+							AccountsManager.setData(userId, token, "...");
+							AccountsManager.currentUserId = userId;
+
+							var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+							wallTokenUpdated[AccountsManager.currentUserId] = 1;
+							StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+							startUserSession(function () {
+								if (!chromeWindowsExist)
+									return chrome.windows.create({url: appFrontendUrl});
+
+								if (!tabsList.length)
+									return chrome.tabs.create({url: appFrontendUrl});
+
+								// закрываем все табы, кроме первого в списке по приоритету
+								tabsList.forEach(function (tabInfo, index) {
+									if (index === 0) {
+										chrome.windows.update(tabInfo.windowId, {focused: true});
+										if (tabInfo.type === "tab") {
+											try {
+												chrome.tabs.update(tabInfo.tabId, {active: true});
+											} catch (e) {
+												chrome.tabs.update(tabInfo.tabId, {selected: true});
+											}
+										}
+									} else {
+										if (tabInfo.type === "app") {
+											chrome.windows.remove(tabInfo.windowId);
+										} else {
+											chrome.tabs.remove(tabInfo.tabId);
+										}
+									}
+								});
+
+								chrome.runtime.sendMessage({
+									action: "ui",
+									which: "syncing"
+								});
+							});
+
+							statSend("App-Actions", "First account added");
+							break;
+
+						case "add" :
+							var newUserGranted = (AccountsManager.list[userId] === undefined);
+							if (newUserGranted) {
 								AccountsManager.setData(userId, token, "...");
 								AccountsManager.currentUserId = userId;
 
@@ -1338,677 +1325,570 @@ document.addEventListener("DOMContentLoaded", function () {
 									});
 								});
 
-								statSend("App-Actions", "First account added");
-								break;
+								statSend("App-Actions", "2+ account added");
+							} else {
+								AccountsManager.setData(userId, token);
+								focusAppTab();
 
-							case "add" :
-								var newUserGranted = (AccountsManager.list[userId] === undefined);
-								if (newUserGranted) {
-									AccountsManager.setData(userId, token, "...");
-									AccountsManager.currentUserId = userId;
+								// уведомляем об ошибке
+								chrome.runtime.sendMessage({
+									action: "tokenUpdatedInsteadOfAccountAdd",
+									uid: userId,
+									fio: AccountsManager.list[userId].fio
+								});
+							}
 
-									var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
-									wallTokenUpdated[AccountsManager.currentUserId] = 1;
-									StorageManager.set("wall_token_updated", wallTokenUpdated);
+							break;
 
-									startUserSession(function () {
-										if (!chromeWindowsExist)
-											return chrome.windows.create({url: appFrontendUrl});
+						case "update" :
+							var neededUserTokenUpdated = (updateTokenForUserId === userId);
+							var newUserGranted = true;
 
-										if (!tabsList.length)
-											return chrome.tabs.create({url: appFrontendUrl});
+							for (var listUserId in AccountsManager.list) {
+								if (listUserId === userId) {
+									newUserGranted = false;
+									break;
+								}
+							}
 
-										// закрываем все табы, кроме первого в списке по приоритету
-										tabsList.forEach(function (tabInfo, index) {
-											if (index === 0) {
-												chrome.windows.update(tabInfo.windowId, {focused: true});
-												if (tabInfo.type === "tab") {
-													try {
-														chrome.tabs.update(tabInfo.tabId, {active: true});
-													} catch (e) {
-														chrome.tabs.update(tabInfo.tabId, {selected: true});
-													}
-												}
-											} else {
-												if (tabInfo.type === "app") {
-													chrome.windows.remove(tabInfo.windowId);
-												} else {
-													chrome.tabs.remove(tabInfo.tabId);
-												}
-											}
-										});
+							if (newUserGranted) {
+								// уведомляем об ошибке
+								chrome.runtime.sendMessage({
+									action: "tokenAddedInsteadOfUpdate",
+									uid: userId,
+									token: token
+								});
+							} else {
+								AccountsManager.setData(userId, token);
 
-										chrome.runtime.sendMessage({
-											action: "ui",
-											which: "syncing"
-										});
-									});
-
-									statSend("App-Actions", "2+ account added");
-								} else {
-									AccountsManager.setData(userId, token);
-									focusAppTab();
-
-									// уведомляем об ошибке
+								if (neededUserTokenUpdated) {
+									statSend("App-Actions", "Account token updated");
 									chrome.runtime.sendMessage({
-										action: "tokenUpdatedInsteadOfAccountAdd",
+										action: "tokenUpdated"
+									});
+								} else {
+									chrome.runtime.sendMessage({
+										action: "tokenUpdatedForWrongUser",
 										uid: userId,
 										fio: AccountsManager.list[userId].fio
 									});
 								}
-
-								break;
-
-							case "update" :
-								var neededUserTokenUpdated = (updateTokenForUserId === userId);
-								var newUserGranted = true;
-
-								for (var listUserId in AccountsManager.list) {
-									if (listUserId === userId) {
-										newUserGranted = false;
-										break;
-									}
-								}
-
-								if (newUserGranted) {
-									// уведомляем об ошибке
-									chrome.runtime.sendMessage({
-										action: "tokenAddedInsteadOfUpdate",
-										uid: userId,
-										token: token
-									});
-								} else {
-									AccountsManager.setData(userId, token);
-
-									if (neededUserTokenUpdated) {
-										statSend("App-Actions", "Account token updated");
-										chrome.runtime.sendMessage({
-											action: "tokenUpdated"
-										});
-									} else {
-										chrome.runtime.sendMessage({
-											action: "tokenUpdatedForWrongUser",
-											uid: userId,
-											fio: AccountsManager.list[userId].fio
-										});
-									}
-								}
-
-								if (!chromeWindowsExist)
-									return chrome.windows.create({url: appFrontendUrl});
-
-								if (!tabsList.length)
-									return chrome.tabs.create({url: appFrontendUrl});
-
-								// показываем первый таб
-								chrome.windows.update(tabsList[0].windowId, {focused: true});
-								if (tabsList[0].type === "tab") {
-									try {
-										chrome.tabs.update(tabsList[0].tabId, {active: true});
-									} catch (e) {
-										chrome.tabs.update(tabsList[0].tabId, {selected: true});
-									}
-								}
-
-								break;
-						}
-					});
-
-					return;
-				}
-			});
-
-
-			chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-				var sendAsyncResponse = false;
-
-				switch (request.action) {
-					case "uiDraw" :
-						sendAsyncResponse = true;
-						sendResponse(true);
-
-						var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true}),
-							inboxSynced, sentSynced, friendsSynced,
-							wallTokenUpdated;
-
-						if (AccountsManager.currentUserId) {
-							inboxSynced = (StorageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);
-							sentSynced = (StorageManager.get("perm_outbox_" + AccountsManager.currentUserId) !== null);
-							friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
-
-							if (inboxSynced && sentSynced && friendsSynced) {
-								uiType = "user";
-							} else {
-								uiType = "syncing";
 							}
+
+							if (!chromeWindowsExist)
+								return chrome.windows.create({url: appFrontendUrl});
+
+							if (!tabsList.length)
+								return chrome.tabs.create({url: appFrontendUrl});
+
+							// показываем первый таб
+							chrome.windows.update(tabsList[0].windowId, {focused: true});
+							if (tabsList[0].type === "tab") {
+								try {
+									chrome.tabs.update(tabsList[0].tabId, {active: true});
+								} catch (e) {
+									chrome.tabs.update(tabsList[0].tabId, {selected: true});
+								}
+							}
+
+							break;
+					}
+				});
+
+				return;
+			}
+		});
+
+
+		chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+			var sendAsyncResponse = false;
+
+			switch (request.action) {
+				case "uiDraw" :
+					sendAsyncResponse = true;
+					sendResponse(true);
+
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
+						inboxSynced, sentSynced, friendsSynced,
+						wallTokenUpdated;
+
+					if (AccountsManager.currentUserId) {
+						inboxSynced = (StorageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);
+						sentSynced = (StorageManager.get("perm_outbox_" + AccountsManager.currentUserId) !== null);
+						friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+
+						if (inboxSynced && sentSynced && friendsSynced) {
+							uiType = "user";
 						} else {
-							uiType = "guest";
+							uiType = "syncing";
+						}
+					} else {
+						uiType = "guest";
+					}
+
+					switch (uiType) {
+						case "user" :
+							statSend("UI-Draw", "Users", AccountsManager.currentUserId);
+							break;
+
+						case "syncing" :
+							statSend("UI-Draw", "Syncing", AccountsManager.currentUserId);
+							break;
+
+						case "guest" :
+							statSend("UI-Draw", "Guests");
+							break;
+					}
+
+					// уведомляем фронт
+					chrome.runtime.sendMessage({"action" : "ui", "which" : uiType});
+					break;
+
+				case "closeNotification":
+					if (notificationHandlers[request.mid]) {
+						chrome.notifications.clear(request.mid, _.noop);
+						delete notificationHandlers[request.mid];
+					}
+
+					break;
+
+				// NB. Есть баг, когда в некоторых версиях браузера сортировка работает слишком долго. Для определения этого момента в 4.4 внедрено следующее решение:
+				// При первом запросе контактов проверяем, сколько времени работал запрос к бэкенду. Если это заняло больше 3 секунд, то меняем настройку сортировки.
+				// Соответственно "забываем" запрос и порождаем новый.
+				// 13.0.755.0 (83879) - долгая выборка контактов
+				case "fetchContactList" :
+					var breakNeeded = false,
+						timeoutId,
+						onContactsListReady;
+
+					sendAsyncResponse = true;
+					onContactsListReady = function(contactsList) {
+						if (contactsList.length === 0) {
+							return;
 						}
 
-						switch (uiType) {
-							case "user" :
-								statSend("UI-Draw", "Users", AccountsManager.currentUserId);
-								break;
+						var contactsIds = contactsList.map(function(contactData) {
+							return contactData.uid;
+						});
 
-							case "syncing" :
-								statSend("UI-Draw", "Syncing", AccountsManager.currentUserId);
-								break;
+						ReqManager.apiMethod("users.get", {"uids" : contactsIds.join(","), "fields" : "online"}, function(data) {
+							data.response.forEach(function(chunk) {
+								var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
+								chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
+							});
+						});
+					};
 
-							case "guest" :
-								statSend("UI-Draw", "Guests");
-								break;
+					timeoutId = window.setTimeout(function() {
+						var defaultSettingsUsed = (StorageManager.get("settings") === null);
+						if (defaultSettingsUsed === false) {
+							return;
 						}
 
-						// уведомляем фронт
-						chrome.runtime.sendMessage({"action" : "ui", "which" : uiType});
-						break;
+						breakNeeded = true;
+						SettingsManager.SortContacts = 2;
 
-					case "closeNotification":
-						if (notificationHandlers[request.mid]) {
-							chrome.notifications.clear(request.mid, noop);
-							delete notificationHandlers[request.mid];
-						}
-
-						break;
-
-					// NB. Есть баг, когда в некоторых версиях браузера сортировка работает слишком долго. Для определения этого момента в 4.4 внедрено следующее решение:
-					// При первом запросе контактов проверяем, сколько времени работал запрос к бэкенду. Если это заняло больше 3 секунд, то меняем настройку сортировки.
-					// Соответственно "забываем" запрос и порождаем новый.
-					// 13.0.755.0 (83879) - долгая выборка контактов
-					case "fetchContactList" :
-						var breakNeeded = false,
-							timeoutId,
-							onContactsListReady;
-
-						sendAsyncResponse = true;
-						onContactsListReady = function(contactsList) {
-							if (contactsList.length === 0) {
-								return;
-							}
-
-							var contactsIds = contactsList.map(function(contactData) {
-								return contactData.uid;
-							});
-
-							ReqManager.apiMethod("users.get", {"uids" : contactsIds.join(","), "fields" : "online"}, function(data) {
-								data.response.forEach(function(chunk) {
-									var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
-									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
-								});
-							});
-						};
-
-						timeoutId = window.setTimeout(function() {
-							var defaultSettingsUsed = (StorageManager.get("settings") === null);
-							if (defaultSettingsUsed === false) {
-								return;
-							}
-
-							breakNeeded = true;
-							SettingsManager.SortContacts = 2;
-
-							DatabaseManager.getContactList("alpha", request.totalShown, CacheManager.tags.trash, function(contacts) {
-								sendResponse(contacts);
-
-								if (SettingsManager.ShowOnline === 1) {
-									onContactsListReady(contacts[0]);
-								}
-							}, function(errMsg) {
-								sendResponse([[], 0]);
-								LogManager.error(errMsg);
-							});
-						}, 3000);
-
-						DatabaseManager.getContactList(request.type, request.totalShown, CacheManager.tags.trash, function(contacts) {
-							if (breakNeeded) {
-								return;
-							}
-
+						DatabaseManager.getContactList("alpha", request.totalShown, function(contacts) {
 							sendResponse(contacts);
-							window.clearTimeout(timeoutId);
 
 							if (SettingsManager.ShowOnline === 1) {
 								onContactsListReady(contacts[0]);
 							}
 						}, function(errMsg) {
-							if (breakNeeded) {
-								return;
-							}
-
-							sendResponse([[], 0]);
-							LogManager.error(errMsg);
-
-							window.clearTimeout(timeoutId);
-						});
-
-						break;
-
-					case "fetchConversations" :
-						sendAsyncResponse = true;
-						DatabaseManager.getConversations(request.totalShown, CacheManager.tags.trash, sendResponse, function(errMsg) {
 							sendResponse([[], 0]);
 							LogManager.error(errMsg);
 						});
+					}, 3000);
 
-						break;
+					DatabaseManager.getContactList(request.type, request.totalShown, function(contacts) {
+						if (breakNeeded) {
+							return;
+						}
 
-					case "getDialogThread" :
-						var from = (request.from !== undefined) ? request.from : null;
+						sendResponse(contacts);
+						window.clearTimeout(timeoutId);
 
-						sendAsyncResponse = true;
-						DatabaseManager.getDialogThread(request.id, CacheManager.tags.trash, from, sendResponse, function(errMsg) {
-							sendResponse([[], 0]);
+						if (SettingsManager.ShowOnline === 1) {
+							onContactsListReady(contacts[0]);
+						}
+					}, function(errMsg) {
+						if (breakNeeded) {
+							return;
+						}
+
+						sendResponse([[], 0]);
+						LogManager.error(errMsg);
+
+						window.clearTimeout(timeoutId);
+					});
+
+					break;
+
+				case "fetchConversations" :
+					sendAsyncResponse = true;
+					DatabaseManager.getConversations(request.totalShown, sendResponse, function (errMsg) {
+						sendResponse([[], 0]);
+						LogManager.error(errMsg);
+					});
+
+					break;
+
+				case "getDialogThread" :
+					var from = (request.from !== undefined) ? request.from : null;
+
+					sendAsyncResponse = true;
+					DatabaseManager.getDialogThread(request.id, from, sendResponse, function(errMsg) {
+						sendResponse([[], 0]);
+						LogManager.error(errMsg);
+					});
+
+					break;
+
+				case "getMessageInfo" :
+					sendAsyncResponse = true;
+					DatabaseManager.getMessageById(Number(request.mid), sendResponse, function (isDatabaseError, errMsg) {
+						sendResponse(undefined);
+
+						if (isDatabaseError) {
 							LogManager.error(errMsg);
-						});
+							statSend("Custom-Errors", "Database error", errMsg);
+						}
+					});
 
-						break;
+					break;
 
-					case "getMessageInfo" :
-						sendAsyncResponse = true;
-						DatabaseManager.getMessageById(request.mid, sendResponse, function(isDatabaseError, errMsg) {
-							sendResponse(undefined);
+				case "loadAvatar" :
+					loadAvatar(request.uid, function() {
+						chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : request.uid});
+					});
 
-							if (isDatabaseError) {
-								LogManager.error(errMsg);
-								statSend("Custom-Errors", "Database error", errMsg);
-							}
-						});
+					break;
 
-						break;
+				case "getConversationThreadsWithContact" :
+					sendAsyncResponse = true;
+					DatabaseManager.getConversationThreadsWithContact(request.uid, sendResponse, function (errMsg) {
+						sendResponse([]);
+						LogManager.error(errMsg);
+					});
 
-					case "loadAvatar" :
-						loadAvatar(request.uid, function() {
-							chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : request.uid});
-						});
+					break;
 
-						break;
+				case "getContactData" :
+					sendAsyncResponse = true;
+					DatabaseManager.getContactById(AccountsManager.currentUserId, request.uid, sendResponse, function (err) {
+						sendResponse(null);
+					});
 
-					case "getConversationThreadsWithContact" :
-						sendAsyncResponse = true;
-						DatabaseManager.getConversationThreadsWithContact(request.uid, CacheManager.tags.trash, sendResponse, function(errMsg) {
-							sendResponse([]);
-							LogManager.error(errMsg);
-						});
-
-						break;
-
-					case "getContactData" :
-						sendAsyncResponse = true;
-						DatabaseManager.getContactById(AccountsManager.currentUserId, request.uid, sendResponse, function(isDatabaseError, errorMsg) {
-							sendResponse(null);
-
-							if (isDatabaseError) {
-								LogManager.error(errMsg);
-								statSend("Custom-Errors", "Database error", errMsg);
-							}
-						});
-
-						if (SettingsManager.ShowOnline === 1 && request.includeOnlineStatus) {
-							ReqManager.apiMethod("users.get", {"uids" : request.uid, "fields" : "online"}, function(data) {
-								data.response.forEach(function(chunk) {
-									var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
-									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
-								});
+					if (SettingsManager.ShowOnline === 1 && request.includeOnlineStatus) {
+						ReqManager.apiMethod("users.get", {"uids" : request.uid, "fields" : "online"}, function(data) {
+							data.response.forEach(function(chunk) {
+								var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
+								chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
 							});
+						});
+					}
+
+					break;
+
+				// TODO как-то формализировать
+				case "errorGot" :
+					statSend("Custom-Errors", request.error, request.message);
+					break;
+
+				case "sendMessage" :
+					var msgParams = {};
+					sendAsyncResponse = true;
+
+					if (request.body !== undefined) {
+						msgParams.message = request.body;
+					}
+
+					if (request.subject !== undefined) {
+						msgParams.title = request.subject;
+					}
+
+					if (request.sid !== undefined) {
+						msgParams.captcha_sid = request.sid;
+					}
+
+					if (request.key !== undefined) {
+						msgParams.captcha_key = request.key;
+					}
+
+					if (request.attachments.length) {
+						msgParams.attachment = request.attachments.join(",");
+					}
+
+					if (/^[\d]+$/.test(request.to)) {
+						msgParams.chat_id = request.to;
+					} else {
+						msgParams.uid = request.to.split("_")[1];
+					}
+
+					if (request.coords !== undefined) {
+						msgParams.lat = request.coords.latitude;
+						msgParams.long = request.coords.longitude;
+					}
+
+					ReqManager.apiMethod("messages.send", msgParams, function(data) {
+						statSend("App-Actions", "Sent Message", AccountsManager.currentUserId);
+						SoundManager.play("sent");
+
+						sendResponse([0, data]);
+					}, function(errCode, errData) {
+						statSend("Custom-Errors", "Failed to send message", errCode);
+						SoundManager.play("error");
+
+						switch (errCode) {
+							case ReqManager.CAPTCHA :
+								sendResponse([1, errData]);
+								break;
+
+							default :
+								if (errCode === ReqManager.RESPONSE_ERROR && errData.code === 7) {
+									sendResponse([2]);
+									return;
+								}
+
+								sendResponse([3]);
+								break;
 						}
+					});
 
-						break;
+					break;
 
-					// TODO как-то формализировать
-					case "errorGot" :
-						statSend("Custom-Errors", request.error, request.message);
-						break;
+				case "collectLogData":
+					sendAsyncResponse = true;
+					LogManager.collect(sendResponse);
+					break;
 
-					case "sendMessage" :
-						var msgParams = {};
-						sendAsyncResponse = true;
-
-						if (request.body !== undefined) {
-							msgParams.message = request.body;
-						}
-
-						if (request.subject !== undefined) {
-							msgParams.title = request.subject;
-						}
-
-						if (request.sid !== undefined) {
-							msgParams.captcha_sid = request.sid;
-						}
-
-						if (request.key !== undefined) {
-							msgParams.captcha_key = request.key;
-						}
-
-						if (request.attachments.length) {
-							msgParams.attachment = request.attachments.join(",");
-						}
-
-						if (/^[\d]+$/.test(request.to)) {
-							msgParams.chat_id = request.to;
-						} else {
-							msgParams.uid = request.to.split("_")[1];
-						}
-
-						if (request.coords !== undefined) {
-							msgParams.lat = request.coords.latitude;
-							msgParams.long = request.coords.longitude;
-						}
-
-						ReqManager.apiMethod("messages.send", msgParams, function(data) {
-							statSend("App-Actions", "Sent Message", AccountsManager.currentUserId);
-							SoundManager.play("sent");
-
-							sendResponse([0, data]);
-						}, function(errCode, errData) {
-							statSend("Custom-Errors", "Failed to send message", errCode);
-							SoundManager.play("error");
-
+				case "getMessagesUploadServer" :
+					var sendRequest = function() {
+						ReqManager.apiMethod("photos.getMessagesUploadServer", sendResponse, function(errCode, errData) {
 							switch (errCode) {
-								case ReqManager.CAPTCHA :
-									sendResponse([1, errData]);
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendRequest, 5*1000);
 									break;
 
 								default :
-									if (errCode === ReqManager.RESPONSE_ERROR && errData.code === 7) {
-										sendResponse([2]);
+									sendResponse(null);
+							}
+						});
+					};
+
+					sendRequest();
+					sendAsyncResponse = true;
+					break;
+
+				case "getDocsUploadServer" :
+					var sendRequest = function() {
+						ReqManager.apiMethod("docs.getUploadServer", sendResponse, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendRequest, 5*1000);
+									break;
+
+								default :
+									sendResponse(null);
+							}
+						});
+					};
+
+					sendRequest();
+					sendAsyncResponse = true;
+					break;
+
+				case "saveMessagesPhoto" :
+					var sendRequest = function(requestData) {
+						ReqManager.apiMethod("photos.saveMessagesPhoto", {
+							"server" : requestData.server,
+							"photo" : requestData.photo,
+							"hash" : requestData.hash
+						}, sendResponse, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendRequest, 5*1000, requestData);
+									break;
+
+								default :
+									sendResponse(null);
+							}
+						});
+					};
+
+					sendRequest(request);
+					sendAsyncResponse = true;
+					break;
+
+				case "saveMessagesDoc" :
+					var sendRequest = function(requestData) {
+						ReqManager.apiMethod("docs.save", {
+							"file" : requestData.file
+						}, sendResponse, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendRequest, 5*1000, requestData);
+									break;
+
+								default :
+									sendResponse(null);
+							}
+						});
+					};
+
+					sendRequest(request);
+					sendAsyncResponse = true;
+					break;
+
+				case "addLike" :
+					statSend("App-Actions", "Like and repost");
+					sendAsyncResponse = true;
+
+					var sendLikeRequest = function() {
+						ReqManager.apiMethod("wall.addLike", {
+							"owner_id" : -29809053,
+							"post_id" : 454,
+							"repost" : 1
+						}, function(data) {
+							sendResponse(1);
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+									window.setTimeout(sendLikeRequest, 5*1000);
+									break;
+
+								case ReqManager.RESPONSE_ERROR :
+									if (errData.code === 217 || errData.code === 215) {
+										sendResponse(1);
 										return;
 									}
 
-									sendResponse([3]);
+									window.setTimeout(sendLikeRequest, 5*1000);
+									break;
+
+								default :
+									sendResponse(0);
+							}
+						});
+					};
+
+					var sendJoinGroupRequest = function() {
+						ReqManager.apiMethod("groups.join", {
+							"gid" : 29809053
+						}, null, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendJoinGroupRequest, 5*1000);
 									break;
 							}
 						});
+					};
 
-						break;
+					sendLikeRequest();
+					sendJoinGroupRequest();
+					break;
 
-					case "collectLogData":
-						sendAsyncResponse = true;
-						LogManager.collect(sendResponse);
-						break;
+				case "userUIDrawn" :
+					var milliSecondsTimeout = 86400*1000, // one request per day
+						groupWallSyncTime = parseInt(StorageManager.get("vkgroupwall_sync_time"), 10) || 0,
+						nextRequestTimeout, syncWallFn;
 
-					case "getMessagesUploadServer" :
-						var sendRequest = function() {
-							ReqManager.apiMethod("photos.getMessagesUploadServer", sendResponse, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(sendRequest, 5*1000);
-										break;
+					// проверяем, чтобы не было слишком частых запросов
+					nextRequestTimeout = Math.max((milliSecondsTimeout - Math.abs(Date.now() - groupWallSyncTime)), 0);
 
-									default :
-										sendResponse(null);
-								}
+					window.setTimeout(function () {
+						ReqManager.apiMethod("wall.get", {
+							access_token: null, // объявления получать обязательно, поэтому ходим без токенов
+							owner_id: (0 - App.VK_ADV_GROUP[0]),
+							count: 5,
+							filter: "owner" // перестраховка
+						}, function (data) {
+							var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true}),
+								postsToStore = [];
+
+							data.response.slice(1).forEach(function (post) {
+								if (seenPosts.indexOf(post.id) !== -1 || App.VK_ADV_GROUP[1] >= post.id)
+									return;
+
+								postsToStore.push(post);
 							});
-						};
 
-						sendRequest();
-						sendAsyncResponse = true;
-						break;
+							if (postsToStore.length) {
+								StorageManager.set("vkgroupwall_stored_posts", postsToStore);
+								chrome.runtime.sendMessage({"action" : "newWallPosts"});
+							}
 
-					case "getDocsUploadServer" :
-						var sendRequest = function() {
-							ReqManager.apiMethod("docs.getUploadServer", sendResponse, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(sendRequest, 5*1000);
-										break;
+							// обновляем счетчик следующего запроса к стенке
+							StorageManager.set("vkgroupwall_sync_time", Date.now());
+							window.setTimeout(syncWallFn, milliSecondsTimeout);
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(syncWallFn, 5*60*1000);
+									break;
+							}
+						});
+					}, nextRequestTimeout);
 
-									default :
-										sendResponse(null);
-								}
-							});
-						};
+					break;
 
-						sendRequest();
-						sendAsyncResponse = true;
-						break;
+				case "getDocById" :
+					// vk bug: метод docs.getById возвращает response: []
+					// http://vkontakte.ru/topic-1_21972169?post=36014
+					var sendRequest;
 
-					case "saveMessagesPhoto" :
-						var sendRequest = function(requestData) {
-							ReqManager.apiMethod("photos.saveMessagesPhoto", {
-								"server" : requestData.server,
-								"photo" : requestData.photo,
-								"hash" : requestData.hash
-							}, sendResponse, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(sendRequest, 5*1000, requestData);
-										break;
+					sendAsyncResponse = true;
 
-									default :
-										sendResponse(null);
-								}
-							});
-						};
+					if (request.mid !== undefined) {
+						sendRequest = function(requestData) {
+							requestData.ownerId = parseInt(requestData.ownerId, 10);
+							requestData.id = parseInt(requestData.id, 10);
 
-						sendRequest(request);
-						sendAsyncResponse = true;
-						break;
-
-					case "saveMessagesDoc" :
-						var sendRequest = function(requestData) {
-							ReqManager.apiMethod("docs.save", {
-								"file" : requestData.file
-							}, sendResponse, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(sendRequest, 5*1000, requestData);
-										break;
-
-									default :
-										sendResponse(null);
-								}
-							});
-						};
-
-						sendRequest(request);
-						sendAsyncResponse = true;
-						break;
-
-					case "addLike" :
-						statSend("App-Actions", "Like and repost");
-						sendAsyncResponse = true;
-
-						var sendLikeRequest = function() {
-							ReqManager.apiMethod("wall.addLike", {
-								"owner_id" : -29809053,
-								"post_id" : 454,
-								"repost" : 1
-							}, function(data) {
-								sendResponse(1);
-							}, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-										window.setTimeout(sendLikeRequest, 5*1000);
-										break;
-
-									case ReqManager.RESPONSE_ERROR :
-										if (errData.code === 217 || errData.code === 215) {
-											sendResponse(1);
-											return;
-										}
-
-										window.setTimeout(sendLikeRequest, 5*1000);
-										break;
-
-									default :
-										sendResponse(0);
-								}
-							});
-						};
-
-						var sendJoinGroupRequest = function() {
-							ReqManager.apiMethod("groups.join", {
-								"gid" : 29809053
-							}, null, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(sendJoinGroupRequest, 5*1000);
-										break;
-								}
-							});
-						};
-
-						sendLikeRequest();
-						sendJoinGroupRequest();
-						break;
-
-					case "userUIDrawn" :
-						var milliSecondsTimeout = 86400*1000, // one request per day
-							groupWallSyncTime = parseInt(StorageManager.get("vkgroupwall_sync_time"), 10) || 0,
-							nextRequestTimeout, syncWallFn;
-
-						// проверяем, чтобы не было слишком частых запросов
-						nextRequestTimeout = Math.max((milliSecondsTimeout - Math.abs(Date.now() - groupWallSyncTime)), 0);
-
-						window.setTimeout(function () {
-							ReqManager.apiMethod("wall.get", {
-								access_token: null, // объявления получать обязательно, поэтому ходим без токенов
-								owner_id: (0 - App.VK_ADV_GROUP[0]),
-								count: 5,
-								filter: "owner" // перестраховка
-							}, function (data) {
-								var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true}),
-									postsToStore = [];
-
-								data.response.slice(1).forEach(function (post) {
-									if (seenPosts.indexOf(post.id) !== -1 || App.VK_ADV_GROUP[1] >= post.id)
-										return;
-
-									postsToStore.push(post);
-								});
-
-								if (postsToStore.length) {
-									StorageManager.set("vkgroupwall_stored_posts", postsToStore);
-									chrome.runtime.sendMessage({"action" : "newWallPosts"});
-								}
-
-								// обновляем счетчик следующего запроса к стенке
-								StorageManager.set("vkgroupwall_sync_time", Date.now());
-								window.setTimeout(syncWallFn, milliSecondsTimeout);
-							}, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(syncWallFn, 5*60*1000);
-										break;
-								}
-							});
-						}, nextRequestTimeout);
-
-						break;
-
-					case "getDocById" :
-						// vk bug: метод docs.getById возвращает response: []
-						// http://vkontakte.ru/topic-1_21972169?post=36014
-						var sendRequest;
-
-						sendAsyncResponse = true;
-
-						if (request.mid !== undefined) {
-							sendRequest = function(requestData) {
-								requestData.ownerId = parseInt(requestData.ownerId, 10);
-								requestData.id = parseInt(requestData.id, 10);
-
-								ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
-									if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
-										statSend("Custom-Errors", "Attachment info missing", requestData);
-
-										sendResponse(null);
-										return;
-									}
-
-									var i;
-
-									for (i = 0; i < data.response[1].attachments.length; i++) {
-										if (data.response[1].attachments[i].type === "doc" && data.response[1].attachments[i].doc.owner_id === requestData.ownerId && data.response[1].attachments[i].doc.did === requestData.id) {
-											sendResponse(data.response[1].attachments[i].doc);
-											return;
-										}
-									}
-
+							ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
+								if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
 									statSend("Custom-Errors", "Attachment info missing", requestData);
-								}, function(errCode, errData) {
-									switch (errCode) {
-										case ReqManager.NO_INTERNET :
-										case ReqManager.NOT_JSON :
-										case ReqManager.TIMEOUT :
-										case ReqManager.RESPONSE_ERROR :
-											window.setTimeout(sendRequest, 5*1000, requestData);
-											break;
-
-										default :
-											sendResponse(null);
-									}
-								});
-							};
-						} else {
-							sendRequest = function(requestData) {
-								ReqManager.apiMethod("docs.getById", {"docs" : requestData.ownerId + "_" + requestData.id}, function(data) {
-									var output = (data.response.length) ? data.response[0] : null;
-									if (output === null) {
-										statSend("Custom-Errors", "Attachment info missing", requestData);
-									}
-
-									sendResponse(output);
-								}, function(errCode, errData) {
-									switch (errCode) {
-										case ReqManager.NO_INTERNET :
-										case ReqManager.NOT_JSON :
-										case ReqManager.TIMEOUT :
-										case ReqManager.RESPONSE_ERROR :
-											window.setTimeout(sendRequest, 5*1000, requestData);
-											break;
-
-										default :
-											sendResponse(null);
-									}
-								});
-							};
-						}
-
-						sendRequest(request);
-						break;
-
-					case "getGeopointById" :
-						sendAsyncResponse = true;
-
-						var sendRequest = function(msgId) {
-							ReqManager.apiMethod("messages.getById", {"mid" : msgId}, function(data) {
-								if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].geo === undefined) {
-									statSend("Custom-Errors", "Attachment info missing", request);
 
 									sendResponse(null);
 									return;
 								}
 
-								var coords = data.response[1].geo.coordinates.split(" ");
-								sendResponse(coords);
+								var i;
+
+								for (i = 0; i < data.response[1].attachments.length; i++) {
+									if (data.response[1].attachments[i].type === "doc" && data.response[1].attachments[i].doc.owner_id === requestData.ownerId && data.response[1].attachments[i].doc.did === requestData.id) {
+										sendResponse(data.response[1].attachments[i].doc);
+										return;
+									}
+								}
+
+								statSend("Custom-Errors", "Attachment info missing", requestData);
 							}, function(errCode, errData) {
 								switch (errCode) {
 									case ReqManager.NO_INTERNET :
 									case ReqManager.NOT_JSON :
 									case ReqManager.TIMEOUT :
 									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(sendRequest, 5*1000, msgId);
+										window.setTimeout(sendRequest, 5*1000, requestData);
 										break;
 
 									default :
@@ -2016,13 +1896,9 @@ document.addEventListener("DOMContentLoaded", function () {
 								}
 							});
 						};
-
-						sendRequest(request.mid);
-						break;
-
-					case "getAudioById" :
-						var sendRequest = function(requestData) {
-							ReqManager.apiMethod("audio.getById", {"audios" : requestData.ownerId + "_" + requestData.id}, function(data) {
+					} else {
+						sendRequest = function(requestData) {
+							ReqManager.apiMethod("docs.getById", {"docs" : requestData.ownerId + "_" + requestData.id}, function(data) {
 								var output = (data.response.length) ? data.response[0] : null;
 								if (output === null) {
 									statSend("Custom-Errors", "Attachment info missing", requestData);
@@ -2043,15 +1919,143 @@ document.addEventListener("DOMContentLoaded", function () {
 								}
 							});
 						};
+					}
 
-						sendRequest(request);
-						sendAsyncResponse = true;
-						break;
+					sendRequest(request);
+					break;
 
-					case "getVideoById" :
-						var sendRequest = function(requestData) {
-							ReqManager.apiMethod("video.get", {"videos" : requestData.ownerId + "_" + requestData.id}, function(data) {
-								var output = (data.response instanceof Array && data.response.length === 2) ? data.response[1] : null;
+				case "getGeopointById" :
+					sendAsyncResponse = true;
+
+					var sendRequest = function(msgId) {
+						ReqManager.apiMethod("messages.getById", {"mid" : msgId}, function(data) {
+							if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].geo === undefined) {
+								statSend("Custom-Errors", "Attachment info missing", request);
+
+								sendResponse(null);
+								return;
+							}
+
+							var coords = data.response[1].geo.coordinates.split(" ");
+							sendResponse(coords);
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendRequest, 5*1000, msgId);
+									break;
+
+								default :
+									sendResponse(null);
+							}
+						});
+					};
+
+					sendRequest(request.mid);
+					break;
+
+				case "getAudioById" :
+					var sendRequest = function(requestData) {
+						ReqManager.apiMethod("audio.getById", {"audios" : requestData.ownerId + "_" + requestData.id}, function(data) {
+							var output = (data.response.length) ? data.response[0] : null;
+							if (output === null) {
+								statSend("Custom-Errors", "Attachment info missing", requestData);
+							}
+
+							sendResponse(output);
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendRequest, 5*1000, requestData);
+									break;
+
+								default :
+									sendResponse(null);
+							}
+						});
+					};
+
+					sendRequest(request);
+					sendAsyncResponse = true;
+					break;
+
+				case "getVideoById" :
+					var sendRequest = function(requestData) {
+						ReqManager.apiMethod("video.get", {"videos" : requestData.ownerId + "_" + requestData.id}, function(data) {
+							var output = (data.response instanceof Array && data.response.length === 2) ? data.response[1] : null;
+							if (output === null) {
+								statSend("Custom-Errors", "Attachment info missing", requestData);
+							}
+
+							sendResponse(output);
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendRequest, 5*1000, requestData);
+									break;
+
+								default :
+									sendResponse(null);
+							}
+						});
+					};
+
+					sendRequest(request);
+					sendAsyncResponse = true;
+					break;
+
+				case "getPhotoById" :
+					var sendRequest;
+
+					if (request.mid !== undefined) {
+						sendRequest = function(requestData) {
+							requestData.ownerId = parseInt(requestData.ownerId, 10);
+							requestData.id = parseInt(requestData.id, 10);
+
+							ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
+								if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
+									statSend("Custom-Errors", "Attachment info missing", requestData);
+
+									sendResponse(null);
+									return;
+								}
+
+								var i;
+
+								for (i = 0; i < data.response[1].attachments.length; i++) {
+									if (data.response[1].attachments[i].type === "photo" && data.response[1].attachments[i].photo.owner_id === requestData.ownerId && data.response[1].attachments[i].photo.pid === requestData.id) {
+										sendResponse(data.response[1].attachments[i].photo);
+										return;
+									}
+								}
+
+								statSend("Custom-Errors", "Attachment info missing", requestData);
+							}, function(errCode, errData) {
+								switch (errCode) {
+									case ReqManager.NO_INTERNET :
+									case ReqManager.NOT_JSON :
+									case ReqManager.TIMEOUT :
+									case ReqManager.RESPONSE_ERROR :
+										window.setTimeout(sendRequest, 5*1000, requestData);
+										break;
+
+									default :
+										sendResponse(null);
+								}
+							});
+						};
+					} else {
+						sendRequest = function(requestData) {
+							ReqManager.apiMethod("photos.getById", {"photos" : requestData.ownerId + "_" + requestData.id}, function(data) {
+								var output = (data.response.length) ? data.response[0] : null;
 								if (output === null) {
 									statSend("Custom-Errors", "Attachment info missing", requestData);
 								}
@@ -2071,434 +2075,344 @@ document.addEventListener("DOMContentLoaded", function () {
 								}
 							});
 						};
+					}
 
-						sendRequest(request);
-						sendAsyncResponse = true;
-						break;
+					sendRequest(request);
+					sendAsyncResponse = true;
+					break;
 
-					case "getPhotoById" :
-						var sendRequest;
-
-						if (request.mid !== undefined) {
-							sendRequest = function(requestData) {
-								requestData.ownerId = parseInt(requestData.ownerId, 10);
-								requestData.id = parseInt(requestData.id, 10);
-
-								ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
-									if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
-										statSend("Custom-Errors", "Attachment info missing", requestData);
-
-										sendResponse(null);
-										return;
-									}
-
-									var i;
-
-									for (i = 0; i < data.response[1].attachments.length; i++) {
-										if (data.response[1].attachments[i].type === "photo" && data.response[1].attachments[i].photo.owner_id === requestData.ownerId && data.response[1].attachments[i].photo.pid === requestData.id) {
-											sendResponse(data.response[1].attachments[i].photo);
-											return;
-										}
-									}
-
-									statSend("Custom-Errors", "Attachment info missing", requestData);
-								}, function(errCode, errData) {
-									switch (errCode) {
-										case ReqManager.NO_INTERNET :
-										case ReqManager.NOT_JSON :
-										case ReqManager.TIMEOUT :
-										case ReqManager.RESPONSE_ERROR :
-											window.setTimeout(sendRequest, 5*1000, requestData);
-											break;
-
-										default :
-											sendResponse(null);
-									}
-								});
-							};
-						} else {
-							sendRequest = function(requestData) {
-								ReqManager.apiMethod("photos.getById", {"photos" : requestData.ownerId + "_" + requestData.id}, function(data) {
-									var output = (data.response.length) ? data.response[0] : null;
-									if (output === null) {
-										statSend("Custom-Errors", "Attachment info missing", requestData);
-									}
-
-									sendResponse(output);
-								}, function(errCode, errData) {
-									switch (errCode) {
-										case ReqManager.NO_INTERNET :
-										case ReqManager.NOT_JSON :
-										case ReqManager.TIMEOUT :
-										case ReqManager.RESPONSE_ERROR :
-											window.setTimeout(sendRequest, 5*1000, requestData);
-											break;
-
-										default :
-											sendResponse(null);
-									}
-								});
-							};
+				case "markMessageTag" :
+					DatabaseManager.markMessageWithTag(request.mid, request.tag, function() {
+						sendResponse(true);
+					}, function (isDatabaseError, errMsg) {
+						if (isDatabaseError) {
+							LogManager.error(errMsg);
+							statSend("Custom-Errors", "Database error", errMsg);
 						}
 
-						sendRequest(request);
-						sendAsyncResponse = true;
-						break;
+						sendResponse(false);
+					});
 
-					case "markMessageTag" :
-						DatabaseManager.markMessageWithTag(request.mid, request.tagId, function() {
+					sendAsyncResponse = true;
+					break;
+
+				case "unmarkMessageTag" :
+					DatabaseManager.unmarkMessageWithTag(request.mid, request.tag, function() {
+						sendResponse(true);
+					}, function(isDatabaseError, errMsg) {
+						if (isDatabaseError) {
+							LogManager.error(errMsg);
+							statSend("Custom-Errors", "Database error", errMsg);
+						}
+
+						sendResponse(false);
+					});
+
+					sendAsyncResponse = true;
+					break;
+
+				case "serverDeleteMessage" :
+					var sendDropMessageRequest = function(msgId) {
+						ReqManager.apiMethod("messages.delete", {"mid" : msgId}, function(data) {
 							sendResponse(true);
-						}, function (isDatabaseError, errMsg) {
-							if (isDatabaseError) {
-								LogManager.error(errMsg);
-								statSend("Custom-Errors", "Database error", errMsg);
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+								case ReqManager.RESPONSE_ERROR :
+									window.setTimeout(sendDropMessageRequest, 60*1000, msgId);
+									break;
 							}
 
+							LogManager.error("Deleting message failed (got error code " + errCode + ")");
 							sendResponse(false);
 						});
+					};
 
-						sendAsyncResponse = true;
-						break;
+					sendDropMessageRequest(request.mid);
+					sendAsyncResponse = true;
+					break;
 
-					case "unmarkMessageTag" :
-						DatabaseManager.unmarkMessageWithTag(request.mid, request.tagId, function() {
+				case "serverRestoreMessage" :
+					statSend("App-Data", "Use restore messages");
+
+					var sendRestoreMessageRequest = function(msgId) {
+						ReqManager.apiMethod("messages.restore", {"mid" : msgId}, function(data) {
 							sendResponse(true);
-						}, function(isDatabaseError, errMsg) {
-							if (isDatabaseError) {
-								LogManager.error(errMsg);
-								statSend("Custom-Errors", "Database error", errMsg);
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+									window.setTimeout(sendRestoreMessageRequest, 60*1000, msgId);
+									break;
 							}
 
+							LogManager.error("Restoring message failed (got error code " + errCode + ")");
 							sendResponse(false);
 						});
+					};
 
-						sendAsyncResponse = true;
-						break;
+					sendRestoreMessageRequest(request.mid);
+					sendAsyncResponse = true;
+					break;
 
-					case "serverDeleteMessage" :
-						var sendDropMessageRequest = function(msgId) {
-							ReqManager.apiMethod("messages.delete", {"mid" : msgId}, function(data) {
-								sendResponse(true);
-							}, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-									case ReqManager.RESPONSE_ERROR :
-										window.setTimeout(sendDropMessageRequest, 60*1000, msgId);
-										break;
-								}
+				case "deleteMessageForever" :
+					var onDrop,
+						sendDropMessageRequest,
+						actionsToGo = (request.serverToo) ? 2 : 1,
+						actionsMade = 0;
 
-								LogManager.error("Deleting message failed (got error code " + errCode + ")");
-								sendResponse(false);
-							});
-						};
+					sendAsyncResponse = true;
 
+					onDrop = function() {
+						actionsMade += 1;
+						if (actionsMade !== actionsToGo) {
+							return;
+						}
+
+						sendResponse(null);
+					}
+
+					sendDropMessageRequest = function(msgId) {
+						ReqManager.apiMethod("messages.delete", {"mid" : msgId}, function(data) {
+							onDrop();
+						}, function(errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+									window.setTimeout(sendDropMessageRequest, 60*1000, msgId);
+									break;
+							}
+
+							LogManager.error("Deleting message failed (got error code " + errCode + ")");
+							onDrop();
+						});
+					};
+
+					if (request.serverToo) {
+						// посылаем запрос на сервер
 						sendDropMessageRequest(request.mid);
-						sendAsyncResponse = true;
-						break;
+					}
 
-					case "serverRestoreMessage" :
-						statSend("App-Data", "Use restore messages");
+					// удаляем все данные о сообщении в БД
+					DatabaseManager.deleteMessage(request.mid, onDrop);
+					break;
 
-						var sendRestoreMessageRequest = function(msgId) {
-							ReqManager.apiMethod("messages.restore", {"mid" : msgId}, function(data) {
-								sendResponse(true);
-							}, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-										window.setTimeout(sendRestoreMessageRequest, 60*1000, msgId);
-										break;
-								}
+				case "speechChange" :
+					statSend("App-Actions", "Speech change", {
+						"chrome" : navigatorVersion,
+						"app" : App.VERSION,
+						"uid" : AccountsManager.currentUserId
+					});
 
-								LogManager.error("Restoring message failed (got error code " + errCode + ")");
-								sendResponse(false);
-							});
-						};
+					break;
 
-						sendRestoreMessageRequest(request.mid);
-						sendAsyncResponse = true;
-						break;
+				case "newsPostSeen" :
+					statSend("App-Data", "News seen", request.id);
+					break;
 
-					case "deleteMessageForever" :
-						var onDrop,
-							sendDropMessageRequest,
-							actionsToGo = (request.serverToo) ? 2 : 1,
-							actionsMade = 0;
+				case "newsLinkClicked" :
+					statSend("App-Actions", "News link clicked", [request.id, request.url]);
+					break;
 
-						sendAsyncResponse = true;
+				case "newsAudioPlaying" :
+					statSend("App-Actions", "Audio playing", [request.id, request.owner_id, request.aid]);
+					break;
 
-						onDrop = function() {
-							actionsMade += 1;
-							if (actionsMade !== actionsToGo) {
-								return;
-							}
+				case "tourWatch" :
+					statSend("App-Data", "WP seen", request.step);
+					break;
 
-							sendResponse(null);
-						}
+				case "useImportantTag" :
+					statSend("App-Data", "Use important tag", request.type);
+					break;
 
-						sendDropMessageRequest = function(msgId) {
-							ReqManager.apiMethod("messages.delete", {"mid" : msgId}, function(data) {
-								onDrop();
-							}, function(errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-										window.setTimeout(sendDropMessageRequest, 60*1000, msgId);
-										break;
-								}
+				case "getTagsFrequency" :
+					sendAsyncResponse = true;
+					DatabaseManager.getTagsCount(sendResponse, function (errMsg) {
+						LogManager.error(errMsg);
+						statSend("Custom-Errors", "Database error", errMsg);
 
-								LogManager.error("Deleting message failed (got error code " + errCode + ")");
-								onDrop();
-							});
-						};
+						sendResponse({});
+					});
 
-						if (request.serverToo) {
-							// посылаем запрос на сервер
-							sendDropMessageRequest(request.mid);
-						}
+					break;
 
-						// удаляем все данные о сообщении в БД
-						DatabaseManager.deleteMessage(request.mid, onDrop);
-						break;
+				case "getMessagesByTagName" :
+					sendAsyncResponse = true;
+					DatabaseManager.getMessagesByType(request.tag, request.totalShown || 0, sendResponse, function(errMsg) {
+						LogManager.error(errMsg);
+						statSend("Custom-Errors", "Database error", errMsg);
 
-					case "speechChange" :
-						statSend("App-Actions", "Speech change", {
-							"chrome" : navigatorVersion,
-							"app" : App.VERSION,
-							"uid" : AccountsManager.currentUserId
-						});
+						sendResponse([[], 0]);
+					});
 
-						break;
+					break;
 
-					case "newsPostSeen" :
-						statSend("App-Data", "News seen", request.id);
-						break;
+				case "searchContact" :
+					DatabaseManager.searchContact(request.value, request.totalShown, function (contacts, total) {
+						sendResponse([contacts, total, request.value]);
 
-					case "newsLinkClicked" :
-						statSend("App-Actions", "News link clicked", [request.id, request.url]);
-						break;
-
-					case "newsAudioPlaying" :
-						statSend("App-Actions", "Audio playing", [request.id, request.owner_id, request.aid]);
-						break;
-
-					case "tourWatch" :
-						statSend("App-Data", "WP seen", request.step);
-						break;
-
-					case "useImportantTag" :
-						statSend("App-Data", "Use important tag", request.type);
-						break;
-
-					case "getTagsFrequency" :
-						sendAsyncResponse = true;
-						DatabaseManager.getTagsCount(CacheManager.tags.trash, sendResponse, function(errMsg) {
-							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
-
-							sendResponse({});
-						});
-
-						break;
-
-					case "getMessagesByTagId" :
-						sendAsyncResponse = true;
-						DatabaseManager.getMessagesByType([request.tagId, CacheManager.tags.trash], request.totalShown, sendResponse, function(errMsg) {
-							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
-
-							sendResponse([[], 0]);
-						});
-
-						break;
-
-					case "searchContact" :
-						var latin = "qwertyuiopasdfghjklzxcvbnm".split(""),
-							rus = chrome.i18n.getMessage("ruSymbols").split(""),
-							search = [request.value],
-							correction = [];
-
-						sendAsyncResponse = true;
-
-						if (/[a-zA-Z]/.test(request.value)) {
-							request.value.split("").forEach(function(letter) {
-								var pos = latin.indexOf(letter);
-								if (pos === -1) {
-									correction.push(letter);
-								} else {
-									correction.push(rus[pos]);
-								}
+						if (SettingsManager.ShowOnline === 1 && contacts.length) {
+							var uids = contacts.map(function(contactData) {
+								return contactData.uid;
 							});
 
-							search.push(correction.join(""));
-						}
-
-						DatabaseManager.searchContact(search, SettingsManager.SortContacts, request.totalShown, function(contacts, total) {
-							sendResponse([contacts, total, request.value]);
-
-							if (SettingsManager.ShowOnline === 1 && contacts.length) {
-								var uids = contacts.map(function(contactData) {
-									return contactData.uid;
-								});
-
-								ReqManager.apiMethod("users.get", {"uids" : uids.join(","), "fields" : "online"}, function(data) {
-									data.response.forEach(function(chunk) {
-										var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
-										chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
-									});
-								});
-							}
-						}, function(errMsg) {
-							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
-
-							sendResponse([[], 0, request.value]);
-						});
-
-						break;
-
-					case "searchMail" :
-						sendAsyncResponse = true;
-
-						DatabaseManager.searchMail(request.params, request.value, CacheManager.tags.trash, request.totalShown, function(correspondence, total) {
-							sendResponse([correspondence, total, request.value]);
-						}, function(errMsg) {
-							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
-
-							sendResponse([[], 0, request.value]);
-						});
-
-						break;
-
-					case "getOAuthToken":
-						oAuthRequestData = request.type;
-
-						if (request.type === "update")
-							updateTokenForUserId = request.uid;
-
-						chrome.tabs.create({
-							"url" : "http://api.vk.com/oauth/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=http://api.vk.com/blank.html&display=page&response_type=token"
-						}, function (tab) {
-							OAuthTabData.push(tab.id);
-						});
-
-						break;
-
-					case "newUserAfterUpdateToken":
-						focusAppTab(true, function () {
-							chrome.runtime.sendMessage({
-								action: "ui",
-								which: "syncing"
-							});
-						});
-
-						break;
-
-					case "currentSyncValues" :
-						var output = syncingData[AccountsManager.currentUserId];
-						sendAsyncResponse = true;
-
-						sendResponse(output);
-						break;
-
-					case "switchToAccount" :
-						ReqManager.abortAll();
-						AccountsManager.currentUserId = request.uid;
-
-						var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true}),
-							wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined),
-							startUser = true;
-
-						function leaveOneTabFn() {
-							focusAppTab(true, function () {
-								chrome.runtime.sendMessage({
-									action: "ui"
+							ReqManager.apiMethod("users.get", {"uids" : uids.join(","), "fields" : "online"}, function(data) {
+								data.response.forEach(function(chunk) {
+									var isOnline = (chunk.online === 1 || chunk.online_mobile === 1);
+									chrome.runtime.sendMessage({"action" : "contactOnlineStatus", "uid" : chunk.uid, "online" : isOnline});
 								});
 							});
-						};
-
-						if (startUser) {
-							startUserSession(leaveOneTabFn);
-						} else {
-							leaveOneTabFn();
 						}
+					}, function (errMsg) {
+						LogManager.error(errMsg);
+						statSend("Custom-Errors", "Database error", errMsg);
 
-						break;
+						sendResponse([[], 0, request.value]);
+					});
 
-					case "deleteAccount" :
-						ReqManager.abortAll();
-						AccountsManager.drop(request.uid);
-						DatabaseManager.dropUser(request.uid);
+					sendAsyncResponse = true;
+					break;
 
-						var friendsSyncTime = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
-						delete friendsSyncTime[request.uid];
-						StorageManager.set("friends_sync_time", friendsSyncTime);
+				case "searchMail" :
+					sendAsyncResponse = true;
 
-						var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
-						delete wallTokenUpdated[request.uid];
-						StorageManager.set("wall_token_updated", wallTokenUpdated);
+					DatabaseManager.searchMail(request.params, request.value, request.totalShown, function (correspondence, total) {
+						sendResponse([correspondence, total, request.value]);
+					}, function(errMsg) {
+						LogManager.error(errMsg);
+						statSend("Custom-Errors", "Database error", errMsg);
 
-						StorageManager.remove("perm_inbox_" + request.uid);
-						StorageManager.remove("perm_outbox_" + request.uid);
+						sendResponse([[], 0, request.value]);
+					});
 
-						if (request.next !== false) {
-							AccountsManager.currentUserId = request.next;
-							startUserSession();
-						}
+					break;
 
-						// закрываем все табы приложения кроме одного
+				case "getOAuthToken":
+					oAuthRequestData = request.type;
+
+					if (request.type === "update")
+						updateTokenForUserId = request.uid;
+
+					chrome.tabs.create({
+						"url" : "http://api.vk.com/oauth/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=http://api.vk.com/blank.html&display=page&response_type=token"
+					}, function (tab) {
+						OAuthTabData.push(tab.id);
+					});
+
+					break;
+
+				case "newUserAfterUpdateToken":
+					focusAppTab(true, function () {
+						chrome.runtime.sendMessage({
+							action: "ui",
+							which: "syncing"
+						});
+					});
+
+					break;
+
+				case "currentSyncValues" :
+					var output = syncingData[AccountsManager.currentUserId];
+					sendAsyncResponse = true;
+
+					sendResponse(output);
+					break;
+
+				case "switchToAccount" :
+					ReqManager.abortAll();
+					AccountsManager.currentUserId = request.uid;
+
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
+						wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined),
+						startUser = true;
+
+					function leaveOneTabFn() {
 						focusAppTab(true, function () {
 							chrome.runtime.sendMessage({
 								action: "ui"
 							});
 						});
+					};
 
-						break;
+					if (startUser) {
+						startUserSession(leaveOneTabFn);
+					} else {
+						leaveOneTabFn();
+					}
 
-					case "markAsRead" :
-						var sendReadMessageRequest = function (msgId) {
-							ReqManager.apiMethod("messages.markAsRead", {"mids" : msgId}, null, function (errCode, errData) {
-								switch (errCode) {
-									case ReqManager.NO_INTERNET :
-									case ReqManager.NOT_JSON :
-									case ReqManager.TIMEOUT :
-										window.setTimeout(sendReadMessageRequest, 60*1000, msgId);
-										break;
-								}
+					break;
 
-								LogManager.error("Marking message as read failed (got error code " + errCode + ")");
-							});
-						};
+				case "deleteAccount" :
+					ReqManager.abortAll();
+					AccountsManager.drop(request.uid);
+					DatabaseManager.dropUser(request.uid);
 
-						sendReadMessageRequest(request.mid);
-						DatabaseManager.markAsRead(request.mid, null, function(isDatabaseError, errMsg) {
-							if (isDatabaseError) {
-								LogManager.error(errMsg);
-								statSend("Custom-Errors", "Database error", errMsg);
-							}
+					var friendsSyncTime = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
+					delete friendsSyncTime[request.uid];
+					StorageManager.set("friends_sync_time", friendsSyncTime);
+
+					var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+					delete wallTokenUpdated[request.uid];
+					StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+					StorageManager.remove("perm_inbox_" + request.uid);
+					StorageManager.remove("perm_outbox_" + request.uid);
+
+					if (request.next !== false) {
+						AccountsManager.currentUserId = request.next;
+						startUserSession();
+					}
+
+					// закрываем все табы приложения кроме одного
+					focusAppTab(true, function () {
+						chrome.runtime.sendMessage({
+							action: "ui"
 						});
+					});
 
-						break;
+					break;
 
-					case "DNDhappened" :
-						statSend("App-Actions", "DND", request.num);
-						break;
-				}
+				case "markAsRead" :
+					var sendReadMessageRequest = function (msgId) {
+						ReqManager.apiMethod("messages.markAsRead", {"mids" : msgId}, null, function (errCode, errData) {
+							switch (errCode) {
+								case ReqManager.NO_INTERNET :
+								case ReqManager.NOT_JSON :
+								case ReqManager.TIMEOUT :
+									window.setTimeout(sendReadMessageRequest, 60*1000, msgId);
+									break;
+							}
 
-				if (sendAsyncResponse) {
-					return true;
-				}
-			});
+							LogManager.error("Marking message as read failed (got error code " + errCode + ")");
+						});
+					};
 
-			// при загрузке приложения...
-			if (AccountsManager.currentUserId) {
-				startUserSession();
+					sendReadMessageRequest(request.mid);
+					DatabaseManager.markAsRead(request.mid, null, function (errMsg) {
+						LogManager.error(errMsg);
+						statSend("Custom-Errors", "Database error", errMsg);
+					});
+
+					break;
+
+				case "DNDhappened" :
+					statSend("App-Actions", "DND", request.num);
+					break;
+			}
+
+			if (sendAsyncResponse) {
+				return true;
 			}
 		});
+
+		// при загрузке приложения...
+		if (AccountsManager.currentUserId) {
+			startUserSession();
+		}
 	});
 });

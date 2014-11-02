@@ -1,8 +1,8 @@
 /* ==========================================================
- * LocalStorage Manager (VK Offline Chrome app)
+ * Chrome.storage Manager (VK Offline Chrome app)
  * https://github.com/1999/vkoffline
  * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
+ * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,22 +18,32 @@
  * ========================================================== */
 
 var StorageManager = {
-	set: function(key, value) {
-		if (typeof value !== "string")
-			value = JSON.stringify(value);
+	load: function StorageManager_load(callback) {
+		var that = this;
 
-		localStorage.setItem(key, value);
+		chrome.storage.local.get(null, function (records) {
+			that._data = records;
+			callback();
+		});
+	},
+
+	set: function StorageManager_set(key, value) {
+		var storageData = {};
+		storageData[key] = value;
+		chrome.storage.local.set(storageData);
+
+		this._data[key] = value;
 	},
 
 	/**
-	 * Получение данных из LocalStorage, автоматическая валидация
+	 * Получение данных из chrome.storage, автоматическая валидация
 	 * default params: {constructor: String, strict: false, create: false}
 	 * @param {String} key ключ LocalStorage
 	 * @param {Object} params {constructor: {Function} функция-конструктор, strict: {Boolean} проверка на ожидаемый тип данных через instanceof, create: {Boolean} создавать если данных нет}
 	 */
-	get: function(key, params) {
-		var value = localStorage.getItem(key),
-			valueCreated = false;
+	get: function StorageManager_get(key, params) {
+		var value = this._data[key] || null;
+		var valueCreated = false;
 
 		params = params || {};
 		params.constructor = params.constructor || String;
@@ -46,12 +56,6 @@ var StorageManager = {
 		}
 
 		if (params.strict && params.constructor !== String && valueCreated === false) {
-			try {
-				value = JSON.parse(value);
-			} catch (e) {
-				throw new Error("Wrong storage data type of key \"" + key + "\": " + e.message);
-			}
-
 			// проверка на тип данных
 			if (!(value instanceof params.constructor)) {
 				throw new Error("Wrong storage data type of key \"" + key + "\"");
@@ -62,6 +66,9 @@ var StorageManager = {
 	},
 
 	remove: function(key) {
-		localStorage.removeItem(key);
-	}
+		delete this._data[key];
+		chrome.storage.local.remove(key, _.noop);
+	},
+
+	_data: {}
 };

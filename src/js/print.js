@@ -23,7 +23,6 @@ window.onload = function() {
 
 	App.requestBackgroundPage(function (backgroundPage) {
 		var searchData = {};
-		var CacheManager = backgroundPage.CacheManager;
 		var AccountsManager = backgroundPage.AccountsManager;
 		var printType, msgData, userData;
 
@@ -45,7 +44,7 @@ window.onload = function() {
 				if (userData !== null) {
 					fio = userData.first_name + " " + userData.last_name;
 				} else {
-					if (msg.tags & CacheManager.tags.inbox) {
+					if (msg.tags.indexOf("inbox") !== -1) {
 						fio = msg.first_name + " " + msg.last_name;
 					} else {
 						fio = AccountsManager.current.fio;

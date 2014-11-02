@@ -2,7 +2,7 @@
  * Migration Manager (VK Offline Chrome app)
  * https://github.com/1999/vkoffline
  * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
+ * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,78 +18,208 @@
  * ========================================================== */
 
 var MigrationManager = (function () {
-	var STORAGE_KEY = "changelog_notified";
-	var appVersionsHistory = StorageManager.get(STORAGE_KEY, {constructor: Array, strict: true, create: true});
-	var lastErrorObj = null;
-
 	/**
-	 * Нужно ли запустить шаг миграции
+	 * You can restart legacy migration with:
 	 *
-	 * @param {String} appVersion
-	 * @return {Boolean}
+	 * localStorage.removeItem("legacy_migration");
+	 * chrome.storage.local.clear();
+	 * DatabaseManager._conn[115118] && DatabaseManager._conn[115118].close()
+	 * sklad.deleteDatabase('db_115118', console.log.bind(console))
 	 */
-	var migrationStepNeeded = function (appVersion) {
-		return (appVersionsHistory.length && appVersionsHistory.indexOf(appVersion) === -1);
-	};
+	var LAST_LEGACY_MIGRATION_KEY = "legacy_migration";
+	var LAST_LEGACY_MIGRATION_STATUS_NO = 0;
+	var LAST_LEGACY_MIGRATION_STATUS_STARTED = 1;
+	var LAST_LEGACY_MIGRATION_STATUS_FINISHED = 2;
 
-	// используем массив, поскольку важен порядок запуска скриптов миграции
-	var migrateData = [
-		{
-			version: "4.7",
-			task: function (callback) {
-				var ids = [];
-				for (var uid in self.AccountsManager.list)
-					ids.push(uid);
-
-				StorageManager.remove("friends_sync_time");
-				DatabaseManager.updateMessagesOnMigrate(ids, callback);
-			}
-		}
+	var STORAGE_KEYS = [
+		{key: "app_install_time", type: "number"},
+		{key: "app_like", type: "array"},
+		{key: "changelog_notified", type: "array"},
+		{key: "friends_sync_time", type: "object"},
+		{key_regex: /^message_[\d]+_[\d]+$/, type: "string"},
+		{key_regex: /^perm_(outbox|inbox)_[\d]+$/, type: "number"},
+		{key: "profile_act", type: "number"},
+		{key: "request", type: "object"},
+		{key: "settings", type: "object"},
+		{key: "token", type: "array"},
+		{key: "vkgroupwall_stored_posts", type: "array"},
+		{key: "vkgroupwall_sync_time", type: "number"},
+		{key: "vkgroupwall_synced_posts", type: "array"},
+		{key: "wall_token_updated", type: "object"}
 	];
 
-	return {
-		/**
-		 * @param {DOMFileSystem|Null} fsLink
-		 * @param {Function} callback принимает:
-		 *		{Number} произошло ли обновление приложения
-		 */
-		start: function (fsLink, callback) {
-			if (appVersionsHistory.indexOf(App.VERSION) !== -1)
-				return callback(this.UNCHANGED);
+	var CHANGELOG_KEY = "changelog_notified";
 
-			// запуск скриптов миграции
-			var code = appVersionsHistory.length ? this.UPDATED : this.INSTALLED;
-			var failCode = this.UPDATE_FAILED;
-			var tasks = [];
+	function getUsersList() {
+		var tokens = localStorage.getItem("token") || "";
+		try {
+			tokens = JSON.parse(tokens);
+			if (!(tokens instanceof Array) || !tokens.length) {
+				throw new Error("No tokens");
+			}
+		} catch (ex) {
+			return [];
+		}
 
-			for (var i = 0; i < migrateData.length; i++) {
-				if (migrationStepNeeded(migrateData[i].version)) {
-					tasks.push(migrateData[i].task);
-				}
+		if (typeof tokens[0] === "string") {
+			tokens = [tokens];
+		}
+
+		return tokens.map(function (tokenData) {
+			return Number(tokenData[1]);
+		});
+	}
+
+	function runLegacyMigration(uids, callback) {
+		localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_STARTED);
+		createAlarms();
+
+		// should sent "migrate1" stat only if current install type is upgrade
+		var migrationStartTime = Date.now();
+		var isUpgrade = false;
+
+		// `runLegacyMigration` is invoked in two cases: current install type is "clean install" or "upgrade"
+		// anyway `migrateLocalStorage` will run only once
+		migrateLocalStorage();
+
+		var appVersionsHistory = StorageManager.get(CHANGELOG_KEY, {constructor: Array, strict: true, create: true});
+		if (appVersionsHistory.indexOf(App.VERSION) === -1) {
+			if (appVersionsHistory.length) {
+				isUpgrade = true;
 			}
 
-			Utils.async.series(tasks, function (err) {
-				if (err) {
-					lastErrorObj = new Error("Failed to migrate app: " + err);
-					return callback(failCode);
+			appVersionsHistory.push(App.VERSION);
+			StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
+		}
+
+		// should sent stat only for upgrade
+		var logMigrate = isUpgrade ? statSend.bind(null, "Migrate1") : _.noop;
+		logMigrate("Migrate1", "Started");
+
+		migrateWebDatabase(uids).then(function () {
+			localStorage.setItem(LAST_LEGACY_MIGRATION_KEY, LAST_LEGACY_MIGRATION_STATUS_FINISHED);
+			logMigrate("Successfully finished");
+
+			var migrationTotalTime = Date.now() - migrationStartTime;
+			if (uids.length) {
+				var processTime = Math.round(migrationTotalTime / 1000 / uids.length);
+				logMigrate("Process time", processTime);
+			}
+
+			callback();
+		}, function (errMsg) {
+			logMigrate("Finish failed", errMsg);
+			callback();
+		});
+	}
+
+	function migrateLocalStorage() {
+		console.log("Migrate localStorage data into chrome.storage.local");
+		var records = {};
+
+		for (var i = 0; i < localStorage.length; i++) {
+			var key = localStorage.key(i);
+			var value = localStorage.getItem(key);
+
+			if (key === LAST_LEGACY_MIGRATION_KEY) {
+				continue;
+			}
+
+			_.forEach(STORAGE_KEYS, function (keyData) {
+				if ((keyData.key_regex && keyData.key_regex.test(key)) || keyData.key === key) {
+					var returnValue = true;
+
+					console.log("Search for key: %s", key);
+
+					if (keyData.type === "string") {
+						if (value.length) {
+							records[key] = value;
+							returnValue = false;
+
+							console.log("Value found", value);
+						}
+					} else {
+						try {
+							value = JSON.parse(value);
+						} catch (e) {
+							console.error(e.message);
+							return;
+						}
+
+						// проверка на тип данных
+						if ((keyData.type === "array" && Array.isArray(value)) || typeof value === keyData.type) {
+							records[key] = value;
+							returnValue = false;
+
+							console.log("Value found", value);
+						}
+					}
+
+					return returnValue;
 				}
-
-				// сохраняем, чтобы больше не уведомлять об этой версии
-				appVersionsHistory.push(App.VERSION);
-				StorageManager.set(STORAGE_KEY, appVersionsHistory);
-
-				SoundManager.play("message", Math.max(0.8, SettingsManager.SoundLevel));
-				callback(code);
 			});
-		},
+		}
 
-		get lastError() {
-			return lastErrorObj;
-		},
+		Object.keys(records).forEach(function (key) {
+			StorageManager.set(key, records[key]);
+		});
+	}
 
-		INSTALLED: 0,
-		UPDATED: 1,
-		UNCHANGED: 2,
-		UPDATE_FAILED: 3
+	function migrateWebDatabase(uids) {
+		return new Promise(function (resolve, reject) {
+			DatabaseManager.migrateWebDatabase(uids, function (err) {
+				if (err) {
+					reject(err.name + ': ' + err.message);
+				} else {
+					resolve();
+				}
+			});
+		});
+	}
+
+	function createAlarms() {
+		chrome.alarms.create("actualizeChats", {
+			periodInMinutes: 5,
+			delayInMinutes: 5
+		});
+
+		chrome.alarms.create("actualizeContacts", {
+			periodInMinutes: 60,
+			delayInMinutes: 60
+		});
+	}
+
+	return {
+		start: function (callback) {
+			var legacyMigrationStatus = Number(localStorage.getItem(LAST_LEGACY_MIGRATION_KEY)) || 0;
+			var uids = getUsersList();
+
+			if (legacyMigrationStatus === LAST_LEGACY_MIGRATION_STATUS_FINISHED) {
+				callback();
+				return;
+			}
+
+			// something went wrong, clear migrated data, run migration from scratch
+			if (legacyMigrationStatus === LAST_LEGACY_MIGRATION_STATUS_STARTED) {
+				Utils.async.parallel({
+					storage: function (cb) {
+						chrome.storage.local.clear(cb);
+					},
+					db: function (cb) {
+						DatabaseManager.dropEverything(uids, cb);
+					}
+				}, function (err) {
+					if (err) {
+						throw new Error(err.name + ': ' + err.message);
+					}
+
+					runLegacyMigration(uids, callback);
+				});
+
+				return;
+			}
+
+			runLegacyMigration(uids, callback);
+		}
 	};
 })();

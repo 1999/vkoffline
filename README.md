@@ -2,15 +2,14 @@
 **VK Offline** - это legacy packaged app для браузеров, работающих на базе Chromium (Google Chrome, Яндекс.Браузер, Chromium ит.д.). VK Offline можно установить из [Chrome Web Store](https://chrome.google.com/webstore/detail/vkontakte-offline/jinklgkideaicpdgmomlckebafjfibjk) или со [страницы разработчика](http://staypositive.ru/vkofflineapp-promo).
 
 ## Как начать разрабатывать
- * Склонируйте репозиторий к себе на компьютер
- * Установите [node.js](http://nodejs.org/download/)
- * Установите [Grunt](http://gruntjs.com/)
- * ```npm install && grunt```
+```bash
+$ git clone git@github.com:1999/vkoffline.git
+$ npm install
+$ ./node_modules/.bin/grunt
+```
 
-## Зачем в проекте grunt?
- * Для сборки файлов локализации из одного файла locales.json: ```grunt i18n```
- * Для сборки Vanilla JS шаблонов для Hogan.js: ```grunt templates```
- * Для релизной сборки: ```grunt i18n templates release```
+## Как собрать релизную сборку
+`grunt i18n templates release`
 
 ## FAQ
  * **Как мне добавить локализацию?**
@@ -32,31 +31,45 @@ VK Offline работает на Chromium 22 версии и выше. Если 
  * **Почему не расшифровывается украинская речь?**
 Приложение использует технологию [Google Voice Search](http://en.wikipedia.org/wiki/Google_Voice_Search), которая на данный момент не поддерживает украинский язык.
 
-## Опенсорс FAQ
-```
-- Сделай мне эту фичу. Иначе я буду использовать другой проект»
-Нет.
+## IndexedDB schema
+Each user's data is stored inside database `db_{userId}`. Database contains 3 object stores:
 
-- Без данной функциональности этот проект бесполезен
-Это ваше личное мнение
+ * contacts (keyPath: "uid")
+   * {Number} uid
+   * {String} first_name
+   * {String} last_name
+   * {String} other_data
+   * {String} notes
+   * {String} photo
+   * {String} bdate
+   * {Number} sex
+   * {String} domain
+   * {String} home_phone
+   * {String} mobile_phone
+   * {Number} last_message_ts - cached timestamp of the last message from contact; cache TTL is 5 minutes
+   * {Number} messages_num - cached number of messages got from contact; cache TTL is 1 hour
+ * messages (keyPath: "mid")
+   * {Number} mid
+   * {String} chat - key path from `chats` object store
+   * {Number} uid
+   * {String} title
+   * {String} body
+   * {Array} tags - any of "inbox", "sent", "attachments", "important", "trash", "outbox", "drafts"
+   * {Number} date - message timestamp
+   * {Boolean} read - former {Number} `status` in WebDatabase
+   * {Array} attachments - former serialized property in WebDatabase
+   * {Object} other_data - former serialized property in WebDatabase
+ * chats (keyPath: "id")
+   * {String} id
+   * {String} title
+   * {Number} last_message_ts - servers as an index
 
-- Ты все делаешь не так. Отдай нам проект иначе ты его загубишь
-Форкайте.
+There's also a special database `meta` with (currently) only one object store:
 
-- Твой код отстой, мы напишем все намного лучше
-Пишите
-
-- Я все делал не по инструкции. Почему у меня ничего не работает? Ненавижу вас
-Делайте по инструкции. Мне всё равно как вы ко мне относитесь.
-
-- Вы должны...
-Нет.
-
-- Я требую...
-Платите деньги.
-```
-
-[Источник](http://habrahabr.ru/post/169339/#comment_5872463)
+ * log (autoIncrement: true)
+   * {String} data
+   * {Number} ts - timestamp of record (Date.now() by default)
+   * {String} level - one of "config", "error", "warn", "log", "info"
 
 ## Автор
 

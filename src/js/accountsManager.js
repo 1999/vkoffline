@@ -22,7 +22,7 @@ var AccountsManager = (function () {
 	var tokens = null;
 	var activeUserId = null;
 
-	// разбор данных в LocalStorage
+	// разбор данных в StorageManager
 	var parseTokens = function () {
 		var index = 0;
 		var activeProfile = StorageManager.get("profile_act");

@@ -364,15 +364,13 @@ document.addEventListener("DOMContentLoaded", function () {
 							counterElem.text(parseInt(counterElem.text(), 10) + 1);
 
 							// добавляем собеседника в список при необходимости
-							prtcId = (msgData.tags & CacheManager.tags.sent) ? AccountsManager.currentUserId : msgData.uid;
+							prtcId = (msgData.tags.indexOf("sent") !== -1) ? AccountsManager.currentUserId : msgData.uid;
 							prtcElem = $(threadElem, "span.user[data-uid='" + prtcId + "']");
 							if (prtcElem === null) {
 								prtcElem = $("<span>").addClass("user").data("uid", prtcId);
 
 								if (prtcId === AccountsManager.currentUserId) {
 									prtcElem.text(chrome.i18n.getMessage("participantMe"));
-								} else if (prtcId === config.VkSupportUid) {
-									prtcElem.text(chrome.i18n.getMessage("appSupportContact").replace("%appname%", App.NAME));
 								} else {
 									prtcElem.attr("title", msgData.first_name + " " + msgData.last_name).text(msgData.first_name);
 								}

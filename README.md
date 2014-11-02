@@ -1,5 +1,5 @@
 ## Что это?
-**VK Offline** - это legacy packaged app для браузеров, работающих на базе Chromium (Google Chrome, Яндекс.Браузер, Chromium ит.д.). VK Offline можно установить из [Chrome Web Store](https://chrome.google.com/webstore/detail/vkontakte-offline/jinklgkideaicpdgmomlckebafjfibjk) или со [страницы разработчика](http://staypositive.ru/vkofflineapp-promo).
+**VK Offline** - это packaged app дял Google Chrome. VK Offline можно установить из [Chrome Web Store](https://chrome.google.com/webstore/detail/vkontakte-offline/jinklgkideaicpdgmomlckebafjfibjk) или со [страницы разработчика](http://staypositive.ru/vkofflineapp-promo).
 
 ## Как начать разрабатывать
 ```bash
@@ -77,6 +77,6 @@ There's also a special database `meta` with (currently) only one object store:
 
 ## Лицензия
 
-Copyright 2013 Dmitry Sorin - info@staypositive.ru
+Copyright 2013-2014 Dmitry Sorin - info@staypositive.ru
 
 Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0

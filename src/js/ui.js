@@ -937,6 +937,7 @@ var AppUI = {
 			});
 
 			$("section.buttons.in-tour button.access").bind("click", function (e) {
+				// FIXME: probably this should be deleted
 				chrome.runtime.sendMessage({
 					"action" : "getOAuthToken",
 					"type" : "new"
@@ -1306,6 +1307,8 @@ var AppUI = {
 			// добавление аккаунта
 			addAccountIcon.bind("click", function () {
 				$$(leftSection, "section.result").remove();
+
+				// FIXME: probably this should be deleted
 				chrome.runtime.sendMessage({
 					action: "getOAuthToken",
 					type: "add"
@@ -1500,6 +1503,8 @@ var AppUI = {
 				$$(leftSection, "section.result").remove();
 
 				var uid = this.closestParent("section[data-uid]").data("uid");
+
+				// FIXME: probably this should be deleted
 				chrome.runtime.sendMessage({
 					action: "getOAuthToken",
 					type: "update",
@@ -2325,6 +2330,7 @@ var AppUI = {
 			});
 
 			var authFn = function (e) {
+				// FIXME: probably this should be deleted
 				chrome.runtime.sendMessage({
 					action: "getOAuthToken",
 					type: "new"

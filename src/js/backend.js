@@ -170,122 +170,6 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 	}
 
-	/**
-	 * Нахождение табов фронтенда
-	 * @param {Function} callback принимает:
-	 *		{Boolean} есть ли открытые окна Chrome
-	 *		{Array} массив открытых вкладок
-	 */
-	function findFrontendTabs(callback) {
-		chrome.windows.getAll({populate: true}, function (windows) {
-			var foundAppTabs = [];
-			var appFrontendUrl = chrome.runtime.getURL("main.html");
-
-			if (!windows.length)
-				return callback(false, foundAppTabs);
-
-			windows.forEach(function (windowElem) {
-				windowElem.tabs.forEach(function (tab) {
-					// ищем таб приложения
-					if (tab.url.indexOf(appFrontendUrl) !== 0)
-						return;
-
-					if (windowElem.type === "popup" || windowElem.type === "app") {
-						if (windowElem.focused) {
-							foundAppTabs.push({"type" : "app", "priority" : 1, "windowId" : windowElem.id});
-						} else {
-							foundAppTabs.push({"type" : "app", "priority" : 2, "windowId" : windowElem.id});
-						}
-					} else {
-						if (windowElem.focused) {
-							if (tab.active) {
-								foundAppTabs.push({"type" : "tab", "priority" : 3, "windowId" : windowElem.id, "tabId" : tab.id});
-							} else {
-								if (tab.pinned) {
-									foundAppTabs.push({"type" : "tab", "priority" : 4, "windowId" : windowElem.id, "tabId" : tab.id});
-								} else {
-									foundAppTabs.push({"type" : "tab", "priority" : 5, "windowId" : windowElem.id, "tabId" : tab.id});
-								}
-							}
-						} else {
-							if (tab.active) {
-								foundAppTabs.push({"type" : "tab", "priority" : 6, "windowId" : windowElem.id, "tabId" : tab.id});
-							} else {
-								if (tab.pinned) {
-									foundAppTabs.push({"type" : "tab", "priority" : 7, "windowId" : windowElem.id, "tabId" : tab.id});
-								} else {
-									foundAppTabs.push({"type" : "tab", "priority" : 8, "windowId" : windowElem.id, "tabId" : tab.id});
-								}
-							}
-						}
-					}
-				});
-			});
-
-			// сортируем найденные табы фронтэнда по приоритету
-			foundAppTabs.sort(function (a, b) {
-				return a.priority - b.priority;
-			});
-
-			callback(true, foundAppTabs);
-		});
-	}
-
-	/**
-	 * Фокусировать вкладку с приложением
-	 *
-	 * @param {Boolean} [closeOthers=false] закрывать остальные вкладки с приложением
-	 * @param {Function} [cb]
-	 */
-	function focusAppTab(closeOthers, cb) {
-		findFrontendTabs(function (chromeWindowsExist, tabsList) {
-			var appFrontendUrl = chrome.runtime.getURL("main.html");
-
-			if (!chromeWindowsExist) {
-				chrome.windows.create({url: appFrontendUrl});
-				return;
-			}
-
-			if (!tabsList.length) {
-				chrome.tabs.create({url: appFrontendUrl});
-				return;
-			}
-
-			if (closeOthers) {
-				tabsList.forEach(function (tabInfo, index) {
-					if (index === 0) {
-						chrome.windows.update(tabInfo.windowId, {focused: true});
-						if (tabInfo.type === "tab") {
-							try {
-								chrome.tabs.update(tabInfo.tabId, {active: true});
-							} catch (e) {
-								chrome.tabs.update(tabInfo.tabId, {selected: true});
-							}
-						}
-					} else {
-						if (tabInfo.type === "app") {
-							chrome.windows.remove(tabInfo.windowId);
-						} else {
-							chrome.tabs.remove(tabInfo.tabId);
-						}
-					}
-				});
-			} else {
-				// фокусируем первый таб приложения в списке
-				chrome.windows.update(tabsList[0].windowId, {focused: true});
-				if (tabsList[0].type === "tab") {
-					try {
-						chrome.tabs.update(tabsList[0].tabId, {active: true});
-					} catch (e) {
-						chrome.tabs.update(tabsList[0].tabId, {selected: true});
-					}
-				}
-			}
-
-			cb && cb();
-		});
-	}
-
 	Utils.async.parallel({
 		storage: function (callback) {
 			StorageManager.load(callback);
@@ -563,48 +447,27 @@ document.addEventListener("DOMContentLoaded", function () {
 									}
 
 									function showNotification(avatarUrl) {
-										if (SettingsManager.NotificationsTime === 0)
+										if (SettingsManager.NotificationsTime === 0 || SettingsManager.ShowWhenVK === 0)
 											return;
 
-										// ищем открытые вкладки ВКонтакте
-										chrome.windows.getAll({populate: true}, function (windows) {
-											var vkTabFound = false;
-											var appTabActive = false;
-											var appFrontendUrl = chrome.runtime.getURL("main.html");
+										// FIXME
+										// skip if vkTabFound
 
-											windows.forEach(function (windowElem) {
-												windowElem.tabs.forEach(function (tab) {
-													if (/^https?:\/\/vk\.com\//.test(tab.url)) {
-														vkTabFound = true;
-													}
+										showChromeNotification({
+											title: fio,
+											message: msgData.body.replace(/<br>/gm, "\n"),
+											icon: avatarUrl,
+											sound: "message",
+											timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
+											onclick: function () {
+												LogManager.config("Clicked notification with message #" + msgData.mid);
 
-													if (windowElem.focused && tab.active && tab.url.indexOf(appFrontendUrl) === 0) {
-														appTabActive = true;
-													}
-												});
-											});
-
-											if (SettingsManager.ShowWhenVK === 0 && vkTabFound)
-												return;
-
-											// не показываем уведомления, когда активен таб приложения
-											if (appTabActive)
-												return;
-
-											showChromeNotification({
-												title: fio,
-												message: msgData.body.replace(/<br>/gm, "\n"),
-												icon: avatarUrl,
-												sound: "message",
-												timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
-												onclick: function () {
-													LogManager.config("Clicked notification with message #" + msgData.mid);
-													focusAppTab();
-												}
-											});
-
-											LogManager.config("Open notification with message #" + msgData.mid);
+												// FIXME
+												// show app tab
+											}
 										});
+
+										LogManager.config("Open notification with message #" + msgData.mid);
 									}
 								});
 							};
@@ -809,7 +672,9 @@ document.addEventListener("DOMContentLoaded", function () {
 					sound: "message",
 					onclick: function () {
 						statSend("App-Actions", "BD notification click");
-						focusAppTab();
+
+						// FIXME
+						// show app tab
 					}
 				});
 
@@ -832,7 +697,10 @@ document.addEventListener("DOMContentLoaded", function () {
 							message: message,
 							icon: avatar,
 							sound: "message",
-							onclick: focusAppTab
+							onclick: function () {
+								// FIXME
+								// show app tab
+							}
 						});
 					}
 
@@ -1192,210 +1060,6 @@ document.addEventListener("DOMContentLoaded", function () {
 				statSend("Critical-Errors", "Database init user", errMsg);
 			});
 		};
-
-		/**
-		 * Обработка результатов OAuth-авторизации
-		 */
-		chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-			var tabIndex = OAuthTabData.indexOf(tabId);
-			if (tabIndex === -1 || !changeInfo.url)
-				return;
-
-			if (changeInfo.url.indexOf("#error") !== -1 || changeInfo.url.indexOf("security breach") !== -1) {
-				OAuthTabData.splice(tabIndex, 1);
-				statSend("App-Actions", "OAuth access cancelled");
-
-				// закрываем таб oAuth
-				chrome.tabs.remove(tabId);
-
-				focusAppTab(true, function () {
-					var failReason = (changeInfo.url.indexOf("security breach") !== -1) ? "securityBreach" : "denyAccess";
-
-					chrome.runtime.sendMessage({
-						action: "appWontWorkWithoutAccessGranted",
-						from: oAuthRequestData,
-						reason: failReason
-					});
-				});
-
-				return;
-			}
-
-			var tokenMatches = changeInfo.url.match(/#access_token=(\w+).*user_id=(\d+)/);
-			if (tokenMatches) {
-				var token = tokenMatches[1];
-				var userId = tokenMatches[2];
-
-				OAuthTabData.splice(tabIndex, 1);
-				statSend("App-Actions", "OAuth access granted", userId);
-
-				chrome.tabs.remove(tabId);
-
-				findFrontendTabs(function (chromeWindowsExist, tabsList) {
-					var appFrontendUrl = chrome.runtime.getURL("main.html");
-
-					switch (oAuthRequestData) {
-						case "new" :
-							AccountsManager.setData(userId, token, "...");
-							AccountsManager.currentUserId = userId;
-
-							var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
-							wallTokenUpdated[AccountsManager.currentUserId] = 1;
-							StorageManager.set("wall_token_updated", wallTokenUpdated);
-
-							startUserSession(function () {
-								if (!chromeWindowsExist)
-									return chrome.windows.create({url: appFrontendUrl});
-
-								if (!tabsList.length)
-									return chrome.tabs.create({url: appFrontendUrl});
-
-								// закрываем все табы, кроме первого в списке по приоритету
-								tabsList.forEach(function (tabInfo, index) {
-									if (index === 0) {
-										chrome.windows.update(tabInfo.windowId, {focused: true});
-										if (tabInfo.type === "tab") {
-											try {
-												chrome.tabs.update(tabInfo.tabId, {active: true});
-											} catch (e) {
-												chrome.tabs.update(tabInfo.tabId, {selected: true});
-											}
-										}
-									} else {
-										if (tabInfo.type === "app") {
-											chrome.windows.remove(tabInfo.windowId);
-										} else {
-											chrome.tabs.remove(tabInfo.tabId);
-										}
-									}
-								});
-
-								chrome.runtime.sendMessage({
-									action: "ui",
-									which: "syncing"
-								});
-							});
-
-							statSend("App-Actions", "First account added");
-							break;
-
-						case "add" :
-							var newUserGranted = (AccountsManager.list[userId] === undefined);
-							if (newUserGranted) {
-								AccountsManager.setData(userId, token, "...");
-								AccountsManager.currentUserId = userId;
-
-								var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
-								wallTokenUpdated[AccountsManager.currentUserId] = 1;
-								StorageManager.set("wall_token_updated", wallTokenUpdated);
-
-								startUserSession(function () {
-									if (!chromeWindowsExist)
-										return chrome.windows.create({url: appFrontendUrl});
-
-									if (!tabsList.length)
-										return chrome.tabs.create({url: appFrontendUrl});
-
-									// закрываем все табы, кроме первого в списке по приоритету
-									tabsList.forEach(function (tabInfo, index) {
-										if (index === 0) {
-											chrome.windows.update(tabInfo.windowId, {focused: true});
-											if (tabInfo.type === "tab") {
-												try {
-													chrome.tabs.update(tabInfo.tabId, {active: true});
-												} catch (e) {
-													chrome.tabs.update(tabInfo.tabId, {selected: true});
-												}
-											}
-										} else {
-											if (tabInfo.type === "app") {
-												chrome.windows.remove(tabInfo.windowId);
-											} else {
-												chrome.tabs.remove(tabInfo.tabId);
-											}
-										}
-									});
-
-									chrome.runtime.sendMessage({
-										action: "ui",
-										which: "syncing"
-									});
-								});
-
-								statSend("App-Actions", "2+ account added");
-							} else {
-								AccountsManager.setData(userId, token);
-								focusAppTab();
-
-								// уведомляем об ошибке
-								chrome.runtime.sendMessage({
-									action: "tokenUpdatedInsteadOfAccountAdd",
-									uid: userId,
-									fio: AccountsManager.list[userId].fio
-								});
-							}
-
-							break;
-
-						case "update" :
-							var neededUserTokenUpdated = (updateTokenForUserId === userId);
-							var newUserGranted = true;
-
-							for (var listUserId in AccountsManager.list) {
-								if (listUserId === userId) {
-									newUserGranted = false;
-									break;
-								}
-							}
-
-							if (newUserGranted) {
-								// уведомляем об ошибке
-								chrome.runtime.sendMessage({
-									action: "tokenAddedInsteadOfUpdate",
-									uid: userId,
-									token: token
-								});
-							} else {
-								AccountsManager.setData(userId, token);
-
-								if (neededUserTokenUpdated) {
-									statSend("App-Actions", "Account token updated");
-									chrome.runtime.sendMessage({
-										action: "tokenUpdated"
-									});
-								} else {
-									chrome.runtime.sendMessage({
-										action: "tokenUpdatedForWrongUser",
-										uid: userId,
-										fio: AccountsManager.list[userId].fio
-									});
-								}
-							}
-
-							if (!chromeWindowsExist)
-								return chrome.windows.create({url: appFrontendUrl});
-
-							if (!tabsList.length)
-								return chrome.tabs.create({url: appFrontendUrl});
-
-							// показываем первый таб
-							chrome.windows.update(tabsList[0].windowId, {focused: true});
-							if (tabsList[0].type === "tab") {
-								try {
-									chrome.tabs.update(tabsList[0].tabId, {active: true});
-								} catch (e) {
-									chrome.tabs.update(tabsList[0].tabId, {selected: true});
-								}
-							}
-
-							break;
-					}
-				});
-
-				return;
-			}
-		});
-
 
 		chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 			var sendAsyncResponse = false;
@@ -2289,28 +1953,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					break;
 
-				case "getOAuthToken":
-					oAuthRequestData = request.type;
-
-					if (request.type === "update")
-						updateTokenForUserId = request.uid;
-
-					chrome.tabs.create({
-						"url" : "http://api.vk.com/oauth/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=http://api.vk.com/blank.html&display=page&response_type=token"
-					}, function (tab) {
-						OAuthTabData.push(tab.id);
-					});
-
-					break;
-
 				case "newUserAfterUpdateToken":
-					focusAppTab(true, function () {
-						chrome.runtime.sendMessage({
-							action: "ui",
-							which: "syncing"
-						});
-					});
-
+					// FIXME: probably this should be deleted
 					break;
 
 				case "currentSyncValues" :
@@ -2329,11 +1973,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						startUser = true;
 
 					function leaveOneTabFn() {
-						focusAppTab(true, function () {
-							chrome.runtime.sendMessage({
-								action: "ui"
-							});
-						});
+						// FIXME probably this should be deleted
 					};
 
 					if (startUser) {
@@ -2366,11 +2006,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					// закрываем все табы приложения кроме одного
-					focusAppTab(true, function () {
-						chrome.runtime.sendMessage({
-							action: "ui"
-						});
-					});
+					// FIXME: probably this should be deleted
 
 					break;
 

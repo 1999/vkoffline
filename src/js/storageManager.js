@@ -38,7 +38,7 @@ var StorageManager = {
 	/**
 	 * Получение данных из chrome.storage, автоматическая валидация
 	 * default params: {constructor: String, strict: false, create: false}
-	 * @param {String} key ключ LocalStorage
+	 * @param {String} key ключ chrome.storage.local
 	 * @param {Object} params {constructor: {Function} функция-конструктор, strict: {Boolean} проверка на ожидаемый тип данных через instanceof, create: {Boolean} создавать если данных нет}
 	 */
 	get: function StorageManager_get(key, params) {

@@ -119,9 +119,8 @@ document.addEventListener("click", function (e) {
 				msgId = msgSection.data("mid"),
 				uid = $(msgSection, "img").data("uid");
 
-			chrome.tabs.create({
-				url: chrome.runtime.getURL("print.html?mid=" + msgId + "&uid=" + uid)
-			});
+			var printURL = chrome.runtime.getURL("print.html?mid=" + msgId + "&uid=" + uid);
+			openInNewWindow(printURL);
 		},
 		// ответ на сообщение
 		"#content > section.right.thread-container > section.open span.reply": function (target, evt) {
@@ -1754,9 +1753,8 @@ var AppUI = {
 				}, true);
 
 				rightHeaderPrint.bind("click", function() {
-					chrome.tabs.create({
-						"url" : chrome.runtime.getURL("print.html?did=" + dialogId)
-					});
+					var printURL = chrome.runtime.getURL("print.html?did=" + dialogId);
+					openInNewWindow(printURL);
 				});
 
 				// rightHeaderSearch.bind("click", function() {
@@ -2296,9 +2294,7 @@ var AppUI = {
 			document.body.removeClass().addClass("grey").html(contents);
 
 			$("button.green").bind("click", function () {
-				chrome.tabs.create({
-					url: "https://www.google.com/chrome/"
-				});
+				openInNewWindow("https://www.google.com/chrome/");
 			});
 		},
 
@@ -2460,9 +2456,7 @@ var AppUI = {
 			});
 
 			$("span.icon.github").bind("click", function() {
-				chrome.tabs.create({
-					url: "https://github.com/1999/vkoffline"
-				});
+				openInNewWindow("https://github.com/1999/vkoffline");
 			});
 
 			$("span.icon.alert").bind("click", function() {

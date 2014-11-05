@@ -64,8 +64,9 @@
 window.onerror = function(msg, url, line) {
 	var msgError = msg + ' in ' + url + ' (line: ' + line + ')';
 
-	if (App.DEBUG)
-		alert([msgError]);
+	if (App.DEBUG) {
+		console.error(msgError);
+	}
 
 	LogManager.error(msgError);
 };
@@ -305,10 +306,6 @@ document.addEventListener("DOMContentLoaded", function () {
 		db: function (callback) {
 			DatabaseManager.initMeta(callback);
 		},
-		// 4.11 - это последняя legacy packaged app версия приложения
-		// ее предназначение - сконвертировать данные в новые, поддерживаемые в Chrome Packaged Apps
-		// LocalStorage -> chrome.storage.local, WebDatabase -> IndexedDB
-		// Также задача заставлять пользователей обновить апп до 5
 		migration: function (callback) {
 			MigrationManager.start(callback);
 		}

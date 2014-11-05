@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	function findFrontendTabs(callback) {
 		chrome.windows.getAll({populate: true}, function (windows) {
 			var foundAppTabs = [];
-			var appFrontendUrl = App.resolveURL("main.html");
+			var appFrontendUrl = chrome.runtime.getURL("main.html");
 
 			if (!windows.length)
 				return callback(false, foundAppTabs);
@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	 */
 	function focusAppTab(closeOthers, cb) {
 		findFrontendTabs(function (chromeWindowsExist, tabsList) {
-			var appFrontendUrl = App.resolveURL("main.html");
+			var appFrontendUrl = chrome.runtime.getURL("main.html");
 
 			if (!chromeWindowsExist) {
 				chrome.windows.create({url: appFrontendUrl});
@@ -560,7 +560,7 @@ document.addEventListener("DOMContentLoaded", function () {
 											loadAvatar(msgData.uid, function() {
 												showNotification(CacheManager.avatars[msgData.uid]);
 											}, function() {
-												showNotification(App.resolveURL("pic/question_th.gif"));
+												showNotification(chrome.runtime.getURL("pic/question_th.gif"));
 											});
 										}
 									}
@@ -573,7 +573,7 @@ document.addEventListener("DOMContentLoaded", function () {
 										chrome.windows.getAll({populate: true}, function (windows) {
 											var vkTabFound = false;
 											var appTabActive = false;
-											var appFrontendUrl = App.resolveURL("main.html");
+											var appFrontendUrl = chrome.runtime.getURL("main.html");
 
 											windows.forEach(function (windowElem) {
 												windowElem.tabs.forEach(function (tab) {
@@ -808,7 +808,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				showChromeNotification({
 					title: App.NAME,
 					message: chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME),
-					icon: App.resolveURL("pic/smile.png"),
+					icon: chrome.runtime.getURL("pic/smile.png"),
 					sound: "message",
 					onclick: function () {
 						statSend("App-Actions", "BD notification click");
@@ -900,7 +900,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							loadAvatar(userDoc.uid, function() {
 								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
 							}, function() {
-								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, App.resolveURL("pic/question_th.gif"));
+								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, chrome.runtime.getURL("pic/question_th.gif"));
 							});
 						}
 					});
@@ -1235,7 +1235,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				chrome.tabs.remove(tabId);
 
 				findFrontendTabs(function (chromeWindowsExist, tabsList) {
-					var appFrontendUrl = App.resolveURL("main.html");
+					var appFrontendUrl = chrome.runtime.getURL("main.html");
 
 					switch (oAuthRequestData) {
 						case "new" :

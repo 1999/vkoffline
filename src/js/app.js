@@ -77,26 +77,5 @@ var App = {
 
 	VK_ID: 2438161, /* ID приложения ВКонтакте */
 	VK_APP_SCOPE: ['friends', 'messages', 'offline', 'photos', 'audio', 'video', 'docs', 'wall', 'groups'], // OAuth-scope для приложения ВКонтакте
-	FRIENDS_UPDATE_TIMEOUT: 86400, // промежуток между обновлениями списка друзей в секундах
-
-	resolveURL: function (path) {
-		var url;
-
-		try {
-			url = chrome.runtime.getURL(path);
-		} catch (e) {
-			url = chrome.extension.getURL(path);
-		}
-
-		return url;
-	},
-
-	requestBackgroundPage: function (callback) {
-		try {
-			chrome.runtime.getBackgroundPage(callback);
-		} catch (e) {
-			var bgWindow = chrome.extension.getBackgroundPage();
-			callback(bgWindow);
-		}
-	}
+	FRIENDS_UPDATE_TIMEOUT: 86400 // промежуток между обновлениями списка друзей в секундах
 };

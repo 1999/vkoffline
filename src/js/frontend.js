@@ -23,7 +23,7 @@ window.onerror = function(msg, url, line) {
 	if (App.DEBUG)
 		alert(msgError);
 
-	App.requestBackgroundPage(function (backend) {
+	chrome.runtime.getBackgroundPage(function (backend) {
 		var LogManager = backend.LogManager;
 		LogManager.error("[ui] " + msgError);
 	});
@@ -32,7 +32,7 @@ window.onerror = function(msg, url, line) {
 document.addEventListener("DOMContentLoaded", function () {
 	document.title = App.NAME;
 
-	App.requestBackgroundPage(function (backend) {
+	chrome.runtime.getBackgroundPage(function (backend) {
 		var AccountsManager = backend.AccountsManager;
 		var CacheManager = backend.CacheManager;
 

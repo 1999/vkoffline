@@ -120,7 +120,7 @@ document.addEventListener("click", function (e) {
 				uid = $(msgSection, "img").data("uid");
 
 			chrome.tabs.create({
-				url: App.resolveURL("print.html?mid=" + msgId + "&uid=" + uid)
+				url: chrome.runtime.getURL("print.html?mid=" + msgId + "&uid=" + uid)
 			});
 		},
 		// ответ на сообщение
@@ -1755,7 +1755,7 @@ var AppUI = {
 
 				rightHeaderPrint.bind("click", function() {
 					chrome.tabs.create({
-						"url" : App.resolveURL("print.html?did=" + dialogId)
+						"url" : chrome.runtime.getURL("print.html?did=" + dialogId)
 					});
 				});
 

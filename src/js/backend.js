@@ -113,20 +113,6 @@ document.addEventListener("DOMContentLoaded", function () {
 		delete notificationHandlers[notificationId];
 	});
 
-	// получение аватарок
-	function fetchPhoto(photoUrl, fn) {
-		var xhr = new XMLHttpRequest();
-		xhr.open("GET", photoUrl, true);
-		xhr.responseType = "blob";
-
-		xhr.addEventListener("load", function () {
-			fn(xhr.response);
-			xhr = null;
-		}, false);
-
-		xhr.send();
-	}
-
 	/**
 	 * Показать chrome.notification
 	 *
@@ -174,19 +160,6 @@ document.addEventListener("DOMContentLoaded", function () {
 		storage: function (callback) {
 			StorageManager.load(callback);
 		},
-		fs: function (callback) {
-			(window.webkitRequestFileSystem || window.requestFileSystem)(window.PERSISTENT, 0, function (windowFsLink) {
-				callback(null, windowFsLink);
-			}, function () {
-				statSend("App-Data", "FS Broken", {
-					chrome: navigatorVersion,
-					app: app.VERSION
-				});
-
-				// http://code.google.com/p/chromium/issues/detail?id=94314
-				callback(null, null);
-			});
-		},
 		db: function (callback) {
 			DatabaseManager.initMeta(callback);
 		},
@@ -194,8 +167,6 @@ document.addEventListener("DOMContentLoaded", function () {
 			MigrationManager.start(callback);
 		}
 	}, function readyToGo(err, results) {
-		var fsLink = results.fs;
-
 		// записываем дату установки
 		if (StorageManager.get("app_install_time") === null) {
 			StorageManager.set("app_install_time", Date.now());
@@ -254,52 +225,6 @@ document.addEventListener("DOMContentLoaded", function () {
 			ReqManager.abortAll();
 			chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "offline"});
 		}, false);
-
-		var loadAvatar = function(contactId, fnSuccess, fnFail) {
-			CacheManager.avatars[contactId] = ""; // положение обозначает, что данные загружаются
-
-			if (fsLink === null) {
-				DatabaseManager.getContactById(AccountsManager.currentUserId, contactId, function (userDoc) {
-					var photoGot = false;
-
-					try {
-						CacheManager.avatars[contactId] = userDoc.photo;
-						photoGot = true;
-					} catch (e) {
-						statSend("Custom-Errors", "Exception error", e.message);
-						delete CacheManager.avatars[contactId];
-
-						if (typeof fnFail === "function") {
-							fnFail();
-						}
-					}
-
-					if (photoGot) {
-						fnSuccess();
-					}
-				}, function (err) {
-					delete CacheManager.avatars[contactId];
-
-					if (typeof fnFail === "function") {
-						fnFail();
-					}
-				});
-			} else {
-				fsLink.root.getFile(contactId + "_th.jpg", {"create" : false}, function(fileEntry) {
-					CacheManager.avatars[contactId] = fileEntry.toURL();
-					fnSuccess();
-				}, function(err) {
-					statSend("Custom-Errors", "Filesystem error", err.message)
-
-					delete CacheManager.avatars[contactId];
-
-					if (typeof fnFail === "function") {
-						fnFail();
-					}
-				});
-			}
-		};
-
 
 		var longPollEventsRegistrar = {
 			init: function(currentUserId) {
@@ -435,15 +360,8 @@ document.addEventListener("DOMContentLoaded", function () {
 									});
 
 									if (mailType === "inbox") {
-										if (CacheManager.avatars[msgData.uid] !== undefined && CacheManager.avatars[msgData.uid].length) {
-											showNotification(CacheManager.avatars[msgData.uid]);
-										} else {
-											loadAvatar(msgData.uid, function() {
-												showNotification(CacheManager.avatars[msgData.uid]);
-											}, function() {
-												showNotification(chrome.runtime.getURL("pic/question_th.gif"));
-											});
-										}
+										// FIXME: load avatar
+										showNotification(chrome.runtime.getURL("pic/question_th.gif"));
 									}
 
 									function showNotification(avatarUrl) {
@@ -643,11 +561,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			// поздравляем текущего пользователя с ДР
 			getUserProfile(currentUserId, currentUserId, function (currentUserData) {
-				// пробуем сразу же загрузить аватарку активного профиля
-				loadAvatar(currentUserId, function() {
-					chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : currentUserId});
-				});
-
 				var nowDate = new Date(),
 					nowDay = nowDate.getDate(),
 					nowYear = nowDate.getFullYear(),
@@ -759,15 +672,8 @@ document.addEventListener("DOMContentLoaded", function () {
 							msg += " (" + i18nBirthDay[1].replace("%years%", yoNow + " " + Utils.string.plural(yoNow, i18nYears)) + ")";
 						}
 
-						if (CacheManager.avatars[userDoc.uid] !== undefined && CacheManager.avatars[userDoc.uid].length) {
-							showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
-						} else {
-							loadAvatar(userDoc.uid, function() {
-								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
-							}, function() {
-								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, chrome.runtime.getURL("pic/question_th.gif"));
-							});
-						}
+						// FIXME: load avatar
+						showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, "FIXME");
 					});
 
 					var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
@@ -828,24 +734,6 @@ document.addEventListener("DOMContentLoaded", function () {
 				users.forEach(function (userData) {
 					// добавляем uid в список обрабатываемых
 					uidsProcessing[currentUserId][userData.uid] = true;
-
-					// скачиваем аватарку
-					if (fsLink) {
-						fetchPhoto(userData.photo, function (blob) {
-							fsLink.root.getFile(userData.uid + "_th.jpg", {create: true}, function(fileEntry) {
-								fileEntry.createWriter(function (fileWriter) {
-									fileWriter.write(blob);
-								}, function (err) {
-									LogManager.warn(err.message);
-								});
-							}, function (err) {
-								LogManager.warn(err.message);
-							});
-						});
-					}
-
-					// очищаем закэшированную аватарку
-					delete CacheManager.avatars[userData.uid];
 
 					// обновляем ФИО пользователя
 					if (currentUserId === userData.uid) {
@@ -1033,7 +921,6 @@ document.addEventListener("DOMContentLoaded", function () {
 			ReqManager.abortAll();
 
 			// инициализация кэша URL аватарок
-			CacheManager.init(AccountsManager.currentUserId, "avatars");
 			CacheManager.init(AccountsManager.currentUserId, "isTokenExpired", false);
 
 			// инициализируем БД
@@ -1214,13 +1101,6 @@ document.addEventListener("DOMContentLoaded", function () {
 							LogManager.error(errMsg);
 							statSend("Custom-Errors", "Database error", errMsg);
 						}
-					});
-
-					break;
-
-				case "loadAvatar" :
-					loadAvatar(request.uid, function() {
-						chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : request.uid});
 					});
 
 					break;

@@ -41,24 +41,6 @@ document.addEventListener("DOMContentLoaded", function () {
 			var sendAsyncResponse = false;
 
 			switch (request.action) {
-				case "avatarLoaded" :
-					var selectors = [
-						"#content > section.thread-container img[data-uid='" + request.uid + "']",
-						"#content > section.chat-container section.user-speech[data-uid='" + request.uid + "'] > img",
-						"#content > section.contact-data img[data-uid='" + request.uid + "']",
-						"#content > section.thread-container section.open img[data-uid='" + request.uid + "']",
-						"#header img[data-uid='" + request.uid + "']",
-						"#content > section.contacts-container img[data-uid='" + request.uid + "']",
-						"#content > section.accounts-list section[data-uid='" + request.uid + "'] img",
-						"body.grey > h1 img[data-uid='" + request.uid + "']"
-					];
-
-					$$(selectors.join(",")).each(function () {
-						this.attr("src", CacheManager.avatars[request.uid]);
-					});
-
-					break;
-
 				case "contactOnlineStatus" :
 					var selectors = [
 						"#content > section.contacts-container img[data-uid='" + request.uid + "']",

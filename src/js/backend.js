@@ -2054,16 +2054,16 @@ document.addEventListener("DOMContentLoaded", function () {
 	"use strict";
 
 	function openAppWindow(navigateState) {
-        chrome.app.window.create("main.html", {
-            id: uuid(),
-            innerBounds: {
-            	minWidth: 900,
-            	minHeight: 600
-            }
-        });
-    }
+		chrome.app.window.create("main.html", {
+			id: uuid(),
+			innerBounds: {
+				minWidth: 1000,
+				minHeight: 700
+			}
+		});
+	}
 
-    // app lifecycle
-    chrome.app.runtime.onLaunched.addListener(openAppWindow);
-    chrome.app.runtime.onRestarted.addListener(openAppWindow);
+	// app lifecycle
+	chrome.app.runtime.onLaunched.addListener(openAppWindow);
+	chrome.app.runtime.onRestarted.addListener(openAppWindow);
 })();

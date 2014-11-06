@@ -2,7 +2,7 @@
  * Global styles (VK Offline Chrome app)
  * https://github.com/1999/vkoffline
  * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
+ * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,10 @@
 	src: url(../Modern-Pictograms.otf); /* http://thedesignoffice.org/project/modern-pictograms/ */
 }
 
+
+html, body {
+    overflow: visible;
+}
 
 html {
 	height: 100%;
@@ -1653,13 +1657,16 @@ body.grey section.buttons p {
 
 body.grey img {
 	-webkit-box-reflect: below 12px -webkit-linear-gradient(top, rgba(0, 0, 0, 0), rgba(0, 0, 0, .5));
-	background: url(../pic/loading2.gif) 50% 50% no-repeat;
 	opacity: .8;
 	box-shadow: 0 0 16px rgba(0, 0, 0, .5);
 	margin: 24px auto;
 	border-radius: 16px;
 	text-align: center;
 	display: block;
+}
+
+body.grey img.loading {
+	background: url(../pic/loading2.gif) 50% 50% no-repeat;
 }
 
 body.grey h1 {

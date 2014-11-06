@@ -361,3 +361,40 @@ function uuid() {
         return v.toString(16);
     });
 }
+
+(function customExternalImage() {
+	var proto = Object.create(HTMLImageElement.prototype);
+	proto.createdCallback = function () {
+		var that = this;
+		var imageSource = this.getAttribute("src");
+
+		this.setAttribute("src", "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==");
+		this.classList.add("loading");
+
+		// download image
+		var xhr = new XMLHttpRequest();
+		xhr.open("GET", imageSource, true);
+		xhr.responseType = "blob";
+
+		xhr.addEventListener("load", function () {
+			var uri = URL.createObjectURL(this.response);
+			that.setAttribute("src", uri);
+
+			that.classList.remove("loading");
+		}, false);
+
+		xhr.send();
+	};
+
+	proto.detachedCallback = function () {
+		var imageSource = this.getAttribute("src");
+		if (imageSource.indexOf("blob:") === 0) {
+			URL.revokeObjectURL(imageSource);
+		}
+	};
+
+	document.registerElement("external-image", {
+		prototype: proto,
+		extends: "img"
+	});
+})();

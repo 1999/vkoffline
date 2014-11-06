@@ -737,7 +737,7 @@ body:not(.grey) #content:after {
 	display: block;
 }
 
-#content > section.news-container > section iframe.video {
+#content > section.news-container > section webview.video {
 	width: 520px;
 	height: 395px;
 	display: block;
@@ -1251,7 +1251,7 @@ section.attachment audio {
 	display: block;
 }
 
-section.attachment iframe.video {
+section.attachment webview.video {
 	width: 520px;
 	height: 390px;
 	display: block;
@@ -1698,7 +1698,7 @@ body.grey section.data {
 	width: 900px;
 }
 
-body.grey section.data img, body.grey section.data iframe {
+body.grey section.data img, body.grey section.data webview {
 	float: right;
 	margin: 0 0 24px 36px;
 	-webkit-box-reflect: none;

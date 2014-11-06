@@ -39,6 +39,7 @@
 		"unlimitedStorage",
 		"storage",
 		"notifications",
+		"webview",
 		"*://*.vk.com/*",
 		"*://*.userapi.com/*",
 		"*://*.vk.me/*"

@@ -22,6 +22,56 @@ var AccountsManager = (function () {
 	var tokens = null;
 	var activeUserId = null;
 
+	/**
+	 * VK OAuth webview
+	 * @return {Promise}
+	 */
+	function initAuthWebview() { // new, add, update (uid)
+		return new Promise(function (resolve, reject) {
+			var oauthRedirectURI = "https://oauth.vk.com/blank.html";
+			var webview = document.createElement("webview");
+			webview.setAttribute("src", "https://oauth.vk.com/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=" + oauthRedirectURI + "&display=page&response_type=token");
+			webview.style.width = window.innerWidth + "px";
+			webview.style.height = window.innerHeight + "px";
+
+			webview.addEventListener("loadcommit", function (evt) {
+				if (!evt.isTopLevel || evt.url.indexOf(oauthRedirectURI) !== 0) {
+					return;
+				}
+
+				var tmp = document.createElement("a");
+				tmp.setAttribute("href", evt.url);
+
+				var token = tmp.hash.match(/access_token=([a-z0-9]+)/);
+				var userId = tmp.hash.match(/user_id=([\d]+)/);
+				var error = tmp.search.match(/error=([^&]+)/)
+				var errorDescription = tmp.search.match(/error_description=([^&]+)/);
+
+				if (error) {
+					// FIXME: fill this with error/errorDescription
+					statSend("App-Actions", "OAuth access cancelled");
+
+					reject({
+						error: error[1],
+						description: errorDescription[1]
+					});
+				} else {
+					// FIXME: update ns App-Actions probably?
+					statSend("App-Actions", "OAuth access granted", userId[1]);
+
+					resolve({
+						token: token[1],
+						uid: Number(userId[1])
+					});
+				}
+			}, false);
+
+			document.body.innerHTML = "";
+			document.body.classList.add("authview");
+			document.body.appendChild(webview);
+		});
+	}
+
 	// разбор данных в StorageManager
 	var parseTokens = function () {
 		var index = 0;
@@ -70,6 +120,46 @@ var AccountsManager = (function () {
 
 
 	return {
+		/**
+		 * Request token for the first user in app
+		 * @return {Promise}
+		 */
+		requestFirstToken: function AccountsManager_requestFirstToken() {
+			return initAuthWebview().then(function (res) {
+
+			}, function (errObj) {
+				// chrome.runtime.sendMessage({
+				// 	action: "appWontWorkWithoutAccessGranted",
+				// 	from: oAuthRequestData,
+				// 	reason: failReason
+				// });
+			});
+		},
+
+		/**
+		 * Add another account into app
+		 * @return {Promise}
+		 */
+		addNewAccount: function AccountsManager_addNewAccount() {
+			return initAuthWebview().then(function (res) {
+
+			}, function (errObj) {
+
+			});
+		},
+
+		/**
+		 * Update expired token for existing app user
+		 * @return {Promise}
+		 */
+		updateExistingToken: function AccountsManager_updateExistingToken() {
+			return initAuthWebview().then(function (res) {
+
+			}, function (errObj) {
+
+			});
+		},
+
 		setData: function (userId, token, fio) {
 			if (tokens === null)
 				parseTokens();
@@ -140,6 +230,6 @@ var AccountsManager = (function () {
 				parseTokens();
 
 			return tokens;
-		},
+		}
 	};
 })();

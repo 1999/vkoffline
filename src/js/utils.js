@@ -374,6 +374,21 @@ var Utils = {
 		});
 	}
 
+	/**
+	 * Get contact photo stored inside local filesystem
+	 * @param {Number} uid
+	 * @return {Promise}
+	 */
+	function getContactStoredPhoto(uid) {
+		return new Promise(function (resolve, reject) {
+			requestFileSystem().then(function (fsLink) {
+				fsLink.root.getFile(uid + "_th.jpg", {create: false}, function (fileEntry) {
+					resolve(fileEntry);
+				}, reject);
+			}, reject);
+		});
+	}
+
 	exports.uuid = function uuid() {
 		return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
 			var r = Math.random() * 16 | 0;
@@ -431,16 +446,37 @@ var Utils = {
 			createdCallback: function () {
 				var that = this;
 				var imageSource = this.getAttribute("src");
+				var uid = Number(this.dataset.uid);
 
 				this.setAttribute("src", BLANK_TRANSPARENT_IMG);
 				this.classList.add("loading");
 
-				// download image
-				fetchImage(imageSource).then(function (blob) {
-					var uri = URL.createObjectURL(blob);
-					that.setAttribute("src", uri);
-
+				getContactStoredPhoto(uid).then(function (fileEntry) {
+					that.setAttribute("src", fileEntry.toURL());
 					that.classList.remove("loading");
+				}, function () {
+					Promise.all([
+						fetchImage(imageSource),
+						requestFileSystem()
+					]).then(function (res) {
+						var blob = res[0];
+						var fsLink = res[1];
+
+						that.classList.remove("loading");
+
+						// show image immediately
+						var uri = URL.createObjectURL(blob);
+						that.setAttribute("src", uri);
+
+						fsLink.root.getFile(uid + "_th.jpg", {create: true}, function (fileEntry) {
+							fileEntry.createWriter(function (fileWriter) {
+								fileWriter.write(blob);
+							});
+						});
+					}, function () {
+						that.setAttribute("src", chrome.runtime.getURL('pic/question_th.gif'));
+						that.classList.remove("loading");
+					});
 				});
 			},
 

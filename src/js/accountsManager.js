@@ -126,13 +126,56 @@ var AccountsManager = (function () {
 		 */
 		requestFirstToken: function AccountsManager_requestFirstToken() {
 			return initAuthWebview().then(function (res) {
+				//  case "new" :
+				//      AccountsManager.setData(userId, token, "...");
+				//      AccountsManager.currentUserId = userId;
 
+				//      var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+				//      wallTokenUpdated[AccountsManager.currentUserId] = 1;
+				//      StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+				//      startUserSession(function () {
+				//          if (!chromeWindowsExist)
+				//              return chrome.windows.create({url: appFrontendUrl});
+
+				//          if (!tabsList.length)
+				//              return chrome.tabs.create({url: appFrontendUrl});
+
+				//          // закрываем все табы, кроме первого в списке по приоритету
+				//          tabsList.forEach(function (tabInfo, index) {
+				//              if (index === 0) {
+				//                  chrome.windows.update(tabInfo.windowId, {focused: true});
+				//                  if (tabInfo.type === "tab") {
+				//                      try {
+				//                          chrome.tabs.update(tabInfo.tabId, {active: true});
+				//                      } catch (e) {
+				//                          chrome.tabs.update(tabInfo.tabId, {selected: true});
+				//                      }
+				//                  }
+				//              } else {
+				//                  if (tabInfo.type === "app") {
+				//                      chrome.windows.remove(tabInfo.windowId);
+				//                  } else {
+				//                      chrome.tabs.remove(tabInfo.tabId);
+				//                  }
+				//              }
+				//          });
+
+				//          chrome.runtime.sendMessage({
+				//              action: "ui",
+				//              which: "syncing"
+				//          });
+				//      });
+
+				//      statSend("App-Actions", "First account added");
+				//      break;
+
+				// save token
+				// start sync process
+
+				return true;
 			}, function (errObj) {
-				// chrome.runtime.sendMessage({
-				// 	action: "appWontWorkWithoutAccessGranted",
-				// 	from: oAuthRequestData,
-				// 	reason: failReason
-				// });
+				return false;
 			});
 		},
 
@@ -142,7 +185,60 @@ var AccountsManager = (function () {
 		 */
 		addNewAccount: function AccountsManager_addNewAccount() {
 			return initAuthWebview().then(function (res) {
+				//      var newUserGranted = (AccountsManager.list[userId] === undefined);
+				//      if (newUserGranted) {
+				//          AccountsManager.setData(userId, token, "...");
+				//          AccountsManager.currentUserId = userId;
 
+				//          var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+				//          wallTokenUpdated[AccountsManager.currentUserId] = 1;
+				//          StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+				//          startUserSession(function () {
+				//              if (!chromeWindowsExist)
+				//                  return chrome.windows.create({url: appFrontendUrl});
+
+				//              if (!tabsList.length)
+				//                  return chrome.tabs.create({url: appFrontendUrl});
+
+				//              // закрываем все табы, кроме первого в списке по приоритету
+				//              tabsList.forEach(function (tabInfo, index) {
+				//                  if (index === 0) {
+				//                      chrome.windows.update(tabInfo.windowId, {focused: true});
+				//                      if (tabInfo.type === "tab") {
+				//                          try {
+				//                              chrome.tabs.update(tabInfo.tabId, {active: true});
+				//                          } catch (e) {
+				//                              chrome.tabs.update(tabInfo.tabId, {selected: true});
+				//                          }
+				//                      }
+				//                  } else {
+				//                      if (tabInfo.type === "app") {
+				//                          chrome.windows.remove(tabInfo.windowId);
+				//                      } else {
+				//                          chrome.tabs.remove(tabInfo.tabId);
+				//                      }
+				//                  }
+				//              });
+
+				//              chrome.runtime.sendMessage({
+				//                  action: "ui",
+				//                  which: "syncing"
+				//              });
+				//          });
+
+				//          statSend("App-Actions", "2+ account added");
+				//      } else {
+				//          AccountsManager.setData(userId, token);
+				//          focusAppTab();
+
+				//          // уведомляем об ошибке
+				//          chrome.runtime.sendMessage({
+				//              action: "tokenUpdatedInsteadOfAccountAdd",
+				//              uid: userId,
+				//              fio: AccountsManager.list[userId].fio
+				//          });
+				//      }
 			}, function (errObj) {
 
 			});
@@ -154,7 +250,55 @@ var AccountsManager = (function () {
 		 */
 		updateExistingToken: function AccountsManager_updateExistingToken() {
 			return initAuthWebview().then(function (res) {
+				//      var neededUserTokenUpdated = (updateTokenForUserId === userId);
+				//      var newUserGranted = true;
 
+				//      for (var listUserId in AccountsManager.list) {
+				//          if (listUserId === userId) {
+				//              newUserGranted = false;
+				//              break;
+				//          }
+				//      }
+
+				//      if (newUserGranted) {
+				//          // уведомляем об ошибке
+				//          chrome.runtime.sendMessage({
+				//              action: "tokenAddedInsteadOfUpdate",
+				//              uid: userId,
+				//              token: token
+				//          });
+				//      } else {
+				//          AccountsManager.setData(userId, token);
+
+				//          if (neededUserTokenUpdated) {
+				//              statSend("App-Actions", "Account token updated");
+				//              chrome.runtime.sendMessage({
+				//                  action: "tokenUpdated"
+				//              });
+				//          } else {
+				//              chrome.runtime.sendMessage({
+				//                  action: "tokenUpdatedForWrongUser",
+				//                  uid: userId,
+				//                  fio: AccountsManager.list[userId].fio
+				//              });
+				//          }
+				//      }
+
+				//      if (!chromeWindowsExist)
+				//          return chrome.windows.create({url: appFrontendUrl});
+
+				//      if (!tabsList.length)
+				//          return chrome.tabs.create({url: appFrontendUrl});
+
+				//      // показываем первый таб
+				//      chrome.windows.update(tabsList[0].windowId, {focused: true});
+				//      if (tabsList[0].type === "tab") {
+				//          try {
+				//              chrome.tabs.update(tabsList[0].tabId, {active: true});
+				//          } catch (e) {
+				//              chrome.tabs.update(tabsList[0].tabId, {selected: true});
+				//          }
+				//      }
 			}, function (errObj) {
 
 			});

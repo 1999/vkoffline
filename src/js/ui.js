@@ -936,14 +936,30 @@ var AppUI = {
 				e.stopPropagation();
 			});
 
-			$("section.buttons.in-tour button.access").bind("click", function (e) {
-				// FIXME: probably this should be deleted
-				chrome.runtime.sendMessage({
-					"action" : "getOAuthToken",
-					"type" : "new"
-				});
+			$("section.buttons.in-tour button.access").bind("click", function (evt) {
+				evt.stopPropagation();
 
-				e.stopPropagation();
+				AccountsManager.requestFirstToken().then(function (isAccessGranted) {
+					// send message to self?
+					if (isAccessGranted) {
+
+					} else {
+
+
+						i18nTerm = (request.reason === "denyAccess")
+						? chrome.i18n.getMessage("appWontWorkWithoutAccessGranted").replace("%appname%", App.NAME)
+						: chrome.i18n.getMessage("appWontWorkDueSecurityBreach");
+
+						descriptionElem = $("p.description");
+						if (descriptionElem === null) {
+						return;
+						}
+
+						descriptionElem.text(i18nTerm);
+					}
+
+					// what to do with other windows?
+				});
 			});
 		},
 

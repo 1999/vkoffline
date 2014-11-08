@@ -407,6 +407,13 @@ var Utils = {
 	};
 
 	/**
+	 * Notify app windows about smth
+	 */
+	exports.notifySelf = function notifySelf(data) {
+		chrome.runtime.sendMessage(data);
+	};
+
+	/**
 	 * Custom <img is="external-image"> container for loading external images
 	 */
 	document.registerElement("external-image", {

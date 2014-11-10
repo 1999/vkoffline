@@ -18,18 +18,6 @@
  * ========================================================== */
 
 (function () {
-	function previewListener(request, sender, sendResponse) {
-		if (request.action === "uiDraw") {
-			sendResponse(false);
-			return true;
-		}
-	}
-
-	window.addEventListener("load", function () {
-		chrome.runtime.onMessage.removeListener(previewListener);
-		chrome.runtime.sendMessage({action: "ui"});
-	}, false);
-
 	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
 		if (alarmInfo.name === "dayuse") {
 			statSend("Lifecycle", "Dayuse", "Total users", 1);
@@ -56,8 +44,6 @@
 			});
 		}
 	});
-
-	chrome.runtime.onMessage.addListener(previewListener);
 })();
 
 
@@ -97,6 +83,19 @@ function statSend(category, action, optLabel, optValue) {
 		window._gaq.push(["_trackEvent"].concat(args));
 	} catch (e) {}
 };
+
+/**
+ * Flatten settings by getting their values in this moment
+ * @return {Object}
+ */
+function getFlatSettings() {
+	var flatSettings = {};
+	_.forIn(SettingsManager, function (value, key) {
+		flatSettings[key] = value;
+	});
+
+	return flatSettings;
+}
 
 document.addEventListener("DOMContentLoaded", function () {
 	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
@@ -948,10 +947,49 @@ document.addEventListener("DOMContentLoaded", function () {
 			});
 		};
 
-		chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+		chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 			var sendAsyncResponse = false;
 
 			switch (request.action) {
+				case "addFirstAccount":
+					AccountsManager.setData(request.uid, request.token, "...");
+					AccountsManager.currentUserId = request.uid;
+
+					var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+					wallTokenUpdated[AccountsManager.currentUserId] = 1;
+					StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+					startUserSession(function () {
+						chrome.runtime.sendMessage({
+							action: "ui",
+							which: "syncing"
+						});
+					});
+
+					break;
+
+				case "getAccountsList":
+					var accounts = {};
+					_.forIn(AccountsManager.list, function (value, key) {
+						accounts[key] = value;
+					});
+
+					sendResponse(accounts);
+					break;
+
+				case "saveSettings":
+					_.forIn(request.settings, function (value, key) {
+						SettingsManager[key] = value;
+					});
+
+					// notify app windows
+					chrome.runtime.sendMessage({
+						action: "settingsChanged",
+						settings: getFlatSettings()
+					});
+
+					break;
+
 				case "uiDraw" :
 					sendAsyncResponse = true;
 					sendResponse(true);
@@ -1940,6 +1978,15 @@ document.addEventListener("DOMContentLoaded", function () {
 				minWidth: 1000,
 				minHeight: 700
 			}
+		}, function (win) {
+			// flatten settings by getting their values in this moment
+			win.contentWindow.Settings = getFlatSettings();
+
+			// pass current user data
+			win.contentWindow.Account = {
+				currentUserId: AccountsManager.currentUserId,
+				currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+			};
 		});
 	}
 

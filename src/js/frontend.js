@@ -41,6 +41,13 @@ document.addEventListener("DOMContentLoaded", function () {
 		var sendAsyncResponse = false;
 
 		switch (request.action) {
+			case "settingsChanged":
+				_.forIn(request.settings, function (value, key) {
+					Settings[key] = value;
+				});
+
+				break;
+
 			case "appWontWorkWithoutAccessGranted" :
 				var i18nTerm,
 					accountsContainer, warnSection, closeBtn,

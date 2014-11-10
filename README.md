@@ -1,5 +1,5 @@
 ## Что это?
-**VK Offline** - это packaged app дял Google Chrome. VK Offline можно установить из [Chrome Web Store](https://chrome.google.com/webstore/detail/vkontakte-offline/jinklgkideaicpdgmomlckebafjfibjk) или со [страницы разработчика](http://staypositive.ru/vkofflineapp-promo).
+**VK Offline** - это packaged app для Google Chrome. VK Offline можно установить из [Chrome Web Store](https://chrome.google.com/webstore/detail/vkontakte-offline/jinklgkideaicpdgmomlckebafjfibjk) или со [страницы разработчика](http://staypositive.ru/vkofflineapp-promo).
 
 ## Как начать разрабатывать
 ```bash

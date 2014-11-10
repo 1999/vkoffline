@@ -2481,7 +2481,7 @@ var AppUI = {
 
 				// сразу обновляем иконку оповещений
 				var newsIcon = $("span.news")
-				this.updateNewsIcon(newsIcon);
+				self.updateNewsIcon(newsIcon);
 
 				newsIcon.bind("click", function() {
 					self.view("news", {
@@ -2496,7 +2496,7 @@ var AppUI = {
 
 
 				// показываем список контактов
-				this.view("contactsList", {
+				self.view("contactsList", {
 					"uiType" : "partial",
 					"headers" : {
 						"left" : [
@@ -2507,7 +2507,7 @@ var AppUI = {
 				});
 
 				// показываем диалоги
-				this.view("mailList", {
+				self.view("mailList", {
 					"uiType" : "partial",
 					"headers" : {
 						"right" : [

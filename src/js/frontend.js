@@ -291,8 +291,6 @@ document.addEventListener("DOMContentLoaded", function () {
 				var elem = $("#" + request.type + "_" + request.userId);
 				var percentSynced;
 
-				console.log("#" + request.type + "_" + request.userId, elem);
-
 				if (elem) {
 					// обновляем progressbar
 					$(elem, "progress").attr("max", request.total).val(request.current);

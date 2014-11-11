@@ -435,6 +435,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				this.init(currentUserId);
 
 				if (AccountsManager.currentUserId === currentUserId) {
+					console.log('on error', errorCode, errorData)
 					mailSync(currentUserId, "inbox");
 					mailSync(currentUserId, "sent");
 				}
@@ -768,26 +769,43 @@ document.addEventListener("DOMContentLoaded", function () {
 		 * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
 		 */
 		var mailSync = function(currentUserId, mailType, latestMessageId) {
-			var reqData = {},
-				userDataForRequest = AccountsManager.list[currentUserId],
+			var offset = syncingData[currentUserId][mailType][1];
+			var userDataForRequest = AccountsManager.list[currentUserId],
 				compatName = (mailType === "inbox") ? "inbox" : "outbox",
 				permKey = "perm_" + compatName + "_" + currentUserId,
 				firstSync = (StorageManager.get(permKey) === null);
 
-			reqData.offset = syncingData[currentUserId][mailType][1];
-			reqData.access_token = userDataForRequest.token;
-			reqData.count = 200;
-			reqData.preview_length = 0;
-			if (mailType === "sent") {
-				reqData.out = 1;
-			}
-
-			var latestMsg = reqData.offset
+			var latestMsg = offset
 				? Promise.resolve(latestMessageId)
 				: DatabaseManager.getLatestTagMessageId(mailType);
 
 			var getMessages = new Promise(function (resolve, reject) {
-				ReqManager.apiMethod("messages.get", reqData, resolve, function (errCode, errData) {
+				var method = firstSync ? "execute" : "messages.get";
+				var reqData = {access_token: userDataForRequest.token};
+
+				if (firstSync) {
+					var internalCalls = _.range(10).map(function (i) {
+						var reqData = {
+							count: 200,
+							preview_length: 0,
+							out: (mailType === "sent") ? 1 : 0,
+							offset: offset + i * 200
+						};
+
+						return "API.messages.get(" + JSON.stringify(reqData) + ")";
+					});
+
+					reqData.code = "return [" + internalCalls.join(",") + "];";
+				} else {
+					reqData.offset = offset;
+					reqData.count = 200;
+					reqData.preview_length = 0;
+					reqData.out = (mailType === "sent") ? 1 : 0;
+				}
+
+				console.log(reqData);
+
+				ReqManager.apiMethod(method, reqData, resolve, function (errCode, errData) {
 					reject({
 						code: errCode,
 						data: errData
@@ -802,6 +820,21 @@ document.addEventListener("DOMContentLoaded", function () {
 				var data = res[0];
 				var latestMessageId = res[1];
 				var timeToStopAfter = false; // message found with id equal to latestMessageId
+
+				// flatten response structure
+				if (firstSync && Array.isArray(data.response)) {
+					var flatResponse = [0];
+
+					data.response.forEach(function (chunk) {
+						flatResponse[0] = Math.max(flatResponse[0], chunk[0]);
+
+						chunk.slice(1).forEach(function (msg) {
+							flatResponse.push(msg);
+						});
+					});
+
+					data.response = flatResponse;
+				}
 
 				var messages = [],
 					dataSyncedFn;
@@ -905,6 +938,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 				});
 
+				console.log('start insert ' + mailType);
 				DatabaseManager.insertMessages(currentUserId, messages, function () {
 					syncingData[currentUserId][mailType][1] += messages.length;
 
@@ -921,6 +955,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						return;
 					}
 
+					console.log('Inserted ' + mailType + ', start in 350ms');
 					window.setTimeout(mailSync, 350, currentUserId, mailType, latestMessageId);
 				}, _.noop);
 			}, function (err) {
@@ -935,6 +970,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						break;
 
 					default :
+						console.log('Error ', err);
 						window.setTimeout(mailSync, 5000, currentUserId, mailType, latestMessageId);
 						break;
 				}
@@ -968,6 +1004,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					friendsSync(AccountsManager.currentUserId);
 					longPollEventsRegistrar.init(AccountsManager.currentUserId);
 
+					console.log('start user session');
 					mailSync(AccountsManager.currentUserId, "inbox");
 					mailSync(AccountsManager.currentUserId, "sent");
 				}

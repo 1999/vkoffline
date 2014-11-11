@@ -251,7 +251,7 @@ var Utils = {
 				}
 
 				if (vkSymbols.indexOf(charCode) !== -1) {
-					output += replaceWithImages ? " <img class='emoji' src='" + baseImgPath + charCode + ".png' width='16' height='16' alt=''/> " : " ";
+					output += replaceWithImages ? " <img is='external-image' class='emoji' src='" + baseImgPath + charCode + ".png' width='16' height='16' alt=''/> " : " ";
 				} else {
 					output += str[i];
 				}

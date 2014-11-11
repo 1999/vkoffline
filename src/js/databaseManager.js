@@ -1027,6 +1027,31 @@ var DatabaseManager = {
 	},
 
 	/**
+	 * @param {String} mailType - one of "inbox", "sent"
+	 * @return {Promise}
+	 */
+	getLatestTagMessageId: function DatabaseManager_getLatestTagMessageId(mailType) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
+
+		return new Promise(function (resolve, reject) {
+			conn.get("messages", {
+				index: "tag",
+				range: IDBKeyRange.only(mailType),
+				direction: sklad.DESC,
+				limit: 1
+			}, function (err, records) {
+				if (err) {
+					reject(err);
+				} else {
+					var output = records.length ? records[0].value.mid : 0;
+					resolve(output);
+				}
+			});
+		});
+	},
+
+	/**
 	 * Actualize chats' dates
 	 * @return {Promise}
 	 */

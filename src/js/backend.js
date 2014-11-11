@@ -696,7 +696,9 @@ document.addEventListener("DOMContentLoaded", function () {
 							]).then(function () {
 								chrome.runtime.sendMessage({
 									action: "ui",
-									which: "user"
+									which: "user",
+									currentUserId: AccountsManager.currentUserId,
+									currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
 								});
 							});
 						}
@@ -765,7 +767,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		 * дойти до момента, когда внутреннняя функция записи сообщений в БД вернет ошибку DUPLICATE ID. mailSync не должна
 		 * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
 		 */
-		var mailSync = function(currentUserId, mailType) {
+		var mailSync = function(currentUserId, mailType, latestMessageId) {
 			var reqData = {},
 				userDataForRequest = AccountsManager.list[currentUserId],
 				compatName = (mailType === "inbox") ? "inbox" : "outbox",
@@ -780,7 +782,27 @@ document.addEventListener("DOMContentLoaded", function () {
 				reqData.out = 1;
 			}
 
-			ReqManager.apiMethod("messages.get", reqData, function(data) {
+			var latestMsg = reqData.offset
+				? Promise.resolve(latestMessageId)
+				: DatabaseManager.getLatestTagMessageId(mailType);
+
+			var getMessages = new Promise(function (resolve, reject) {
+				ReqManager.apiMethod("messages.get", reqData, resolve, function (errCode, errData) {
+					reject({
+						code: errCode,
+						data: errData
+					});
+				});
+			});
+
+			Promise.all([
+				getMessages,
+				latestMsg
+			]).then(function (res) {
+				var data = res[0];
+				var latestMessageId = res[1];
+				var timeToStopAfter = false; // message found with id equal to latestMessageId
+
 				var messages = [],
 					dataSyncedFn;
 
@@ -811,7 +833,9 @@ document.addEventListener("DOMContentLoaded", function () {
 								]).then(function () {
 									chrome.runtime.sendMessage({
 										action: "ui",
-										which: "user"
+										which: "user",
+										currentUserId: AccountsManager.currentUserId,
+										currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
 									});
 								});
 							}
@@ -832,12 +856,17 @@ document.addEventListener("DOMContentLoaded", function () {
 				}
 
 				// отсекаем общий счетчик сообщений
-				data.response.forEach(function (msgData, index) {
+				_.forEach(data.response, function (msgData, index) {
 					var coords;
 
 					// пропускаем общий счетчик
 					if (!index)
 						return;
+
+					if (msgData.mid === latestMessageId) {
+						timeToStopAfter = true;
+						return false;
+					}
 
 					// backwards-compatibility. До 4 версии при отсутствии вложений писался пустой объект
 					// теперь мы определяем это на фронте при отрисовке
@@ -860,7 +889,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					msgData.tags = [mailType];
 
 					if (msgData.attachments.length)
-						msgData.tags.push('attachments');
+						msgData.tags.push("attachments");
 
 					// проверяем существует ли пользователь
 					if (!uidsProcessing[currentUserId][msgData.uid]) {
@@ -871,8 +900,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					messages.push(msgData);
 					if (msgData.read_state === 0 && StorageManager.get(permKey) === null) {
-						// до 4 версии здесь показывалось уведомление
-						// TODO учесть var isSupportAccount = (userData.uid === config.VkSupportUid),
+						// FIXME: calculate number of new messages
+						// show notification afterwards
 					}
 				});
 
@@ -887,21 +916,26 @@ document.addEventListener("DOMContentLoaded", function () {
 						"current" : syncingData[currentUserId][mailType][1]
 					});
 
-					if (syncingData[currentUserId][mailType][1] > data.response[0]) {
+					if (timeToStopAfter || syncingData[currentUserId][mailType][1] > data.response[0]) {
 						dataSyncedFn();
 						return;
 					}
 
-					window.setTimeout(mailSync, 350, currentUserId, mailType);
+					window.setTimeout(mailSync, 350, currentUserId, mailType, latestMessageId);
 				}, _.noop);
-			}, function (errCode, errData) {
-				switch (errCode) {
+			}, function (err) {
+				if (err.name instanceof DOMError) {
+					var errMsg = err.name + ": " + err.message;
+					throw new Error(errMsg);
+				}
+
+				switch (err.code) {
 					case ReqManager.ACCESS_DENIED :
 						// TODO error
 						break;
 
 					default :
-						window.setTimeout(mailSync, 5000, currentUserId, mailType);
+						window.setTimeout(mailSync, 5000, currentUserId, mailType, latestMessageId);
 						break;
 				}
 			});
@@ -962,7 +996,9 @@ document.addEventListener("DOMContentLoaded", function () {
 					startUserSession(function () {
 						chrome.runtime.sendMessage({
 							action: "ui",
-							which: "syncing"
+							which: "syncing",
+							currentUserId: AccountsManager.currentUserId,
+							currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
 						});
 					});
 
@@ -1027,7 +1063,13 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					// уведомляем фронт
-					chrome.runtime.sendMessage({"action" : "ui", "which" : uiType});
+					chrome.runtime.sendMessage({
+						action: "ui",
+						which: uiType,
+						currentUserId: AccountsManager.currentUserId,
+						currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+					});
+
 					break;
 
 				case "closeNotification":

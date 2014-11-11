@@ -260,6 +260,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			case "ui" : // user, guest, syncing, migrating, migrated
 				if (request.which !== undefined) {
+					Account.currentUserId = request.currentUserId;
+					Account.currentUserFio = request.currentUserFio;
+
 					AppUI.main(request.which);
 				} else {
 					window.location.reload();

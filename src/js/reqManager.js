@@ -3,7 +3,7 @@ var ReqManager = (function () {
 
 	// @see http://vk.com/dev/api_requests
 	var AVAILABLE_LANGUAGES = ["ru", "ua", "be", "en", "es", "fi", "de", "it"];
-	var REQUESTS_TIMEOUT_MS = 10000;
+	var REQUESTS_TIMEOUT_MS = 350;
 
 	var currentLocale = chrome.i18n.getMessage("@@ui_locale").split("_")[0];
 	var requestsLanguage = (AVAILABLE_LANGUAGES.indexOf(currentLocale) === -1) ? "ru" : currentLocale;
@@ -71,7 +71,7 @@ var ReqManager = (function () {
 		xhr.addEventListener("error", boundCallbacks[1], false);
 		xhr.addEventListener("abort", boundCallbacks[1], false);
 
-		queuePromise.then(function () {
+		queuePromise = queuePromise.then(function () {
 			xhr.open(params.method, url, true);
 
 			if (params.data) {

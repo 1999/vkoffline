@@ -72,6 +72,11 @@ var ReqManager = (function () {
 		xhr.addEventListener("abort", boundCallbacks[1], false);
 
 		queuePromise = queuePromise.then(function () {
+			// XHR has already been aborted
+			if (!xhrs[xhrId]) {
+				return;
+			}
+
 			xhr.open(params.method, url, true);
 
 			if (params.data) {

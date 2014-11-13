@@ -803,8 +803,6 @@ document.addEventListener("DOMContentLoaded", function () {
 					reqData.out = (mailType === "sent") ? 1 : 0;
 				}
 
-				console.log(reqData);
-
 				ReqManager.apiMethod(method, reqData, resolve, function (errCode, errData) {
 					reject({
 						code: errCode,
@@ -938,7 +936,6 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 				});
 
-				console.log('start insert ' + mailType);
 				DatabaseManager.insertMessages(currentUserId, messages, function () {
 					syncingData[currentUserId][mailType][1] += messages.length;
 
@@ -955,7 +952,6 @@ document.addEventListener("DOMContentLoaded", function () {
 						return;
 					}
 
-					console.log('Inserted ' + mailType + ', start in 350ms');
 					window.setTimeout(mailSync, 350, currentUserId, mailType, latestMessageId);
 				}, _.noop);
 			}, function (err) {
@@ -1004,7 +1000,6 @@ document.addEventListener("DOMContentLoaded", function () {
 					friendsSync(AccountsManager.currentUserId);
 					longPollEventsRegistrar.init(AccountsManager.currentUserId);
 
-					console.log('start user session');
 					mailSync(AccountsManager.currentUserId, "inbox");
 					mailSync(AccountsManager.currentUserId, "sent");
 				}

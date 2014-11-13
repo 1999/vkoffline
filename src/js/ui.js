@@ -3070,12 +3070,9 @@ var AppUI = {
 		var msgSenderUid = isInboxMsg ? msgData.uid : Account.currentUserId;
 		var fio = isInboxMsg ? msgData.first_name + " " + msgData.last_name : Account.currentUserFio;
 
-		// FIXME: avatarSrc should be contact real photo
-		var avatarSrc = "pic/question_th.gif";
-
 		var html = Templates.render("userSpeech", {
 			uid: msgSenderUid,
-			avatarSrc: avatarSrc,
+			avatarSrc: msgData.photo,
 			fio: fio
 		});
 

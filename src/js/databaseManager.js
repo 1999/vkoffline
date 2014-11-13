@@ -765,6 +765,7 @@ var DatabaseManager = {
 					} else {
 						resolve({
 							uid: records[0].key,
+							photo: records[0].value.photo,
 							first_name: records[0].value.first_name,
 							last_name: records[0].value.last_name
 						});
@@ -774,7 +775,7 @@ var DatabaseManager = {
 		}
 
 		function countChatMessages() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(dialogId)
@@ -789,7 +790,7 @@ var DatabaseManager = {
 		}
 
 		function getChatMessages() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(dialogId),
@@ -806,15 +807,16 @@ var DatabaseManager = {
 			});
 		}
 
-		vow.all({
-			messages: getChatMessages(),
-			total: countChatMessages()
-		}).then(function (res) {
-			var total = res.total;
+		Promise.all([
+			getChatMessages(),
+			countChatMessages()
+		]).then(function (res) {
+			var messages = res[0].reverse();
+			var total = res[1];
 			var promises = {};
 			var output = [];
 
-			res.messages.reverse().forEach(function (record) {
+			messages.forEach(function (record) {
 				output.push({
 					mid: record.value.mid,
 					title: record.value.title,
@@ -840,6 +842,7 @@ var DatabaseManager = {
 
 					message.first_name = res[message.uid].first_name;
 					message.last_name = res[message.uid].last_name;
+					message.photo = res[message.uid].photo;
 				});
 
 				fnSuccess([

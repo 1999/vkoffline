@@ -20,18 +20,18 @@
 (function () {
 	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
 		if (alarmInfo.name === "dayuse") {
-			statSend("Lifecycle", "Dayuse", "Total users", 1);
-			statSend("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
+			CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
+			CPA.sendEvent("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
 
 			var appInstallTime = StorageManager.get("app_install_time");
 			if (appInstallTime) {
 				var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
-				statSend("Lifecycle", "Dayuse", "App life time", totalDaysLive);
+				CPA.sendEvent("Lifecycle", "Dayuse", "App life time", totalDaysLive);
 			}
 
 			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
 			for (var url in requestsLog) {
-				statSend("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
+				CPA.sendEvent("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
 			}
 
 			StorageManager.remove("requests");
@@ -40,7 +40,7 @@
 		} else if (alarmInfo.name === "actualizeContacts") {
 			DatabaseManager.actualizeContacts().catch(function (errMsg) {
 				LogManager.error(errMsg);
-				statSend("Custom-Errors", "Database error", errMsg);
+				CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 			});
 		}
 	});
@@ -55,33 +55,6 @@ window.onerror = function(msg, url, line) {
 	}
 
 	LogManager.error(msgError);
-};
-
-// запись custom-статистики
-function statSend(category, action, optLabel, optValue) {
-	var args = [];
-
-	for (var i = 0, len = Math.min(arguments.length, 4); i < len; i++) {
-		if (i === 3) {
-			if (typeof optValue === "boolean") {
-				optValue = Number(optValue);
-			} else if (typeof optValue !== "number") {
-				optValue = parseInt(optValue, 10) || 0;
-			}
-
-			args.push(optValue);
-		} else {
-			if (typeof arguments[i] !== "string") {
-				args.push(JSON.stringify(arguments[i]));
-			} else {
-				args.push(arguments[i]);
-			}
-		}
-	}
-
-	try {
-		window._gaq.push(["_trackEvent"].concat(args));
-	} catch (e) {}
 };
 
 /**
@@ -166,28 +139,9 @@ document.addEventListener("DOMContentLoaded", function () {
 			MigrationManager.start(callback);
 		}
 	}, function readyToGo(err, results) {
-		// записываем дату установки
-		if (StorageManager.get("app_install_time") === null) {
-			StorageManager.set("app_install_time", Date.now());
-		}
-
-		ReqManager.init(statSend);
 		LogManager.config("App started");
 
-		chrome.alarms.get("dayuse", function (alarmInfo) {
-			if (!alarmInfo) {
-				chrome.alarms.create("dayuse", {
-					delayInMinutes: 24 * 60,
-					periodInMinutes: 24 * 60
-				});
-			}
-		});
-
-		var OAuthTabData = []; // массив открытых вкладок авторизации OAuth
-		var oAuthRequestData; // "new", "add", "update" (варианты получения токена ВКонтакте)
-
-		var updateTokenForUserId = null, // при обновлении токенов нужно запоминать для какого пользователя требовалось обновление
-			syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
+		var syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
 			uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...}
 
 		var clearSyncingDataCounters = function(userId) {
@@ -269,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								DatabaseManager.markMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
+										CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 									}
 								});
 							} else if (data[2] & 1) {
@@ -277,7 +231,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
 								}, function (errMsg) {
 									LogManager.error(errMsg);
-									statSend("Custom-Errors", "Database error", errMsg);
+									CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 								});
 							}
 
@@ -289,7 +243,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								DatabaseManager.unmarkMessageWithTag(data[1], "trash", _.noop, function (isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
+										CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 									}
 								});
 							} else if (data[2] & 8) {
@@ -297,7 +251,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								DatabaseManager.unmarkMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
+										CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 									}
 								});
 							} else if (data[2] & 1) {
@@ -305,7 +259,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
 								}, function (errMsg) {
 									LogManager.error(errMsg);
-									statSend("Custom-Errors", "Database error", errMsg);
+									CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 								});
 							}
 
@@ -584,14 +538,14 @@ document.addEventListener("DOMContentLoaded", function () {
 					icon: chrome.runtime.getURL("pic/smile.png"),
 					sound: "message",
 					onclick: function () {
-						statSend("App-Actions", "BD notification click");
+						CPA.sendEvent("App-Actions", "BD notification click");
 
 						// FIXME
 						// show app tab
 					}
 				});
 
-				statSend("App-Data", "Show BD notification");
+				CPA.sendEvent("App-Data", "Show BD notification");
 			});
 
 			ReqManager.apiMethod("friends.get", {fields: "first_name,last_name,sex,domain,bdate,photo,contacts"}, function (data) {
@@ -754,7 +708,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					var errMessage = err.name + ": " + err.message;
 
 					LogManager.error(errMessage);
-					statSend("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
+					CPA.sendEvent("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
 
 					reject(errMessage);
 				});
@@ -1009,7 +963,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				}
 			}, function (errMsg) {
 				LogManager.error(errMsg);
-				statSend("Critical-Errors", "Database init user", errMsg);
+				CPA.sendEvent("Critical-Errors", "Database init user", errMsg);
 			});
 		};
 
@@ -1082,15 +1036,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					switch (uiType) {
 						case "user" :
-							statSend("UI-Draw", "Users", AccountsManager.currentUserId);
+							CPA.sendAppView("Users");
+							CPA.sendEvent("UI-Draw", "Users", AccountsManager.currentUserId);
 							break;
 
 						case "syncing" :
-							statSend("UI-Draw", "Syncing", AccountsManager.currentUserId);
+							CPA.sendAppView("Syncing");
+							CPA.sendEvent("UI-Draw", "Syncing", AccountsManager.currentUserId);
 							break;
 
 						case "guest" :
-							statSend("UI-Draw", "Guests");
+							CPA.sendAppView("Guests");
+							CPA.sendEvent("UI-Draw", "Guests");
 							break;
 					}
 
@@ -1211,7 +1168,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 						if (isDatabaseError) {
 							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
+							CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 						}
 					});
 
@@ -1245,7 +1202,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				// TODO как-то формализировать
 				case "errorGot" :
-					statSend("Custom-Errors", request.error, request.message);
+					CPA.sendEvent("Custom-Errors", request.error, request.message);
 					break;
 
 				case "sendMessage" :
@@ -1284,12 +1241,12 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					ReqManager.apiMethod("messages.send", msgParams, function(data) {
-						statSend("App-Actions", "Sent Message", AccountsManager.currentUserId);
+						CPA.sendEvent("App-Actions", "Sent Message", AccountsManager.currentUserId);
 						SoundManager.play("sent");
 
 						sendResponse([0, data]);
 					}, function(errCode, errData) {
-						statSend("Custom-Errors", "Failed to send message", errCode);
+						CPA.sendEvent("Custom-Errors", "Failed to send message", errCode);
 						SoundManager.play("error");
 
 						switch (errCode) {
@@ -1406,7 +1363,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "addLike" :
-					statSend("App-Actions", "Like and repost");
+					CPA.sendEvent("App-Actions", "Like and repost");
 					sendAsyncResponse = true;
 
 					var sendLikeRequest = function() {
@@ -1519,7 +1476,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 							ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
 								if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 
 									sendResponse(null);
 									return;
@@ -1534,7 +1491,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									}
 								}
 
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}, function(errCode, errData) {
 								switch (errCode) {
 									case ReqManager.NO_INTERNET :
@@ -1554,7 +1511,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							ReqManager.apiMethod("docs.getById", {"docs" : requestData.ownerId + "_" + requestData.id}, function(data) {
 								var output = (data.response.length) ? data.response[0] : null;
 								if (output === null) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 								}
 
 								sendResponse(output);
@@ -1583,7 +1540,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					var sendRequest = function(msgId) {
 						ReqManager.apiMethod("messages.getById", {"mid" : msgId}, function(data) {
 							if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].geo === undefined) {
-								statSend("Custom-Errors", "Attachment info missing", request);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", request);
 
 								sendResponse(null);
 								return;
@@ -1614,7 +1571,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						ReqManager.apiMethod("audio.getById", {"audios" : requestData.ownerId + "_" + requestData.id}, function(data) {
 							var output = (data.response.length) ? data.response[0] : null;
 							if (output === null) {
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}
 
 							sendResponse(output);
@@ -1642,7 +1599,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						ReqManager.apiMethod("video.get", {"videos" : requestData.ownerId + "_" + requestData.id}, function(data) {
 							var output = (data.response instanceof Array && data.response.length === 2) ? data.response[1] : null;
 							if (output === null) {
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}
 
 							sendResponse(output);
@@ -1675,7 +1632,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 							ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
 								if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 
 									sendResponse(null);
 									return;
@@ -1690,7 +1647,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									}
 								}
 
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}, function(errCode, errData) {
 								switch (errCode) {
 									case ReqManager.NO_INTERNET :
@@ -1710,7 +1667,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							ReqManager.apiMethod("photos.getById", {"photos" : requestData.ownerId + "_" + requestData.id}, function(data) {
 								var output = (data.response.length) ? data.response[0] : null;
 								if (output === null) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 								}
 
 								sendResponse(output);
@@ -1740,7 +1697,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}, function (isDatabaseError, errMsg) {
 						if (isDatabaseError) {
 							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
+							CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 						}
 
 						sendResponse(false);
@@ -1755,7 +1712,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}, function(isDatabaseError, errMsg) {
 						if (isDatabaseError) {
 							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
+							CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 						}
 
 						sendResponse(false);
@@ -1788,7 +1745,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "serverRestoreMessage" :
-					statSend("App-Data", "Use restore messages");
+					CPA.sendEvent("App-Data", "Use restore messages");
 
 					var sendRestoreMessageRequest = function(msgId) {
 						ReqManager.apiMethod("messages.restore", {"mid" : msgId}, function(data) {
@@ -1855,7 +1812,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "speechChange" :
-					statSend("App-Actions", "Speech change", {
+					CPA.sendEvent("App-Actions", "Speech change", {
 						"chrome" : navigatorVersion,
 						"app" : App.VERSION,
 						"uid" : AccountsManager.currentUserId
@@ -1864,30 +1821,30 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "newsPostSeen" :
-					statSend("App-Data", "News seen", request.id);
+					CPA.sendEvent("App-Data", "News seen", request.id);
 					break;
 
 				case "newsLinkClicked" :
-					statSend("App-Actions", "News link clicked", [request.id, request.url]);
+					CPA.sendEvent("App-Actions", "News link clicked", [request.id, request.url]);
 					break;
 
 				case "newsAudioPlaying" :
-					statSend("App-Actions", "Audio playing", [request.id, request.owner_id, request.aid]);
+					CPA.sendEvent("App-Actions", "Audio playing", [request.id, request.owner_id, request.aid]);
 					break;
 
 				case "tourWatch" :
-					statSend("App-Data", "WP seen", request.step);
+					CPA.sendEvent("App-Data", "WP seen", request.step);
 					break;
 
 				case "useImportantTag" :
-					statSend("App-Data", "Use important tag", request.type);
+					CPA.sendEvent("App-Data", "Use important tag", request.type);
 					break;
 
 				case "getTagsFrequency" :
 					sendAsyncResponse = true;
 					DatabaseManager.getTagsCount(sendResponse, function (errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse({});
 					});
@@ -1898,7 +1855,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					sendAsyncResponse = true;
 					DatabaseManager.getMessagesByType(request.tag, request.totalShown || 0, sendResponse, function(errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse([[], 0]);
 					});
@@ -1923,7 +1880,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						}
 					}, function (errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse([[], 0, request.value]);
 					});
@@ -1938,7 +1895,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						sendResponse([correspondence, total, request.value]);
 					}, function(errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse([[], 0, request.value]);
 					});
@@ -2020,13 +1977,13 @@ document.addEventListener("DOMContentLoaded", function () {
 					sendReadMessageRequest(request.mid);
 					DatabaseManager.markAsRead(request.mid, null, function (errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 					});
 
 					break;
 
 				case "DNDhappened" :
-					statSend("App-Actions", "DND", request.num);
+					CPA.sendEvent("App-Actions", "DND", request.num);
 					break;
 			}
 
@@ -2044,6 +2001,52 @@ document.addEventListener("DOMContentLoaded", function () {
 
 (function () {
 	"use strict";
+
+	// install & update handling
+	chrome.runtime.onInstalled.addListener(function (details) {
+		var appName = chrome.runtime.getManifest().name;
+		var currentVersion = chrome.runtime.getManifest().version;
+
+		// FIXME
+		// change_notified
+
+		switch (details.reason) {
+			case "install":
+				CPA.changePermittedState(true);
+				CPA.sendEvent("Lifecycle", "Dayuse", "Install", 1);
+
+				// chrome.storage.local.set({"settings.changelog": seenChangelog});
+				// chrome.storage.sync.set({"settings.studyCloud": true});
+				break;
+
+			case "update":
+				// if (currentVersion !== details.previousVersion) {
+
+				// }
+
+				break;
+		}
+
+		chrome.alarms.get("dayuse", function (alarmInfo) {
+            if (!alarmInfo) {
+                chrome.alarms.create("dayuse", {
+                    delayInMinutes: 24 * 60,
+                    periodInMinutes: 24 * 60
+                });
+            }
+        });
+
+		var uninstallUrl = App.GOODBYE_PAGE_URL + "?ver=" + currentVersion;
+		if (typeof chrome.runtime.setUninstallURL === "function") {
+			chrome.runtime.setUninstallURL(uninstallUrl);
+		}
+
+		var installDateKey = "app_install_time";
+		chrome.storage.local.get(installDateKey, function (records) {
+			records[installDateKey] = records[installDateKey] || Date.now();
+			chrome.storage.local.set(records);
+		});
+	});
 
 	function openAppWindow(navigateState) {
 		chrome.app.window.create("main.html", {

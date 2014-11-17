@@ -6,6 +6,7 @@ var Auth = (function () {
 	 * @return {Promise}
 	 */
 	function initAuthWebview() { // new, add, update (uid)
+		// FIXME webview width/height
 		return new Promise(function (resolve, reject) {
 			var oauthRedirectURI = "https://oauth.vk.com/blank.html";
 			var webview = document.createElement("webview");

@@ -14,8 +14,13 @@
 				"bower_components/lodash/dist/lodash.min.js",
 				"bower_components/vow/vow.min.js",
 				"bower_components/sklad/sklad.js",
+
 				"js/app.js",
 				"js/utils.js",
+
+				"bower_components/cpa/google-analytics-bundle.js",
+				"js/cpa.js",
+
 				"js/soundManager.js",
 				"js/storageManager.js",
 				"js/accountsManager.js",
@@ -25,8 +30,7 @@
 				"js/cacheManager.js",
 				"js/reqManager.js",
 				"js/migrationManager.js",
-				"js/backend.js",
-				"js/counter.js"
+				"js/backend.js"
 			]
 		}
 	},

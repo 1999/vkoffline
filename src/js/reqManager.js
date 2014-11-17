@@ -16,7 +16,6 @@ var ReqManager = (function () {
 	var timeoutIds = {};
 	var xhrs = {};
 	var boundCallbacks = null;
-	var statSendFn = null;
 
 	function notifyTokenStatus() {
 		return _.debounce(function () {
@@ -140,7 +139,7 @@ var ReqManager = (function () {
 		try {
 			res = JSON.parse(xhr.responseText.replace(/[\x00-\x1f]/, ""));
 		} catch (e) {
-			statSendFn("Custom-Errors", "Exception error", e.message);
+			CPA.sendEvent("Custom-Errors", "Exception error", e.message);
 			LogManager.error("[" + xhrId + "] Not a JSON response: " + xhr.responseText + "");
 
 			if (typeof callbacksOnFail[xhrId] === "function") {
@@ -166,7 +165,7 @@ var ReqManager = (function () {
 			});
 
 			// уведомляем в GA
-			statSendFn("Custom-Errors", "Request error", {
+			CPA.sendEvent("Custom-Errors", "Request error", {
 				"method" : errMethod,
 				"code" : res.error.error_code
 			});
@@ -241,13 +240,6 @@ var ReqManager = (function () {
 
 
 	return {
-		/**
-		 * @param {Function} statSend функция для отправки статистики
-		 */
-		init: function(statSend) {
-			statSendFn = statSend;
-		},
-
 		apiMethod: function(method, params, fnSuccess, fnFail) {
 			var performParams = {
 				method: "POST",

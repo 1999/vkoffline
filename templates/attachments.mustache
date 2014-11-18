@@ -27,7 +27,9 @@
 	{{/doc}}
 
 	{{#geopoint}}
-		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment geopoint{{#nopoint}} hidden{{/nopoint}}" id="{{id}}"></section>
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment geopoint{{#nopoint}} hidden{{/nopoint}}" id="{{id}}">
+			<img is="external-image"/>
+		</section>
 	{{/geopoint}}
 
 	{{#link}}

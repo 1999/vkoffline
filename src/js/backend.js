@@ -386,7 +386,6 @@ document.addEventListener("DOMContentLoaded", function () {
 				this.init(currentUserId);
 
 				if (AccountsManager.currentUserId === currentUserId) {
-					console.log('on error', errorCode, errorData)
 					mailSync(currentUserId, "inbox");
 					mailSync(currentUserId, "sent");
 				}

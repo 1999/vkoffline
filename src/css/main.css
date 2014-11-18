@@ -1232,12 +1232,6 @@ section.attachment span.description {
 	line-height: 20px;
 }
 
-section.attachment.geopoint {
-	height: 360px;
-	background: url(../pic/loading.gif) 50% 50% no-repeat;
-}
-
-
 /* поиск контакта */
 #content > section.search-contacts-container {}
 

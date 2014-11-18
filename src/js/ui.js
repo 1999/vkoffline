@@ -288,7 +288,7 @@ document.addEventListener("click", function (e) {
 							return;
 
 						target.removeClass("hidden");
-						self._drawGeoPointAsync(target.id, pointInfo[0], pointInfo[1]);
+						self._drawGeoPoint(target.id, pointInfo[0], pointInfo[1]);
 
 						target.scrollIntoView();
 					});
@@ -2877,7 +2877,7 @@ var AppUI = {
 						case "geopoint":
 							// на этом этапе HTML еще не существует
 							Utils.async.nextTick(function () {
-								self._drawGeoPointAsync(id, data.lat, data.lng);
+								self._drawGeoPoint(id, data.lat, data.lng);
 							});
 
 							break;
@@ -2985,7 +2985,7 @@ var AppUI = {
 								return;
 
 							var attachmentArea = $("#" + id).removeClass("hidden");
-							self._drawGeoPointAsync(id, pointInfo[0], pointInfo[1]);
+							self._drawGeoPoint(id, pointInfo[0], pointInfo[1]);
 						});
 
 						break;
@@ -3065,42 +3065,24 @@ var AppUI = {
 	 * @param {Float} lat
 	 * @param {Float} lng
 	 */
-	_drawGeoPointAsync: function (domElemId, lat, lng) {
-		var onYMapsReady = function() {
-			ymaps.ready(function () {
-				var map = new ymaps.Map(domElemId, {
-					center: [lat, lng],
-					zoom: 12
-				});
+	_drawGeoPoint: function (domElemId, lat, lng) {
+		var domElem = document.getElementById(domElemId);
+		var imgElem = domElem.querySelector("img");
+		var availableWidth = domElem.offsetWidth;
+		var height = Math.round(availableWidth * 2 / 3);
 
-				map.controls.add('mapTools');
-				map.controls.add('typeSelector');
-				map.controls.add('zoomControl');
-
-				var point = new ymaps.GeoObject({
-					geometry: {
-						type: "Point",
-						coordinates: [lat, lng]
-					}
-				});
-
-				map.geoObjects.add(point);
-			});
-		};
-
-		if (typeof ymaps === "undefined") {
-			// можно грузить ЯК для других локалей, но не всегда есть сами карты для не RU-локали
-			// var uiLocale = chrome.i18n.getMessage("@@ui_locale").split("_")[0];
-			var ymapsLibSrc = "https://api-maps.yandex.ru/2.0-stable/?load=package.standard,package.geoObjects&lang=ru-RU";
-
-			var ymapsLib = document.createElement("script");
-			ymapsLib.setAttribute("src", ymapsLibSrc);
-			ymapsLib.onload = onYMapsReady;
-
-			$("head").append(ymapsLib);
-		} else {
-			onYMapsReady();
-		}
+		imgElem.attr({
+			width: availableWidth,
+			height: height,
+			src: [
+				"https://maps.googleapis.com/maps/api/staticmap?center=" + lat + "," + lng,
+				"zoom=14",
+				"size=" + availableWidth + "x" + height,
+				"maptype=roadmap",
+				"sensor=false",
+				"markers=color:blue%7Clabel:S%7C" + lat + "," + lng
+			].join("&")
+		});
 	},
 
 	/**

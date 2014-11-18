@@ -389,6 +389,27 @@ var Utils = {
 		});
 	}
 
+	function processExternalImage() {
+		var that = this;
+		var imageSource = this.getAttribute("src") || "";
+
+		if (!imageSource) {
+			return;
+		}
+
+		this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+		this.dataset.originalSrc = imageSource;
+		this.classList.add("loading");
+
+		// download image
+		fetchImage(imageSource).then(function (blob) {
+			var uri = URL.createObjectURL(blob);
+			that.setAttribute("src", uri);
+
+			that.classList.remove("loading");
+		});
+	}
+
 	exports.uuid = function uuid() {
 		return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
 			var r = Math.random() * 16 | 0;
@@ -419,20 +440,18 @@ var Utils = {
 	document.registerElement("external-image", {
 		extends: "img",
 		prototype: _.create(HTMLImageElement.prototype, {
-			createdCallback: function () {
-				var that = this;
-				var imageSource = this.getAttribute("src");
+			createdCallback: processExternalImage,
 
-				this.setAttribute("src", BLANK_TRANSPARENT_IMG);
-				this.classList.add("loading");
+			attributeChangedCallback: function (attrName, oldVal, newVal) {
+				if (attrName !== "src") {
+					return;
+				}
 
-				// download image
-				fetchImage(imageSource).then(function (blob) {
-					var uri = URL.createObjectURL(blob);
-					that.setAttribute("src", uri);
+				if (newVal.indexOf("http") !== 0) {
+					return;
+				}
 
-					that.classList.remove("loading");
-				});
+				processExternalImage.call(this);
 			},
 
 			detachedCallback: function () {

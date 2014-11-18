@@ -182,21 +182,15 @@ document.addEventListener("click", function (e) {
 					var imgElem = $(target, "img");
 
 					if (requestData.length === 2) {
-						var image = new Image();
-						image.onload = function () {
-							target.removeClass("hidden");
+						target.removeClass("hidden");
 
-							var imgAspect = image.width / image.height;
-							var imgWidth = Math.min(availableWidth, image.width);
+						var imgAspect = imgElem.width / imgElem.height;
+						var imgWidth = Math.min(availableWidth, imgElem.width);
 
-							imgElem.attr({
-								width: imgWidth,
-								height: imgWidth / imgAspect,
-								src: requestData[1]
-							});
-						};
-
-						image.src = requestData[1];
+						imgElem.attr({
+							width: imgWidth,
+							height: imgWidth / imgAspect
+						});
 					} else {
 						chrome.runtime.sendMessage({
 							action: "getPhotoById",
@@ -213,6 +207,7 @@ document.addEventListener("click", function (e) {
 							var imgWidth = Math.min(availableWidth, photoInfo.width);
 
 							imgElem.attr({
+								is: "external-image",
 								width: imgWidth,
 								height: imgWidth / imgAspect,
 								src: Utils.misc.searchBiggestImage(photoInfo)
@@ -2674,8 +2669,6 @@ var AppUI = {
 		var self = this;
 		var isInbox = (msgData.tags.indexOf("inbox") !== -1);
 		var unread = forceShowUnread || (msgData.status === 0 && isInbox);
-
-		var attachments = [];
 		var msgObj;
 
 		msgData.body = Utils.string.replaceLinks(msgData.body);
@@ -2726,10 +2719,13 @@ var AppUI = {
 						break;
 
 					case "photo":
+						var biggestPhoto = Utils.misc.searchBiggestImage(attachmentInfo.photo);
+
 						tplData.photo = true;
 						tplData.id = id;
 						tplData.noimage = true;
-						tplData.info = JSON.stringify(["photo", Utils.misc.searchBiggestImage(attachmentInfo.photo)]);
+						tplData.info = JSON.stringify(["photo", biggestPhoto]);
+						tplData.src = biggestPhoto;
 						break;
 
 					case "doc":

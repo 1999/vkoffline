@@ -2593,8 +2593,6 @@ var AppUI = {
 		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
 		var uid = isInboxMsg ? msgData.uid : Account.currentUserId;
 
-		// FIXME: avatarSrc should be contact real photo URL
-
 		var contactFio = msgData.first_name + " " + msgData.last_name;
 		if (!isInboxMsg)
 			contactFio = chrome.i18n.getMessage("recepientTo") + contactFio;
@@ -2614,7 +2612,7 @@ var AppUI = {
 		var output = {
 			is_new: (msgData.tags.indexOf("inbox") !== -1 && msgData.status === 0),
 			mid: msgData.mid,
-			avatarSrc: avatarSrc,
+			avatarSrc: msgData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
 			uid: uid,
 			humanDate: Utils.string.humanDate(msgData.date),
 			fio: contactFio,
@@ -2698,16 +2696,7 @@ var AppUI = {
 			attachments: []
 		};
 
-		try {
-			msgData.attachments = JSON.parse(msgData.attachments);
-		} catch (e) {
-			msgData.attachments = [];
-		}
-
-		if (!(msgData.attachments instanceof Array) || !msgData.attachments.length)
-			return output;
-
-		msgData.attachments.forEach(function (attachmentInfo) {
+		(msgData.attachments || []).forEach(function (attachmentInfo) {
 			var type = (attachmentInfo instanceof Array) ? attachmentInfo[0] : attachmentInfo.type;
 			var id = "att_" + Math.random().toString().substr(2);
 			var tplData = {};
@@ -2802,18 +2791,11 @@ var AppUI = {
 			msgTplData.startTyping = chrome.i18n.getMessage("startTypingMessage");
 			msgTplData.important = (!isTrashFolderContents && msgInfo.tags.indexOf("important") !== -1);
 			msgTplData.importantText = chrome.i18n.getMessage("importantMessage");
-			msgTplData.attachments = [];
 
 			if (id.length)
 				msgTplData.id = id;
 
 			// преобразуем вложения
-			try {
-				msgInfo.attachments = JSON.parse(msgInfo.attachments);
-			} catch (e) {
-				msgInfo.attachments = [];
-			}
-
 			(msgInfo.attachments || []).forEach(function (attachmentData) {
 				var id = "rnd_" + Math.random().toString().substr(2);
 				var attachmentType = (attachmentData instanceof Array) ? attachmentData[0] : attachmentData.type;

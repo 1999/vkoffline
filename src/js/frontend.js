@@ -38,7 +38,6 @@ document.addEventListener("DOMContentLoaded", function () {
 	var CacheManager = backend.CacheManager;
 
 	chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-		console.log(request, sender);
 		var sendAsyncResponse = false;
 
 		switch (request.action) {

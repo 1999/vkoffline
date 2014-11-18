@@ -858,14 +858,31 @@ var DatabaseManager = {
 	},
 
 	/**
-	 * @param {Integer} mid
+	 * @param {Number} mid
 	 * @param {Function} fnSuccess принимает параметр {Object}
 	 * @param {Function} fnFail принимает параметры {Boolean} isDatabaseError и {String} errorMessage
 	 */
 	getMessageById: function DatabaseManager_getMessageById(mid, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._conn[userId].get("messages", {
+		function getContactPhoto(uid) {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(uid)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else if (!records.length) {
+						resolve(null);
+					} else {
+						resolve(records[0].value.photo);
+					}
+				});
+			});
+		}
+
+		conn.get("messages", {
 			range: IDBKeyRange.only(mid)
 		}, function (err, records) {
 			if (err) {
@@ -878,7 +895,13 @@ var DatabaseManager = {
 				return;
 			}
 
-			fnSuccess(records[0].value);
+			var msg = records[0].value;
+			getContactPhoto().then(function (photo) {
+				msg.avatar = photo;
+				fnSuccess(msg);
+			}, function (err) {
+				fnFail(true, err.name + ": " + err.message);
+			});
 		});
 	},
 
@@ -999,7 +1022,7 @@ var DatabaseManager = {
 				date: message.date,
 				read: Boolean(message.read_state),
 				chat: chatId,
-				attachments: validateJSONString(message.attachments, Array),
+				attachments: Array.isArray(message.attachments) ? message.attachments : [],
 				tags: message.tags,
 				has_emoji: Boolean(message.emoji),
 				fulltext: getMessageFulltext(message.body)
@@ -1408,9 +1431,43 @@ var DatabaseManager = {
 	},
 
 	/**
+	 * Получение всех сообщений с вложениями, полученных с ошибками в версии 4.11
+	 * @return {Promise}
+	 */
+	getMessagesWithFalsyAttachments: function DatabaseManager_getMessagesWithFalsyAttachments() {
+		var userId = this._userId;
+		var conn = this._conn[userId];
+
+		return new Promise(function (resolve, reject) {
+			conn.get("messages", {
+				index: "tag",
+				range: IDBKeyRange.only("attachments")
+			}, function (err, records) {
+				console.log(records.length);
+				if (err) {
+					reject(err.name + ": " + err.message);
+				} else {
+					var output = [];
+
+					records.forEach(function (record) {
+						if (record.value.attachments.length) {
+							return;
+						}
+
+						output.push(record.value.mid);
+					});
+
+					resolve(output);
+				}
+			});
+		});
+	},
+
+	/**
 	 * Получение сообщений определенного типа
+	 *
 	 * @param {String} tag
-	 * @param {Integer} startFrom
+	 * @param {Number} startFrom
 	 * @param {Function} fnSuccess принимает {Array} [{Array} сообщения, {Integer} total]
 	 * @oaram {Function} fnFail принимает {String} errorMessage
 	 */
@@ -1441,8 +1498,10 @@ var DatabaseManager = {
 					if (err) {
 						reject(err);
 					} else {
+						// FIXME: WTF
 						message.first_name = records.length ? records[0].value.first_name : "Not";
 						message.last_name = records.length ? records[0].value.last_name : "Found";
+						message.avatar = records.length ? records[0].value.photo : null;
 
 						resolve();
 					}
@@ -1624,6 +1683,7 @@ var DatabaseManager = {
 					} else {
 						record.first_name = records[0].value.first_name;
 						record.last_name = records[0].value.last_name;
+						record.avatar = records[0].value.photo;
 
 						resolve();
 					}

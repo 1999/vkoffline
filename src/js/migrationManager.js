@@ -1,24 +1,26 @@
-/* ==========================================================
- * Migration Manager (VK Offline Chrome app)
- * https://github.com/1999/vkoffline
- * ==========================================================
- * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ========================================================== */
+var MigrationManager = (function () {
+	"use strict";
 
-var MigrationManager = {
-	start: function MigrationManager_start(callback) {
-		callback();
-	}
-};
+	var CHANGELOG_KEY = "changelog_notified";
+
+	// FIXME: migration scripts
+	// which run from previousVersion to current
+
+	return {
+		start: function MigrationManager_start(currentVersion) {
+			StorageManager.load().then(function () {
+				var appVersionsHistory = StorageManager.get(CHANGELOG_KEY, {constructor: Array, strict: true, create: true});
+				if (appVersionsHistory.indexOf(currentVersion) === -1) {
+					appVersionsHistory.push(currentVersion);
+					StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
+				}
+
+				if (currentVersion === "5.0" && appVersionsHistory.length > 1) {
+					// FIXME: initUser?
+					// FIXME: all users?
+					// DatabaseManager.getMessagesWithFalsyAttachments
+				}
+			});
+		}
+	};
+})();

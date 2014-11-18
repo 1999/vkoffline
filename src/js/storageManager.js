@@ -18,12 +18,14 @@
  * ========================================================== */
 
 var StorageManager = {
-	load: function StorageManager_load(callback) {
+	load: function StorageManager_load() {
 		var that = this;
 
-		chrome.storage.local.get(null, function (records) {
-			that._data = records;
-			callback();
+		return new Promise(function (resolve) {
+			chrome.storage.local.get(null, function (records) {
+				that._data = records;
+				resolve();
+			});
 		});
 	},
 

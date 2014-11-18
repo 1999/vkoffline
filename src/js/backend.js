@@ -130,13 +130,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	Utils.async.parallel({
 		storage: function (callback) {
-			StorageManager.load(callback);
+			StorageManager.load().then(callback);
 		},
 		db: function (callback) {
 			DatabaseManager.initMeta(callback);
-		},
-		migration: function (callback) {
-			MigrationManager.start(callback);
 		}
 	}, function readyToGo(err, results) {
 		LogManager.config("App started");
@@ -2007,22 +2004,18 @@ document.addEventListener("DOMContentLoaded", function () {
 		var appName = chrome.runtime.getManifest().name;
 		var currentVersion = chrome.runtime.getManifest().version;
 
-		// FIXME
-		// change_notified
-
 		switch (details.reason) {
 			case "install":
 				CPA.changePermittedState(true);
 				CPA.sendEvent("Lifecycle", "Dayuse", "Install", 1);
 
-				// chrome.storage.local.set({"settings.changelog": seenChangelog});
-				// chrome.storage.sync.set({"settings.studyCloud": true});
+				MigrationManager.start(currentVersion);
 				break;
 
 			case "update":
-				// if (currentVersion !== details.previousVersion) {
-
-				// }
+				if (currentVersion !== details.previousVersion) {
+					MigrationManager.start(currentVersion);
+				}
 
 				break;
 		}

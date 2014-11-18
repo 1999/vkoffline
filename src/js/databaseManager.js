@@ -896,7 +896,7 @@ var DatabaseManager = {
 			}
 
 			var msg = records[0].value;
-			getContactPhoto().then(function (photo) {
+			getContactPhoto(msg.uid).then(function (photo) {
 				msg.avatar = photo;
 				fnSuccess(msg);
 			}, function (err) {

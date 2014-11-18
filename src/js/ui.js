@@ -248,7 +248,7 @@ document.addEventListener("click", function (e) {
 						target.removeClass("hidden");
 						var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
 
-						$(target, "iframe").attr("src", videoInfo.player);
+						$(target, "webview").attr("src", videoInfo.player);
 						$(target, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
 					});
 
@@ -1581,7 +1581,7 @@ var AppUI = {
 								var attachmentArea = $("#" + id).removeClass("hidden");
 								var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
 
-								$(attachmentArea, "iframe").attr("src", videoInfo.player);
+								$(attachmentArea, "webview").attr("src", videoInfo.player);
 								$(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
 							});
 
@@ -2787,6 +2787,7 @@ var AppUI = {
 			msgTplData.startTyping = chrome.i18n.getMessage("startTypingMessage");
 			msgTplData.important = (!isTrashFolderContents && msgInfo.tags.indexOf("important") !== -1);
 			msgTplData.importantText = chrome.i18n.getMessage("importantMessage");
+			msgTplData.attachments = [];
 
 			if (id.length)
 				msgTplData.id = id;
@@ -2944,7 +2945,7 @@ var AppUI = {
 							var attachmentArea = $("#" + id).removeClass("hidden");
 							var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
 
-							$(attachmentArea, "iframe").attr("src", videoInfo.player);
+							$(attachmentArea, "webview").attr("src", videoInfo.player);
 							$(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
 						});
 

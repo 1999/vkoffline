@@ -268,13 +268,14 @@ document.addEventListener("click", function (e) {
 						var regex = new RegExp(fileInfo.ext + "$");
 						var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
 
-						$(target, "a").attr({
-							href: fileInfo.url,
-							download: fileName
-						}).text(fileInfo.title);
+						var attachLink = target.querySelector("a");
+						attachLink.setAttribute("href", fileInfo.url);
+						attachLink.setAttribute("download", fileName);
+						attachLink.innerHTML = fileInfo.title;
 
 						var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-						$(target, "span.description").text(descriptionText);
+						var attachDescription = target.querySelector("span.description");
+						attachDescription.innerHTML = descriptionText;
 					});
 
 					break;
@@ -2701,6 +2702,10 @@ var AppUI = {
 
 				if (type === "photo") {
 					tplData.noimage = true;
+				} else if (type === "geopoint") {
+					tplData.nopoint = true;
+				} else if (type === "doc") {
+					tplData.nolink = true;
 				}
 			} else { // mailSync
 				switch (attachmentInfo.type) {

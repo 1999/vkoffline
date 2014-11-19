@@ -1050,9 +1050,10 @@ window.onerror = function(msg, url, line) {
 					sendAsyncResponse = true;
 					sendResponse(true);
 
-					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
-						inboxSynced, sentSynced, friendsSynced,
-						wallTokenUpdated;
+					var uiType;
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
+					var inboxSynced, sentSynced, friendsSynced;
+					var wallTokenUpdated;
 
 					if (AccountsManager.currentUserId) {
 						inboxSynced = (StorageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);

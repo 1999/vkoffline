@@ -2587,7 +2587,7 @@ var AppUI = {
 	_prepareHalfSection: function (msgData, searchTerm) {
 		var self = this;
 		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
-		var uid = isInboxMsg ? msgData.uid : Account.currentUserId;
+		var uid = msgData.uid ; //isInboxMsg ? msgData.uid : Account.currentUserId;
 
 		var contactFio = msgData.first_name + " " + msgData.last_name;
 		if (!isInboxMsg)

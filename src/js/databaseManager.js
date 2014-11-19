@@ -1430,7 +1430,6 @@ var DatabaseManager = {
 				index: "tag",
 				range: IDBKeyRange.only("attachments")
 			}, function (err, records) {
-				console.log(records.length);
 				if (err) {
 					reject(err.name + ": " + err.message);
 				} else {

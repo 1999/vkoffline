@@ -735,6 +735,8 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function getContactById(id) {
+			id = Number(id);
+
 			return new vow.Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(id)
@@ -797,6 +799,9 @@ var DatabaseManager = {
 			var promises = {};
 			var output = [];
 
+			// get current user info
+			promises[userId] = getContactById(userId);
+
 			messages.forEach(function (record) {
 				output.push({
 					mid: record.value.mid,
@@ -816,6 +821,7 @@ var DatabaseManager = {
 			});
 
 			vow.all(promises).then(function (res) {
+				var currentUserPhoto = res[userId] ? res[userId].photo : null;
 				output.forEach(function (message) {
 					if (!res[message.uid]) {
 						return;
@@ -823,7 +829,7 @@ var DatabaseManager = {
 
 					message.first_name = res[message.uid].first_name;
 					message.last_name = res[message.uid].last_name;
-					message.photo = res[message.uid].photo;
+					message.photo = (message.tags.indexOf("sent") === -1) ? res[message.uid].photo : currentUserPhoto;
 				});
 
 				fnSuccess([

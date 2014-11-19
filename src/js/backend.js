@@ -1025,12 +1025,35 @@ window.onerror = function(msg, url, line) {
 					break;
 
 				case "getAccountsList":
+					sendAsyncResponse = true;
+
 					var accounts = {};
+					var promises = [];
+
+					var assignAvatar = function (account, uid) {
+						return new Promise(function (resolve, reject) {
+							DatabaseManager.getContactById(AccountsManager.currentUserId, uid, function (contactData) {
+								account.avatar = contactData.photo;
+								resolve();
+							}, function (err) {
+								if (errMsg) {
+									LogManager.error(errMsg);
+								}
+
+								resolve();
+							});
+						})
+					}
+
 					_.forIn(AccountsManager.list, function (value, key) {
 						accounts[key] = value;
+						promises.push(assignAvatar(value, key));
 					});
 
-					sendResponse(accounts);
+					Promise.all(promises).then(function () {
+						sendResponse(accounts);
+					});
+
 					break;
 
 				case "saveSettings":

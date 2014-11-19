@@ -1438,21 +1438,17 @@ var AppUI = {
 			notificationsRange.dispatchEvent(evt);
 
 			// заполняем список аккаунтов
-
 			chrome.runtime.sendMessage({action: "getAccountsList"}, function (accounts) {
 				var usersTplData = [];
 
 				_.forIn(accounts, function (userData, uid) {
-					// подготовка аватарки
-					// FIXME: avatarSrc should real photo
-					var avatarSrc = "pic/question_th.gif";
 					var switchAccountText = (uid == Account.currentUserId)
 						? chrome.i18n.getMessage("currentActiveAccount")
 						: chrome.i18n.getMessage("switchToAnotherAccount");
 
 					usersTplData.push({
 						id: uid,
-						avatarSrc: avatarSrc,
+						avatarSrc: userData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
 						deleteAccountText: chrome.i18n.getMessage("deleteAccount"),
 						updateTokenText: chrome.i18n.getMessage("updateAccountToken"),
 						switchAccountText: switchAccountText,
@@ -2374,12 +2370,9 @@ var AppUI = {
 
 				_.forIn(accounts, function (userData, uid) {
 					var accountData = {
-						avatarSrc: "pic/question_th.gif",
+						avatarSrc: userData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
 						uid: uid
 					};
-
-					// FIXME: avatarSrc should be real photo
-					accountData.avatarSrc = "pic/question_th.gif";
 
 					// текущий пользователь должен быть последним в списке
 					var methodToInsert = (uid == Account.currentUserId) ? "push" : "unshift";

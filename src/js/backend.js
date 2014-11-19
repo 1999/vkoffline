@@ -1024,6 +1024,79 @@ window.onerror = function(msg, url, line) {
 
 					break;
 
+				case "addAnotherAccount":
+					var newUserGranted = (AccountsManager.list[request.uid] === undefined);
+					if (!newUserGranted) {
+						AccountsManager.setData(request.uid, request.token);
+
+						// уведомляем об ошибке
+						chrome.runtime.sendMessage({
+							action: "tokenUpdatedInsteadOfAccountAdd",
+							uid: request.uid,
+							fio: AccountsManager.list[request.uid].fio
+						});
+
+						return;
+					}
+
+					statSend("App-Actions", "2+ account added");
+
+					AccountsManager.setData(request.uid, request.token, "...");
+					AccountsManager.currentUserId = request.uid;
+
+					var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+					wallTokenUpdated[AccountsManager.currentUserId] = 1;
+					StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+					startUserSession(function () {
+						chrome.runtime.sendMessage({
+							action: "ui",
+							which: "syncing"
+						});
+					});
+
+					break;
+
+				case "updateExistingToken":
+					var neededUserTokenUpdated = (request.neededUid === request.uid);
+					var newUserGranted = true;
+
+					for (var listUserId in AccountsManager.list) {
+						if (listUserId === request.uid) {
+							newUserGranted = false;
+							break;
+						}
+					}
+
+					if (newUserGranted) {
+						// уведомляем об ошибке
+						chrome.runtime.sendMessage({
+							action: "tokenAddedInsteadOfUpdate",
+							uid: request.uid,
+							token: request.token
+						});
+
+						return;
+					}
+
+					AccountsManager.setData(request.uid, request.token);
+
+					if (neededUserTokenUpdated) {
+						statSend("App-Actions", "Account token updated");
+
+						chrome.runtime.sendMessage({
+							action: "tokenUpdated"
+						});
+					} else {
+						chrome.runtime.sendMessage({
+							action: "tokenUpdatedForWrongUser",
+							uid: request.uid,
+							fio: AccountsManager.list[request.uid].fio
+						});
+					}
+
+					break;
+
 				case "getAccountsList":
 					sendAsyncResponse = true;
 

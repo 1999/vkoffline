@@ -1291,12 +1291,7 @@ var AppUI = {
 			// добавление аккаунта
 			addAccountIcon.bind("click", function () {
 				$$(leftSection, "section.result").remove();
-
-				// FIXME: probably this should be deleted
-				chrome.runtime.sendMessage({
-					action: "getOAuthToken",
-					type: "add"
-				});
+				Auth.addNewAccount();
 			});
 
 			var optionsData = {
@@ -1471,14 +1466,8 @@ var AppUI = {
 				$$(leftSection, "span.update").bind("click", function () {
 					$$(leftSection, "section.result").remove();
 
-					var uid = this.closestParent("section[data-uid]").data("uid");
-
-					// FIXME: probably this should be deleted
-					chrome.runtime.sendMessage({
-						action: "getOAuthToken",
-						type: "update",
-						uid: uid
-					});
+					var uid = Number(this.closestParent("section[data-uid]").data("uid"));
+					Auth.updateExistingToken(uid);
 				});
 
 				$$(leftSection, "span.delete").bind("click", function () {

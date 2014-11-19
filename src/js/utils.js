@@ -383,6 +383,18 @@ var Utils = {
 		return new Promise(function (resolve, reject) {
 			requestFileSystem().then(function (fsLink) {
 				fsLink.root.getFile(uid + "_th.jpg", {create: false}, function (fileEntry) {
+					// check if file was created more than 1d ago
+					fileEntry.file(function (fileBlob) {
+						var dayBeforeNow = new Date;
+						dayBeforeNow.setDate(dayBeforeNow.getDate() - 1);
+
+						if (fileBlob.lastModifiedDate > dayBeforeNow) {
+							resolve(fileEntry);
+						} else {
+							reject();
+						}
+					}, reject);
+
 					resolve(fileEntry);
 				}, reject);
 			}, reject);
@@ -486,12 +498,18 @@ var Utils = {
 				var uid = Number(this.dataset.uid);
 
 				this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+				this.dataset.originalSrc = imageSource;
 				this.classList.add("loading");
 
 				getContactStoredPhoto(uid).then(function (fileEntry) {
 					that.setAttribute("src", fileEntry.toURL());
 					that.classList.remove("loading");
 				}, function () {
+					if (imageSource.indexOf("http") !== 0) {
+						that.setAttribute("src", imageSource);
+						return;
+					}
+
 					Promise.all([
 						fetchImage(imageSource),
 						requestFileSystem()

@@ -1,89 +1,14 @@
-/* ==========================================================
- * Background page (VK Offline Chrome app)
- * https://github.com/1999/vkoffline
- * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ========================================================== */
-
-(function () {
-	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
-		if (alarmInfo.name === "dayuse") {
-			CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
-			CPA.sendEvent("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
-
-			var appInstallTime = StorageManager.get("app_install_time");
-			if (appInstallTime) {
-				var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
-				CPA.sendEvent("Lifecycle", "Dayuse", "App life time", totalDaysLive);
-			}
-
-			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
-			for (var url in requestsLog) {
-				CPA.sendEvent("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
-			}
-
-			StorageManager.remove("requests");
-		} else if (alarmInfo.name === "actualizeChats") {
-			DatabaseManager.actualizeChatDates();
-		} else if (alarmInfo.name === "actualizeContacts") {
-			DatabaseManager.actualizeContacts().catch(function (errMsg) {
-				LogManager.error(errMsg);
-				CPA.sendEvent("Custom-Errors", "Database error", errMsg);
-			});
-		}
-	});
-})();
-
-
 window.onerror = function(msg, url, line) {
 	var msgError = msg + ' in ' + url + ' (line: ' + line + ')';
 
-	if (App.DEBUG) {
-		console.error(msgError);
-	}
-
+	console.error(msgError);
 	LogManager.error(msgError);
 };
 
-/**
- * Flatten settings by getting their values in this moment
- * @return {Object}
- */
-function getFlatSettings() {
-	var flatSettings = {};
-	_.forIn(SettingsManager, function (value, key) {
-		flatSettings[key] = value;
-	});
+(function () {
+	"use strict";
 
-	return flatSettings;
-}
-
-document.addEventListener("DOMContentLoaded", function () {
 	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
-
-	// notification click handlers
-	var notificationHandlers = {};
-	chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
-		if (!notificationHandlers[notificationId])
-			return;
-
-		chrome.notifications.clear(notificationId, _.noop);
-		notificationHandlers[notificationId]();
-
-		delete notificationHandlers[notificationId];
-	});
 
 	/**
 	 * Показать chrome.notification
@@ -98,7 +23,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	 * @param {Function} [data.onclick]
 	 */
 	function showChromeNotification(data) {
-		// Linux? Didn't hear
+		// Linux check
 		// @see https://developer.chrome.com/extensions/notifications
 		if (!chrome.notifications)
 			return;
@@ -128,14 +53,127 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 	}
 
-	Utils.async.parallel({
-		storage: function (callback) {
-			StorageManager.load().then(callback);
-		},
-		db: function (callback) {
-			DatabaseManager.initMeta(callback);
+	/**
+	 * Flatten settings by getting their values in this moment
+	 * @return {Object}
+	 */
+	function getFlatSettings() {
+		var flatSettings = {};
+		_.forIn(SettingsManager, function (value, key) {
+			flatSettings[key] = value;
+		});
+
+		return flatSettings;
+	}
+
+	// notification click handlers
+	var notificationHandlers = {};
+	chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
+		if (!notificationHandlers[notificationId])
+			return;
+
+		chrome.notifications.clear(notificationId, _.noop);
+		notificationHandlers[notificationId]();
+
+		delete notificationHandlers[notificationId];
+	});
+
+	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
+		if (alarmInfo.name === "dayuse") {
+			CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
+			CPA.sendEvent("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
+
+			var appInstallTime = StorageManager.get("app_install_time");
+			if (appInstallTime) {
+				var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
+				CPA.sendEvent("Lifecycle", "Dayuse", "App life time", totalDaysLive);
+			}
+
+			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
+			for (var url in requestsLog) {
+				CPA.sendEvent("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
+			}
+
+			StorageManager.remove("requests");
+		} else if (alarmInfo.name === "actualizeChats") {
+			DatabaseManager.actualizeChatDates();
+		} else if (alarmInfo.name === "actualizeContacts") {
+			DatabaseManager.actualizeContacts().catch(function (errMsg) {
+				LogManager.error(errMsg);
+				CPA.sendEvent("Custom-Errors", "Database error", errMsg);
+			});
 		}
-	}, function readyToGo(err, results) {
+	});
+
+	// install & update handling
+	chrome.runtime.onInstalled.addListener(function (details) {
+		var appName = chrome.runtime.getManifest().name;
+		var currentVersion = chrome.runtime.getManifest().version;
+
+		switch (details.reason) {
+			case "install":
+				CPA.changePermittedState(true);
+				CPA.sendEvent("Lifecycle", "Dayuse", "Install", 1);
+
+				MigrationManager.start(currentVersion);
+				break;
+
+			case "update":
+				if (currentVersion !== details.previousVersion) {
+					MigrationManager.start(currentVersion);
+				}
+
+				break;
+		}
+
+		chrome.alarms.get("dayuse", function (alarmInfo) {
+            if (!alarmInfo) {
+                chrome.alarms.create("dayuse", {
+                    delayInMinutes: 24 * 60,
+                    periodInMinutes: 24 * 60
+                });
+            }
+        });
+
+		var uninstallUrl = App.GOODBYE_PAGE_URL + "?ver=" + currentVersion;
+		if (typeof chrome.runtime.setUninstallURL === "function") {
+			chrome.runtime.setUninstallURL(uninstallUrl);
+		}
+
+		var installDateKey = "app_install_time";
+		chrome.storage.local.get(installDateKey, function (records) {
+			records[installDateKey] = records[installDateKey] || Date.now();
+			chrome.storage.local.set(records);
+		});
+	});
+
+	function openAppWindow(navigateState) {
+		chrome.app.window.create("main.html", {
+			id: uuid(),
+			innerBounds: {
+				minWidth: 1000,
+				minHeight: 700
+			}
+		}, function (win) {
+			// flatten settings by getting their values in this moment
+			win.contentWindow.Settings = getFlatSettings();
+
+			// pass current user data
+			win.contentWindow.Account = {
+				currentUserId: AccountsManager.currentUserId,
+				currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+			};
+		});
+	}
+
+	// app lifecycle
+	chrome.app.runtime.onLaunched.addListener(openAppWindow);
+	chrome.app.runtime.onRestarted.addListener(openAppWindow);
+
+	Promise.all([
+		StorageManager.load(),
+		DatabaseManager.initMeta()
+	]).then(function readyToGo(err) {
 		LogManager.config("App started");
 
 		var syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
@@ -1917,14 +1955,10 @@ document.addEventListener("DOMContentLoaded", function () {
 						wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined),
 						startUser = true;
 
-					function leaveOneTabFn() {
-						// FIXME probably this should be deleted
-					};
-
 					if (startUser) {
-						startUserSession(leaveOneTabFn);
+						startUserSession(/* FIXME: leave one tab */);
 					} else {
-						leaveOneTabFn();
+						/* FIXME: leave one tab */
 					}
 
 					break;
@@ -1993,73 +2027,4 @@ document.addEventListener("DOMContentLoaded", function () {
 			startUserSession();
 		}
 	});
-});
-
-(function () {
-	"use strict";
-
-	// install & update handling
-	chrome.runtime.onInstalled.addListener(function (details) {
-		var appName = chrome.runtime.getManifest().name;
-		var currentVersion = chrome.runtime.getManifest().version;
-
-		switch (details.reason) {
-			case "install":
-				CPA.changePermittedState(true);
-				CPA.sendEvent("Lifecycle", "Dayuse", "Install", 1);
-
-				MigrationManager.start(currentVersion);
-				break;
-
-			case "update":
-				if (currentVersion !== details.previousVersion) {
-					MigrationManager.start(currentVersion);
-				}
-
-				break;
-		}
-
-		chrome.alarms.get("dayuse", function (alarmInfo) {
-            if (!alarmInfo) {
-                chrome.alarms.create("dayuse", {
-                    delayInMinutes: 24 * 60,
-                    periodInMinutes: 24 * 60
-                });
-            }
-        });
-
-		var uninstallUrl = App.GOODBYE_PAGE_URL + "?ver=" + currentVersion;
-		if (typeof chrome.runtime.setUninstallURL === "function") {
-			chrome.runtime.setUninstallURL(uninstallUrl);
-		}
-
-		var installDateKey = "app_install_time";
-		chrome.storage.local.get(installDateKey, function (records) {
-			records[installDateKey] = records[installDateKey] || Date.now();
-			chrome.storage.local.set(records);
-		});
-	});
-
-	function openAppWindow(navigateState) {
-		chrome.app.window.create("main.html", {
-			id: uuid(),
-			innerBounds: {
-				minWidth: 1000,
-				minHeight: 700
-			}
-		}, function (win) {
-			// flatten settings by getting their values in this moment
-			win.contentWindow.Settings = getFlatSettings();
-
-			// pass current user data
-			win.contentWindow.Account = {
-				currentUserId: AccountsManager.currentUserId,
-				currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
-			};
-		});
-	}
-
-	// app lifecycle
-	chrome.app.runtime.onLaunched.addListener(openAppWindow);
-	chrome.app.runtime.onRestarted.addListener(openAppWindow);
 })();

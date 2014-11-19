@@ -254,24 +254,27 @@ var DatabaseManager = {
 
 	/**
 	 * Create meta database with log object store
+	 * @return {Promise}
 	 */
-	initMeta: function DatabaseManager_initMeta(callback) {
+	initMeta: function DatabaseManager_initMeta() {
 		var that = this;
 
-		sklad.open('meta', {
-			version: 1,
-			migration: {
-				'1': function (database) {
-					database.createObjectStore("log", {autoIncrement: true});
+		return new Promise(function (resolve) {
+			sklad.open("meta", {
+				version: 1,
+				migration: {
+					'1': function (database) {
+						database.createObjectStore("log", {autoIncrement: true});
+					}
 				}
-			}
-		}, function (err, conn) {
-			if (err) {
-				throw new Error(err.name + ': ' + err.message);
-			}
+			}, function (err, conn) {
+				if (err) {
+					throw new Error(err.name + ': ' + err.message);
+				}
 
-			that._meta = conn;
-			callback();
+				that._meta = conn;
+				resolve();
+			});
 		});
 	},
 

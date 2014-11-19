@@ -435,6 +435,17 @@ var Utils = {
 	};
 
 	/**
+	 * Get data from background page
+	 * @param {Mixed} data
+	 * @return {Promise}
+	 */
+	exports.requestBackground = function requestBackground(data) {
+		return new Promise(function (resolve) {
+			chrome.runtime.sendMessage(data, resolve);
+		});
+	};
+
+	/**
 	 * Custom <img is="external-image"> container for loading external images
 	 */
 	document.registerElement("external-image", {

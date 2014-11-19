@@ -19,14 +19,11 @@
 
 window.onerror = function(msg, url, line) {
 	var msgError = msg + ' in ' + url + ' (line: ' + line + ')';
-
-	if (App.DEBUG) {
 	console.error(msgError);
-	}
 
 	chrome.runtime.getBackgroundPage(function (backend) {
-	var LogManager = backend.LogManager;
-	LogManager.error("[ui] " + msgError);
+		var LogManager = backend.LogManager;
+		LogManager.error("[ui] " + msgError);
 	});
 };
 

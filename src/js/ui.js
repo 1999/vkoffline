@@ -2965,13 +2965,14 @@ var AppUI = {
 							var attachmentArea = $("#" + id).removeClass("hidden");
 							var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
 
-							$(attachmentArea, "a").attr({
-								href: fileInfo.url,
-								download: fileName
-							}).text(data.title);
+							var attachLink = attachmentArea.querySelector("a");
+							attachLink.setAttribute("href", fileInfo.url);
+							attachLink.setAttribute("download", fileName);
+							attachLink.innerHTML = fileInfo.title;
 
 							var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-							$(attachmentArea, "span.description").text(descriptionText);
+							var attachDescription = attachmentArea.querySelector("span.description");
+							attachDescription.innerHTML = descriptionText;
 						});
 
 						break;

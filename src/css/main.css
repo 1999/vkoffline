@@ -1710,10 +1710,6 @@ body.grey section.syncing section.synctype p {
 	text-indent: 2px;
 }
 
-body.grey section.syncing section.synctype p span:after {
-	content: "%";
-}
-
 body.grey section.syncing section.synctype progress {
 	width: 900px;
 }

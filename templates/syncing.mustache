@@ -6,7 +6,7 @@
 <section class="syncing">
 {{#data}}
 	<section class="synctype" id="{{key}}_{{uid}}">
-		<p>{{description}}: <span>{{percentSynced}}</span></p>
+		<p>{{description}}: <span>{{done}} / {{total}}</span></p>
 		<progress max="{{max}}" value="{{current}}"></progress>
 	</section>
 {{/data}}

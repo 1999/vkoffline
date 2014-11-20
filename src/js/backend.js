@@ -777,30 +777,15 @@ window.onerror = function(msg, url, line) {
 				: DatabaseManager.getLatestTagMessageId(mailType);
 
 			var getMessages = new Promise(function (resolve, reject) {
-				var method = firstSync ? "execute" : "messages.get";
-				var reqData = {access_token: userDataForRequest.token};
+				var reqData = {
+					access_token: userDataForRequest.token,
+					count: 200,
+					preview_length: 0,
+					out: (mailType === "sent") ? 1 : 0,
+					offset: offset
+				};
 
-				if (firstSync) {
-					var internalCalls = _.range(10).map(function (i) {
-						var reqData = {
-							count: 200,
-							preview_length: 0,
-							out: (mailType === "sent") ? 1 : 0,
-							offset: offset + i * 200
-						};
-
-						return "API.messages.get(" + JSON.stringify(reqData) + ")";
-					});
-
-					reqData.code = "return [" + internalCalls.join(",") + "];";
-				} else {
-					reqData.offset = offset;
-					reqData.count = 200;
-					reqData.preview_length = 0;
-					reqData.out = (mailType === "sent") ? 1 : 0;
-				}
-
-				ReqManager.apiMethod(method, reqData, resolve, function (errCode, errData) {
+				ReqManager.apiMethod("messages.get", reqData, resolve, function (errCode, errData) {
 					reject({
 						code: errCode,
 						data: errData
@@ -817,20 +802,6 @@ window.onerror = function(msg, url, line) {
 				var timeToStopAfter = false; // message found with id equal to latestMessageId
 
 				// flatten response structure
-				if (firstSync && Array.isArray(data.response)) {
-					var flatResponse = [0];
-
-					data.response.forEach(function (chunk) {
-						flatResponse[0] = Math.max(flatResponse[0], chunk[0]);
-
-						chunk.slice(1).forEach(function (msg) {
-							flatResponse.push(msg);
-						});
-					});
-
-					data.response = flatResponse;
-				}
-
 				var messages = [],
 					dataSyncedFn;
 

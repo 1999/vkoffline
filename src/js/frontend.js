@@ -296,15 +296,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			case "syncProgress" :
 				var elem = $("#" + request.type + "_" + request.userId);
-				var percentSynced;
 
 				if (elem) {
 					// обновляем progressbar
 					$(elem, "progress").attr("max", request.total).val(request.current);
 
 					// обновляем текстовое отображение загрузки
-					percentSynced = (request.total) ? Math.ceil(request.current / request.total * 100) : 0;
-					$(elem, "p span").text(percentSynced);
+					var done = request.current;
+					var total = request.total || request.current;
+					$(elem, "p span").text(done + ' / ' + total);
 				}
 
 				break;

@@ -2324,7 +2324,8 @@ var AppUI = {
 					tplData.data.push({
 						key: key,
 						description: chrome.i18n.getMessage("syncing" + Utils.string.ucfirst(key)),
-						percentSynced: (syncingData[key][0]) ? Math.ceil(syncingData[key][1] / syncingData[key][0] * 100) : 0,
+						done: syncingData[key][1],
+						total: syncingData[key][0] || syncingData[key][1],
 						max: syncingData[key][0],
 						current: syncingData[key][1]
 					});

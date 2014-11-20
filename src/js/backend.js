@@ -1045,7 +1045,7 @@ window.onerror = function(msg, url, line) {
 						return;
 					}
 
-					statSend("App-Actions", "2+ account added");
+					CPA.sendEvent("App-Actions", "2+ account added");
 
 					AccountsManager.setData(request.uid, request.token, "...");
 					AccountsManager.currentUserId = request.uid;
@@ -1090,7 +1090,7 @@ window.onerror = function(msg, url, line) {
 					AccountsManager.setData(request.uid, request.token);
 
 					if (neededUserTokenUpdated) {
-						statSend("App-Actions", "Account token updated");
+						CPA.sendEvent("App-Actions", "Account token updated");
 
 						chrome.runtime.sendMessage({
 							action: "tokenUpdated"

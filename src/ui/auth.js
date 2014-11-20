@@ -18,9 +18,10 @@ var Auth = (function () {
 		return new Promise(function (resolve, reject) {
 			var oauthRedirectURI = "https://oauth.vk.com/blank.html";
 			var webview = document.createElement("webview");
+			webview.classList.add("oauth");
 			webview.setAttribute("src", "https://oauth.vk.com/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=" + oauthRedirectURI + "&display=page&response_type=token");
 			webview.style.width = window.innerWidth + "px";
-			webview.style.height = window.innerHeight + "px";
+			webview.style.height = window.innerHeight - 5 + "px";
 
 			webview.addEventListener("loadcommit", function (evt) {
 				if (!evt.isTopLevel || evt.url.indexOf(oauthRedirectURI) !== 0) {
@@ -56,8 +57,6 @@ var Auth = (function () {
 				}
 			}, false);
 
-			document.body.innerHTML = "";
-			document.body.classList.add("authview");
 			document.body.appendChild(webview);
 		});
 	}

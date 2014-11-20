@@ -1062,6 +1062,8 @@ window.onerror = function(msg, url, line) {
 					var newUserGranted = true;
 
 					for (var listUserId in AccountsManager.list) {
+						listUserId = Number(listUserId);
+
 						if (listUserId === request.uid) {
 							newUserGranted = false;
 							break;

@@ -66,6 +66,13 @@ textarea:focus:not([type="file"]), input:focus:not([type="file"]) {
 }
 
 /* стили приложения */
+webview.oauth {
+	left: 0;
+	position: absolute;
+	top: 0;
+	z-index: 999;
+}
+
 #header {
 	height: 10%;
 	min-height: 88px; /* 50 + 3*2 + 32 */

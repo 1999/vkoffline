@@ -66,6 +66,22 @@ window.onerror = function(msg, url, line) {
 		return flatSettings;
 	}
 
+	function leaveOneAppWindowInstance(openIfNoExist) {
+		var appWindows = chrome.app.window.getAll();
+		appWindows.forEach(function (win, isNotFirst) {
+			if (isNotFirst) {
+				win.close();
+			} else {
+				win.focus();
+				win.show();
+			}
+		});
+
+		if (!appWindows.length && openIfNoExist) {
+			openAppWindow();
+		}
+	}
+
 	// notification click handlers
 	var notificationHandlers = {};
 	chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
@@ -356,9 +372,6 @@ window.onerror = function(msg, url, line) {
 										if (SettingsManager.NotificationsTime === 0 || SettingsManager.ShowWhenVK === 0)
 											return;
 
-										// FIXME
-										// skip if vkTabFound
-
 										showChromeNotification({
 											title: fio,
 											message: msgData.body.replace(/<br>/gm, "\n"),
@@ -367,9 +380,7 @@ window.onerror = function(msg, url, line) {
 											timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
 											onclick: function () {
 												LogManager.config("Clicked notification with message #" + msgData.mid);
-
-												// FIXME
-												// show app tab
+												leaveOneAppWindowInstance(true);
 											}
 										});
 
@@ -574,9 +585,7 @@ window.onerror = function(msg, url, line) {
 					sound: "message",
 					onclick: function () {
 						CPA.sendEvent("App-Actions", "BD notification click");
-
-						// FIXME
-						// show app tab
+						leaveOneAppWindowInstance(true);
 					}
 				});
 
@@ -600,8 +609,7 @@ window.onerror = function(msg, url, line) {
 							icon: avatar,
 							sound: "message",
 							onclick: function () {
-								// FIXME
-								// show app tab
+								leaveOneAppWindowInstance(true);
 							}
 						});
 					}
@@ -2033,10 +2041,6 @@ window.onerror = function(msg, url, line) {
 
 					break;
 
-				case "newUserAfterUpdateToken":
-					// FIXME: probably this should be deleted
-					break;
-
 				case "currentSyncValues" :
 					var output = syncingData[AccountsManager.currentUserId];
 					sendAsyncResponse = true;
@@ -2048,14 +2052,14 @@ window.onerror = function(msg, url, line) {
 					ReqManager.abortAll();
 					AccountsManager.currentUserId = request.uid;
 
-					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
-						wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined),
-						startUser = true;
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
+					var wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+					var startUser = true;
 
 					if (startUser) {
-						startUserSession(/* FIXME: leave one tab */);
+						startUserSession(leaveOneAppWindowInstance);
 					} else {
-						/* FIXME: leave one tab */
+						leaveOneAppWindowInstance();
 					}
 
 					break;
@@ -2082,7 +2086,7 @@ window.onerror = function(msg, url, line) {
 					}
 
 					// закрываем все табы приложения кроме одного
-					// FIXME: probably this should be deleted
+					leaveOneAppWindowInstance();
 
 					break;
 

@@ -14,7 +14,6 @@ var Auth = (function () {
 	 * @return {Promise}
 	 */
 	function initAuthWebview() { // new, add, update (uid)
-		// FIXME webview width/height
 		return new Promise(function (resolve, reject) {
 			var oauthRedirectURI = "https://oauth.vk.com/blank.html";
 			var webview = document.createElement("webview");
@@ -39,15 +38,13 @@ var Auth = (function () {
 				webview.remove();
 
 				if (error) {
-					// FIXME: fill this with error/errorDescription
-					statSend("App-Actions", "OAuth access cancelled");
+					statSend("App-Actions", "OAuth access cancelled", error[1], errorDescription[1]);
 
 					reject({
 						error: error[1],
 						description: errorDescription[1]
 					});
 				} else {
-					// FIXME: update ns App-Actions probably?
 					statSend("App-Actions", "OAuth access granted", userId[1]);
 
 					resolve({
@@ -58,6 +55,30 @@ var Auth = (function () {
 			}, false);
 
 			document.body.appendChild(webview);
+		});
+	}
+
+	/**
+	 * @param {String} type - one of "new", "add", "update"
+	 * @param {Object} errObj
+	 */
+	function authErrorsHandler(type, errObj) {
+		var userDeniedAccess = (errObj.error.indexOf("access_denied") !== -1) || (errObj.error.indexOf("denyAccess") !== -1);
+		var securityBreach = errObj.error.indexOf("security") !== -1;
+		var failReason;
+
+		if (userDeniedAccess) {
+			failReason = "securityBreach";
+		} else if (securityBreach) {
+			failReason = "denyAccess";
+		} else {
+			failReason = "unknown"
+		};
+
+		notifySelf({
+			action: "appWontWorkWithoutAccessGranted",
+			from: type,
+			reason: failReason
 		});
 	}
 
@@ -75,9 +96,7 @@ var Auth = (function () {
 					token: res.token,
 					uid: res.uid
 				});
-			}, function (errObj) {
-				// FIXME: do smth
-			});
+			}, authErrorsHandler.bind(null, "new"));
 		},
 
 		/**
@@ -91,9 +110,7 @@ var Auth = (function () {
 					token: res.token,
 					uid: res.uid
 				});
-			}, function (errObj) {
-
-			});
+			}, authErrorsHandler.bind(null, "add"));
 		},
 
 		/**
@@ -108,9 +125,7 @@ var Auth = (function () {
 					uid: res.uid,
 					neededUid: updateTokenForUserId
 				});
-			}, function (errObj) {
-
-			});
+			}, authErrorsHandler.bind(null, "update"));
 		}
 	};
 })();

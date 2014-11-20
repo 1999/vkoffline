@@ -27,7 +27,6 @@
 				"js/databaseManager.js",
 				"js/settingsManager.js",
 				"js/logManager.js",
-				"js/cacheManager.js",
 				"js/reqManager.js",
 				"js/migrationManager.js",
 				"js/backend.js"

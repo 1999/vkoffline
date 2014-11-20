@@ -441,8 +441,9 @@ window.onerror = function(msg, url, line) {
 				}, function (errCode) {
 					delete self._longPollXhrIds[currentUserId];
 
-					if (errCode === ReqManager.ACCESS_DENIED)
-						CacheManager.isTokenExpired = true;
+					if (errCode === ReqManager.ACCESS_DENIED) {
+						chrome.runtime.sendMessage({action: "tokenExpired"});
+					}
 
 					switch (errCode) {
 						case ReqManager.ABORT:
@@ -972,9 +973,6 @@ window.onerror = function(msg, url, line) {
 
 			// сбрасываем все XHR-запросы
 			ReqManager.abortAll();
-
-			// инициализация кэша URL аватарок
-			CacheManager.init(AccountsManager.currentUserId, "isTokenExpired", false);
 
 			// инициализируем БД
 			DatabaseManager.initUser(currentUserId, function () {

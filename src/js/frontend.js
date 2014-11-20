@@ -32,12 +32,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	chrome.runtime.getBackgroundPage(function (backend) {
 	var AccountsManager = backend.AccountsManager;
-	var CacheManager = backend.CacheManager;
 
 	chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 		var sendAsyncResponse = false;
 
 		switch (request.action) {
+			case "tokenExpired":
+				var networkStatusElem = $(".network-status.online");
+				if (networkStatusElem) {
+					networkStatusElem.classList.add("tokenexpired");
+				}
+
+				break;
+
 			case "settingsChanged":
 				_.forIn(request.settings, function (value, key) {
 					Settings[key] = value;
@@ -50,6 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					accountsContainer, warnSection, closeBtn,
 					descriptionElem;
 
+				// FIXME: request.reason === 'unknown'
 				i18nTerm = (request.reason === "denyAccess")
 					? chrome.i18n.getMessage("appWontWorkWithoutAccessGranted").replace("%appname%", App.NAME)
 					: chrome.i18n.getMessage("appWontWorkDueSecurityBreach");

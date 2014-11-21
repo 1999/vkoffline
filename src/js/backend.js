@@ -17,6 +17,7 @@ window.onerror = function(msg, url, line) {
 	 * @param {String} data.title
 	 * @param {String} data.message
 	 * @param {String} data.icon
+	 * @param {Number} [data.uid]
 	 * @param {String} [data.id]
 	 * @param {String} [data.sound]
 	 * @param {Number} [data.timeout]
@@ -28,28 +29,40 @@ window.onerror = function(msg, url, line) {
 		if (!chrome.notifications)
 			return;
 
-		chrome.notifications.create((data.id || Math.random()) + '', {
-			type: 'basic',
-			iconUrl: data.icon,
-			title: data.title,
-			message: data.message,
-			isClickable: true
-		}, function (notificationId) {
-			if (data.onclick) {
-				notificationHandlers[notificationId] = data.onclick;
-			}
+		var promise = data.uid
+			? getAvatarImage(data.icon, data.uid)
+			: Promise.resolve(data.icon);
 
-			// FIXME uncomment this when chrome.notifications start working in legacy packaged apps
-			// @see https://code.google.com/p/chromium/issues/detail?id=386027
-			if (data.sound) {
-				SoundManager.play(data.sound);
-			}
+		var showChromeNotificationInner = function (uri) {
+			uri = uri || data.icon;
 
-			if (data.timeout) {
-				setTimeout(function () {
-					chrome.notifications.clear(notificationId, _.noop);
-				}, data.timeout * 1000);
-			}
+			chrome.notifications.create((data.id || Math.random()) + '', {
+				type: 'basic',
+				iconUrl: uri,
+				title: data.title,
+				message: data.message,
+				isClickable: true
+			}, function (notificationId) {
+				if (data.onclick) {
+					notificationHandlers[notificationId] = data.onclick;
+				}
+
+				// FIXME uncomment this when chrome.notifications start working in legacy packaged apps
+				// @see https://code.google.com/p/chromium/issues/detail?id=386027
+				if (data.sound) {
+					SoundManager.play(data.sound);
+				}
+
+				if (data.timeout) {
+					setTimeout(function () {
+						chrome.notifications.clear(notificationId, _.noop);
+					}, data.timeout * 1000);
+				}
+			});
+		}
+
+		promise.then(showChromeNotificationInner, function () {
+			showChromeNotificationInner();
 		});
 	}
 
@@ -364,16 +377,17 @@ window.onerror = function(msg, url, line) {
 									});
 
 									if (mailType === "inbox") {
-										// FIXME: load avatar
-										showNotification(chrome.runtime.getURL("pic/question_th.gif"));
+										var avatar = userData.photo || chrome.runtime.getURL("pic/question_th.gif");
+										showNotification(avatar, userData.uid);
 									}
 
-									function showNotification(avatarUrl) {
-										if (SettingsManager.NotificationsTime === 0 || SettingsManager.ShowWhenVK === 0)
+									function showNotification(avatarUrl, uid) {
+										if (SettingsManager.NotificationsTime === 0/* || SettingsManager.ShowWhenVK === 0*/)
 											return;
 
 										showChromeNotification({
-											title: fio,
+											uid: uid,
+											title: userData.first_name + " " + userData.last_name,
 											message: msgData.body.replace(/<br>/gm, "\n"),
 											icon: avatarUrl,
 											sound: "message",
@@ -602,18 +616,6 @@ window.onerror = function(msg, url, line) {
 
 				// записываем данные друзей в БД и скачиваем их аватарки
 				updateUsersData(currentUserId, data.response).then(function (users) {
-					function showBirthdayNotification(title, message, avatar) {
-						showChromeNotification({
-							title: title,
-							message: message,
-							icon: avatar,
-							sound: "message",
-							onclick: function () {
-								leaveOneAppWindowInstance(true);
-							}
-						});
-					}
-
 					users.forEach(function (userDoc) {
 						var bDate, i;
 
@@ -669,8 +671,16 @@ window.onerror = function(msg, url, line) {
 							msg += " (" + i18nBirthDay[1].replace("%years%", yoNow + " " + Utils.string.plural(yoNow, i18nYears)) + ")";
 						}
 
-						// FIXME: load avatar
-						showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, "FIXME");
+						showChromeNotification({
+							uid: userDoc.uid,
+							title: userDoc.first_name + " " + userDoc.last_name,
+							message: msg,
+							icon: userDoc.photo || chrome.runtime.getURL("pic/question_th.gif"),
+							sound: "message",
+							onclick: function () {
+								leaveOneAppWindowInstance(true);
+							}
+						});
 					});
 
 					var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);

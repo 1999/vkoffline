@@ -422,6 +422,47 @@ var Utils = {
 		});
 	}
 
+	function getAvatarImage(imageSource, uid) {
+		return new Promise(function (resolve, reject) {
+			getContactStoredPhoto(uid).then(function (fileEntry) {
+				resolve(fileEntry.toURL());
+			}, function () {
+				if (imageSource.indexOf("http") !== 0) {
+					resolve(imageSource);
+					return;
+				}
+
+				Promise.all([
+					fetchImage(imageSource),
+					requestFileSystem()
+				]).then(function (res) {
+					var blob = res[0];
+					var fsLink = res[1];
+
+					fsLink.root.getFile(uid + "_th.jpg", {create: true}, function (fileEntry) {
+						fileEntry.createWriter(function (fileWriter) {
+							fileWriter.onwriteend = function () {
+								resolve(fileEntry.toURL());
+							}
+
+							fileWriter.onerror = reject;
+							fileWriter.write(blob);
+						});
+					});
+				}, reject);
+			});
+		});
+	}
+
+	/**
+	 * Get downloaded or download avatar image
+	 *
+	 * @param {String} imageSource
+	 * @param {Number} uid
+	 * @return {Promise} which resolves with downloaded URL (filesystem: or blob:)
+	 */
+	exports.getAvatarImage = getAvatarImage;
+
 	exports.uuid = function uuid() {
 		return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
 			var r = Math.random() * 16 | 0;
@@ -501,45 +542,13 @@ var Utils = {
 				this.dataset.originalSrc = imageSource;
 				this.classList.add("loading");
 
-				getContactStoredPhoto(uid).then(function (fileEntry) {
-					that.setAttribute("src", fileEntry.toURL());
+				getAvatarImage(imageSource, uid).then(function (uri) {
 					that.classList.remove("loading");
+					that.setAttribute("src", uri);
 				}, function () {
-					if (imageSource.indexOf("http") !== 0) {
-						that.setAttribute("src", imageSource);
-						return;
-					}
-
-					Promise.all([
-						fetchImage(imageSource),
-						requestFileSystem()
-					]).then(function (res) {
-						var blob = res[0];
-						var fsLink = res[1];
-
-						that.classList.remove("loading");
-
-						// show image immediately
-						var uri = URL.createObjectURL(blob);
-						that.setAttribute("src", uri);
-
-						fsLink.root.getFile(uid + "_th.jpg", {create: true}, function (fileEntry) {
-							fileEntry.createWriter(function (fileWriter) {
-								fileWriter.write(blob);
-							});
-						});
-					}, function () {
-						that.setAttribute("src", chrome.runtime.getURL('pic/question_th.gif'));
-						that.classList.remove("loading");
-					});
+					that.classList.remove("loading");
+					that.setAttribute("src", chrome.runtime.getURL("pic/question_th.gif"));
 				});
-			},
-
-			detachedCallback: function () {
-				var imageSource = this.getAttribute("src");
-				if (imageSource.indexOf("blob:") === 0) {
-					URL.revokeObjectURL(imageSource);
-				}
 			}
 		})
 	});

@@ -41,9 +41,9 @@ window.onerror = function(msg, url, line) {
 
 			// FIXME uncomment this when chrome.notifications start working in legacy packaged apps
 			// @see https://code.google.com/p/chromium/issues/detail?id=386027
-			// if (data.sound) {
-			// 	SoundManager.play(data.sound);
-			// }
+			if (data.sound) {
+				SoundManager.play(data.sound);
+			}
 
 			if (data.timeout) {
 				setTimeout(function () {

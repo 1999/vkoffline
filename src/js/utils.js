@@ -473,11 +473,13 @@ var Utils = {
 	};
 
 	exports.openInNewWindow = function openInNewWindow(url) {
-		var a = document.createElement("a");
-		a.setAttribute("href", url);
-		a.setAttribute("target", "_blank");
-
-		a.click();
+		chrome.app.window.create(url, {
+			id: uuid(),
+			innerBounds: {
+				minWidth: 1000,
+				maxHeight: 50
+			}
+		});
 	};
 
 	/**

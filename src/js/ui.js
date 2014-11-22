@@ -119,8 +119,7 @@ document.addEventListener("click", function (e) {
 				msgId = msgSection.data("mid"),
 				uid = $(msgSection, "img").data("uid");
 
-			var printURL = chrome.runtime.getURL("print.html?mid=" + msgId + "&uid=" + uid);
-			openInNewWindow(printURL);
+			openInNewWindow("print.html?mid=" + msgId + "&uid=" + uid);
 		},
 		// ответ на сообщение
 		"#content > section.right.thread-container > section.open span.reply": function (target, evt) {
@@ -1717,8 +1716,7 @@ var AppUI = {
 				}, true);
 
 				rightHeaderPrint.bind("click", function() {
-					var printURL = chrome.runtime.getURL("print.html?did=" + dialogId);
-					openInNewWindow(printURL);
+					openInNewWindow("print.html?did=" + dialogId);
 				});
 
 				// rightHeaderSearch.bind("click", function() {
@@ -2402,10 +2400,6 @@ var AppUI = {
 					} else {
 						self.main("user", true);
 					}
-				});
-
-				$("span.icon.github").bind("click", function() {
-					openInNewWindow("https://github.com/1999/vkoffline");
 				});
 
 				$("span.icon.alert").bind("click", function() {

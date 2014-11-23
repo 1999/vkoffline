@@ -1387,11 +1387,6 @@ window.onerror = function(msg, url, line) {
 
 					break;
 
-				case "collectLogData":
-					sendAsyncResponse = true;
-					LogManager.collect(sendResponse);
-					break;
-
 				case "getMessagesUploadServer" :
 					var sendRequest = function() {
 						ReqManager.apiMethod("photos.getMessagesUploadServer", sendResponse, function(errCode, errData) {

@@ -500,85 +500,6 @@ document.addEventListener("submit", function (e) {
 	e.preventDefault();
 
 	var routes = {
-		// UI:errorSend
-		"#content > section.one form": function () {
-			var sendBtn = $(form, "button[type='submit']").attr("disabled", true).text(Utils.string.ucfirst(chrome.i18n.getMessage("pleaseWait")) + "...");
-
-			chrome.permissions.request({
-				permissions: ["management", "clipboardWrite"]
-			}, function (granted) {
-				if (!granted) {
-					var warningContents = Templates.render("errorSendWarning", {
-						mustGrantManagement: chrome.i18n.getMessage("youMustGrantAccessManagement")
-					});
-
-					var btnText = Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle"));
-					sendBtn.removeAttr("disabled").text(btnText).before(warningContents);
-
-					return;
-				}
-
-				Utils.async.parallel({
-					extensions: function (callback) {
-						try {
-							chrome.management.getAll(function (infoArray) {
-								var extensionsData = [];
-								infoArray.forEach(function (extensionInfo) {
-									var data = [
-										"[" + ((extensionInfo.isApp) ? "app" : "ext") + "] " + extensionInfo.name + " v" + extensionInfo.version,
-										"enabled: " + extensionInfo.enabled,
-										"id: " + extensionInfo.id,
-										"homepage: " + extensionInfo.homepageUrl,
-										"permissions: " + Array.prototype.concat(extensionInfo.permissions).concat(extensionInfo.hostPermissions)
-									].join(", ");
-
-									extensionsData.push({text: data});
-								});
-
-								callback(null, extensionsData);
-							});
-						} catch (e) {
-							// https://code.google.com/p/chromium/issues/detail?id=125706
-							callback();
-						}
-					},
-					log: function (callback) {
-						chrome.runtime.sendMessage({action: "collectLogData"}, function (data) {
-							var output = data.map(function (logString) {
-								return {text: logString};
-							});
-
-							callback(null, output);
-						});
-					}
-				}, function (err, results) {
-					var resultMessageContents = Templates.render("errorSendFormResult", {
-						descriptionText: form.elements.text.value,
-						chromeVersion: form.elements.info.value,
-						extensionsList: (results.extensions) ? results.extensions : ["Exception #125706"],
-						log: results.log,
-						buttonText: chrome.i18n.getMessage("errorSendFormCopyButtonText")
-					});
-
-					var sectionOne = $("#content > section.one");
-					$(sectionOne, "form").remove();
-					sectionOne.append(resultMessageContents);
-
-					var copyTextBtn = $(sectionOne, "button");
-					copyTextBtn.bind("click", function () {
-						// выделяем текст в section.pre
-						var range = document.createRange();
-						range.selectNode($(sectionOne, "section.pre"));
-						window.getSelection().addRange(range);
-
-						document.execCommand("copy");
-						this.attr("disabled", true).text(chrome.i18n.getMessage("copiedToClipboard"));
-					});
-
-					sectionOne.scrollTop = 0;
-				});
-			});
-		},
 		// settings
 		"#content > section.settings-container form": function () {
 			var collectedSettings = {};
@@ -887,19 +808,6 @@ var AppUI = {
 					leftSection.append(more);
 				}
 			});
-		},
-
-		// генерация сообщений об ошибке
-		errorSend: function () {
-			var oneSection = $("#content > section.one").empty().removeClass().addClass("one", "error-container").removeData();
-			var formContents = Templates.render("errorSendForm", {
-				warningText: chrome.i18n.getMessage("errorSendFormWarning").replace("%appname%", App.NAME).replace("%email%", '<a href="mailto:' + App.ERROR_EMAIL + '">' + App.ERROR_EMAIL + '</a>'),
-				descriptionText: chrome.i18n.getMessage("errorSendFormDescriptionText"),
-				infoText: chrome.i18n.getMessage("errorSendFormInfoText").replace("%info%", "<a href='chrome://version'>chrome://version</a>"),
-				buttonText: chrome.i18n.getMessage("errorSendFormButtonText")
-			});
-
-			oneSection.html(formContents);
 		},
 
 		// обучалка для гостей
@@ -2348,7 +2256,6 @@ var AppUI = {
 				offline: !navigator.onLine,
 				tokenExpired: false,
 				settingsTitle: chrome.i18n.getMessage("options"),
-				alertTitle: chrome.i18n.getMessage("alertIconTitle"),
 				likeTitle: chrome.i18n.getMessage("likeIconTitle").replace("%appname%", App.NAME) + "!",
 				showLike: (tokenUpdatedForUser && appLikedByUser === false)
 			};
@@ -2400,17 +2307,6 @@ var AppUI = {
 					} else {
 						self.main("user", true);
 					}
-				});
-
-				$("span.icon.alert").bind("click", function() {
-					self.view("errorSend", {
-						uiType: "full",
-						headers: {
-							one: [
-								{"type" : "text", "name" : chrome.i18n.getMessage("errorFormTitle")}
-							]
-						}
-					});
 				});
 
 				$("span.icon.settings").bind("click", function() {

@@ -46,8 +46,5 @@
 		"*://*.vk.com/*",
 		"*://*.userapi.com/*",
 		"*://*.vk.me/*"
-	],
-	"optional_permissions" : [
-		"clipboardWrite"
 	]
 }

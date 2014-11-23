@@ -723,16 +723,21 @@ var DatabaseManager = {
 	 * Получение сообщений из диалога
 	 *
 	 * @param {String} dialogId идентификатор диалога: [\d]+ в случае чата, 0_[\d]+ в случае переписки один на один
-	 * @param {Integer|Null} from с какой записи нужно все получить
+	 * @param {Object} opts
+	 * @param {Number} [opts.from = undefined] с какой записи нужно все получить
+	 * @param {Boolean} [opts.everything = false] нужно ли получить все записи в диалоге
 	 * @param {Function} fnSuccess принимает:
 	 *     {Array} сообщения
 	 *     {Number} количество сообщений в диалоге
 	 * @param {Function} fnFail принимает:
 	 *     {String} строка ошибки
 	 */
-	getDialogThread: function DatabaseManager_getDialogThread(dialogId, from, fnSuccess, fnFail) {
+	getDialogThread: function DatabaseManager_getDialogThread(dialogId, opts, fnSuccess, fnFail) {
 		var userId = this._userId;
 		var conn = this._conn[userId];
+
+		opts.from = opts.from || 0;
+		opts.everything = opts.everything || false;
 
 		function getContactById(id) {
 			id = Number(id);
@@ -774,13 +779,18 @@ var DatabaseManager = {
 
 		function getChatMessages() {
 			return new Promise(function (resolve, reject) {
-				conn.get("messages", {
+				var getOpts = {
 					index: "chat_messages",
 					range: IDBKeyRange.only(dialogId),
 					direction: sklad.DESC,
-					offset: from,
-					limit: 30
-				}, function (err, records) {
+					offset: opts.from
+				};
+
+				if (!opts.everything) {
+					getOpts.limit = 30;
+				}
+
+				conn.get("messages", getOpts, function (err, records) {
 					if (err) {
 						reject(err);
 					} else {

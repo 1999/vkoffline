@@ -1269,10 +1269,12 @@ window.onerror = function(msg, url, line) {
 					break;
 
 				case "getDialogThread" :
-					var from = (request.from !== undefined) ? request.from : null;
-
 					sendAsyncResponse = true;
-					DatabaseManager.getDialogThread(request.id, from, sendResponse, function(errMsg) {
+
+					DatabaseManager.getDialogThread(request.id, {
+						from: (request.from !== undefined) ? request.from : 0,
+						everything: Boolean(request.print)
+					}, sendResponse, function (errMsg) {
 						sendResponse([[], 0]);
 						LogManager.error(errMsg);
 					});

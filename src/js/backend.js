@@ -47,8 +47,6 @@ window.onerror = function(msg, url, line) {
 					notificationHandlers[notificationId] = data.onclick;
 				}
 
-				// FIXME uncomment this when chrome.notifications start working in legacy packaged apps
-				// @see https://code.google.com/p/chromium/issues/detail?id=386027
 				if (data.sound) {
 					SoundManager.play(data.sound);
 				}
@@ -2021,7 +2019,17 @@ window.onerror = function(msg, url, line) {
 					var output = syncingData[AccountsManager.currentUserId];
 					sendAsyncResponse = true;
 
-					sendResponse(output);
+					DatabaseManager.getContactById(AccountsManager.currentUserId, AccountsManager.currentUserId, function (userData) {
+						sendResponse({
+							data: output,
+							avatar: userData.photo
+						});
+					}, function () {
+						sendResponse({
+							data: output
+						});
+					});
+
 					break;
 
 				case "switchToAccount" :

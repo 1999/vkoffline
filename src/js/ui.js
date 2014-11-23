@@ -2215,9 +2215,9 @@ var AppUI = {
 
 			chrome.runtime.sendMessage({
 				action: "currentSyncValues"
-			}, function (syncingData) {
-				var avatarSrc = "pic/question_th.gif";
-				// FIXME: avatarSrc should be real Account.currentUserId image
+			}, function (res) {
+				var syncingData = res.data;
+				var avatarSrc = res.avatar || chrome.runtime.getURL("pic/question_th.gif");
 
 				var tplData = {
 					avatarSrc: avatarSrc,

@@ -427,6 +427,31 @@
 		"description": "Форма написания фразы 'еще x сообщений'"
 	},
 	{
+		"key": "newApp50Message",
+		"messages": {
+			"en": "Banana boom!",
+			"ru": "Теперь банановый!",
+			"uk": "Тепер банановий!"
+		}
+	},
+	{
+		"key": "newApp50OpenLink",
+		"messages": {
+			"en": "Open in new window",
+			"ru": "Открыть в новом окне",
+			"uk": "Відкрити у новому вікні"
+		}
+	},
+	{
+		"key": "newApp50Title",
+		"messages": {
+			"en": "New %appname% app",
+			"ru": "Новый %appname%",
+			"uk": "Новий %appname%"
+		}
+	},
+
+	{
 		"key": "newMessage",
 		"messages": {
 			"en": "New message",

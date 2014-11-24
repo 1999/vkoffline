@@ -16,6 +16,56 @@ var MigrationManager = (function () {
 				}
 
 				if (currentVersion === "5.0" && appVersionsHistory.length > 1) {
+					// promote self
+					chrome.notifications && chrome.notifications.create(Math.random() + "", {
+						type: "basic",
+						iconUrl: chrome.runtime.getURL("pic/icon48.png"),
+						buttons: [
+							{title: chrome.i18n.getMessage("newApp50OpenLink")}
+						],
+						title: chrome.i18n.getMessage("newApp50Title").replace("%appname%", App.NAME),
+						message: chrome.i18n.getMessage("newApp50Message"),
+						isClickable: true
+					}, function (id) {
+						SoundManager.play("message");
+						CPA.sendEvent("Lifecycle", "Actions", "Migrate50.Notify.Show");
+
+						chrome.notifications.onClicked.addListener(function (notificationId) {
+							if (notificationId !== id) {
+								return;
+							}
+
+							notifySelf({action: "migrateIntrested"});
+							chrome.notifications.clear(notificationId, _.noop);
+
+							CPA.sendEvent("Lifecycle", "Actions", "Migrate50.Notify.Clck");
+							CPA.sendEvent("Lifecycle", "Actions", "Migrate50.Notify.Clck.All");
+						});
+
+						chrome.notifications.onButtonClicked.addListener(function (notificationId) {
+							if (notificationId !== id) {
+								return;
+							}
+
+							notifySelf({action: "migrateIntrested"});
+							chrome.notifications.clear(notificationId, _.noop);
+
+							CPA.sendEvent("Lifecycle", "Actions", "Migrate50.Notify.Clck");
+							CPA.sendEvent("Lifecycle", "Actions", "Migrate50.Notify.Clck.Btn");
+						});
+
+						chrome.notifications.onClosed.addListener(function (notificationId, byUser) {
+							if (notificationId !== id) {
+								return;
+							}
+
+							if (byUser) {
+								CPA.sendEvent("Lifecycle", "Actions", "Migrate50.Notify.Close");
+							}
+						});
+					});
+
+					// fix problem with falsy attachments since 4.11
 					DatabaseManager.getMessagesWithFalsyAttachments().then(function (mids) {
 						var currentUserId = AccountsManager.currentUserId;
 

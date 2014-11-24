@@ -148,6 +148,7 @@ window.onerror = function(msg, url, line) {
 			case "update":
 				if (currentVersion !== details.previousVersion) {
 					MigrationManager.start(currentVersion);
+					CPA.sendEvent("Lifecycle", "Dayuse", "Upgrade", 1);
 				}
 
 				break;
@@ -1819,6 +1820,10 @@ window.onerror = function(msg, url, line) {
 					});
 
 					sendAsyncResponse = true;
+					break;
+
+				case "migrateIntrested":
+					openAppWindow();
 					break;
 
 				case "unmarkMessageTag" :

@@ -71,7 +71,7 @@ var App = {
 
 	// [ID группы, ignorePostsBeforeId]
 	get VK_ADV_GROUP() {
-		return this.DEBUG ? [38283081, 27] : [29809053, 465];
+		return this.DEBUG ? [38283081, 27] : [29809053, 575];
 	},
 
 	VK_ID: 2438161, /* ID приложения ВКонтакте */

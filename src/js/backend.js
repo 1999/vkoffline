@@ -185,7 +185,10 @@ window.onerror = function(msg, url, line) {
 		switch (msg.action) {
 			case "importAuthToken":
 				if (AccountsManager.currentUserId) {
-					sendResponse(AccountsManager.list[AccountsManager.currentUserId].token);
+					sendResponse({
+						user_id: Number(AccountsManager.currentUserId),
+						token: AccountsManager.list[AccountsManager.currentUserId].token
+					});
 				} else {
 					sendResponse(null);
 				}

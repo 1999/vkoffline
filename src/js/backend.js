@@ -175,6 +175,25 @@ window.onerror = function(msg, url, line) {
 		});
 	});
 
+	// listen to messages from Listen! app
+	chrome.runtime.onMessageExternal.addListener(function (msg, sender, sendResponse) {
+		if (sender.id !== App.LISTENAPP_ID) {
+			sendResponse(false);
+			return;
+		}
+
+		switch (msg.action) {
+			case "importAuthToken":
+				if (AccountsManager.currentUserId) {
+					sendResponse(AccountsManager.list[AccountsManager.currentUserId].token);
+				} else {
+					sendResponse(null);
+				}
+
+				break;
+		}
+	});
+
 	function openAppWindow(navigateState) {
 		chrome.app.window.create("main.html", {
 			id: uuid(),

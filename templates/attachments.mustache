@@ -16,6 +16,10 @@
 		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment audio hidden" id="{{id}}">
 			<audio src="" preload="metadata" controls></audio>
 			<span class="description"></span>
+			<div>
+				<button class="listenapp-open"></button>
+				<a target="_blank" class="listenapp-install" href=""></a>
+			</div>
 		</section>
 	{{/audio}}
 
@@ -34,7 +38,7 @@
 
 	{{#link}}
 		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment link">
-			<a href="{{url}}">{{title}}</a>
+			<a target="_blank" href="{{url}}">{{title}}</a>
 			<span class="description">{{{description}}}</span>
 		</section>
 	{{/link}}

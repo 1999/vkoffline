@@ -1753,6 +1753,10 @@ section.pre {
 	color: #468847;
 }
 
+.listenapp-open:not(.active), .listenapp-install:not(.active) {
+	display: none;
+}
+
 /* http://twitter.github.com/bootstrap/components.html#alerts */
 /* https://github.com/FortAwesome/Font-Awesome */
 /* http://glyphicons.com/ */

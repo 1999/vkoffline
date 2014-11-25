@@ -303,6 +303,22 @@
 		}
 	},
 	{
+		"key": "listenAppInstall",
+		"messages": {
+			"en": "Explore %artist% best tracks without opening VK site",
+			"ru": "Слушайте лучшие песни %artist% не открывая ВКонтакте",
+			"uk": "Слухайте кращі пісні% %artist% не вiдкриваючи ВКонтакте"
+		}
+	},
+	{
+		"key": "listenAppOpen",
+		"messages": {
+			"en": "Explore other tracks by %artist%",
+			"ru": "Другие песни %artist%",
+			"uk": "Iнші пісні %artist%"
+		}
+	},
+	{
 		"key": "mb",
 		"messages": {
 			"en": "Mb",

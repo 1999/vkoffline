@@ -20,6 +20,13 @@
 document.addEventListener("click", function (e) {
 	var matchesSelectorFn = (Element.prototype.webkitMatchesSelector || Element.prototype.matchesSelector);
 	var routes = {
+		// открытие Listen!
+		".listenapp-open": function (target, evt) {
+			chrome.runtime.sendMessage(App.LISTENAPP_ID, {
+				action: "searchArtist",
+				q: target.dataset.artist
+			});
+		},
 		// закрытие окна уведомления
 		"section.result > span.close": function (target, evt) {
 			target.parentNode.remove();
@@ -226,10 +233,7 @@ document.addEventListener("click", function (e) {
 						if (!audioInfo)
 							return;
 
-						target.removeClass("hidden");
-
-						$(target, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
-						$(target, "audio").attr("src", audioInfo.url);
+						self._drawAudioSection(target, audioInfo);
 					});
 
 					break;
@@ -1496,10 +1500,8 @@ var AppUI = {
 								if (!audioInfo)
 									return;
 
-								var attachmentArea = $("#" + id).removeClass("hidden");
-
-								$(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
-								$(attachmentArea, "audio").attr("src", audioInfo.url).bind("playing", function () {
+								var attachmentArea = self._drawAudioSection(id, audioInfo);
+								$(attachmentArea, "audio").bind("playing", function () {
 									chrome.runtime.sendMessage({
 										action: "newsAudioPlaying",
 										id: postData.id,
@@ -2803,10 +2805,7 @@ var AppUI = {
 							if (!audioInfo)
 								return;
 
-							var attachmentArea = $("#" + id).removeClass("hidden");
-
-							$(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
-							$(attachmentArea, "audio").attr("src", audioInfo.url);
+							self._drawAudioSection(id, audioInfo);
 						});
 
 						break;
@@ -2962,6 +2961,34 @@ var AppUI = {
 				"markers=color:blue%7Clabel:S%7C" + lat + "," + lng
 			].join("&")
 		});
+	},
+
+	_drawAudioSection: function (elem, audioInfo) {
+		var attachmentArea = (typeof elem === "string")
+			? $("#" + elem)
+			: elem;
+
+		var attachmentListenappOpen = $(attachmentArea, ".listenapp-open");
+		var attachmentListenappInstall = $(attachmentArea, ".listenapp-install");
+
+		$(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
+		$(attachmentArea, "audio").attr("src", audioInfo.url);
+
+		chrome.runtime.sendMessage(App.LISTENAPP_ID, {action: "isAlive"}, function (isAlive) {
+			if (isAlive) {
+				attachmentListenappOpen.dataset.artist = audioInfo.artist;
+				attachmentListenappOpen.innerHTML = chrome.i18n.getMessage("listenAppOpen").replace("%artist%", audioInfo.artist);
+				attachmentListenappOpen.classList.add("active");
+			} else {
+				attachmentListenappInstall.innerHTML = chrome.i18n.getMessage("listenAppInstall").replace("%artist%", audioInfo.artist),
+				attachmentListenappInstall.setAttribute("href", "https://chrome.google.com/webstore/detail/" + App.LISTENAPP_ID);
+				attachmentListenappInstall.addClass("active");
+			}
+
+			attachmentArea.removeClass("hidden");
+		});
+
+		return attachmentArea;
 	},
 
 	/**

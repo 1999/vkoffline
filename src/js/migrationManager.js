@@ -15,7 +15,7 @@ var MigrationManager = (function () {
 					StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
 				}
 
-				if (currentVersion === "5.0" && appVersionsHistory.length > 1) {
+				if (currentVersion === "5.1" && appVersionsHistory.length > 1) {
 					// promote self
 					chrome.notifications && chrome.notifications.create(Math.random() + "", {
 						type: "basic",
@@ -23,7 +23,7 @@ var MigrationManager = (function () {
 						buttons: [
 							{title: chrome.i18n.getMessage("newApp50OpenLink")}
 						],
-						title: chrome.i18n.getMessage("newApp50Title").replace("%appname%", App.NAME),
+						title: chrome.i18n.getMessage("newApp50Title").replace("%appname%", App.NAME) + " " + currentVersion,
 						message: chrome.i18n.getMessage("newApp50Message"),
 						isClickable: true
 					}, function (id) {

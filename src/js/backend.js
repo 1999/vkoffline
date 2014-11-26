@@ -1119,8 +1119,8 @@ window.onerror = function(msg, url, line) {
 								account.avatar = contactData.photo;
 								resolve();
 							}, function (err) {
-								if (errMsg) {
-									LogManager.error(errMsg);
+								if (err) {
+									LogManager.error(err + '');
 								}
 
 								resolve();

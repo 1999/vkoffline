@@ -41,14 +41,6 @@
 		"description": "Конечная часть фразы N минут/часов назад"
 	},
 	{
-		"key": "alertIconTitle",
-		"messages": {
-			"en": "Please let us know if you find an error in the app",
-			"ru": "Обратная связь. Сообщите нам об ошибке в работе приложения",
-			"uk": "Зворотній зв’язок. Повідомте нам про помилку в роботі додатку"
-		}
-	},
-	{
 		"key": "appName",
 		"messages": {
 			"en": "VK Offline",
@@ -205,62 +197,6 @@
 		}
 	},
 	{
-		"key": "errorFormTitle",
-		"messages": {
-			"en": "Report error",
-			"ru": "Отправка сообщения об ошибке",
-			"uk": "Відправка повідомлення про помилку"
-		}
-	},
-	{
-		"key": "errorSendFormDescriptionText",
-		"messages": {
-			"en": "Please describe your problem. If the trouble exists for a long period of time, describe the app's workflow starting from the installation.",
-			"ru": "Подробно опишите вашу проблему. Если в процессе работы приложения постоянно возникают ошибки, опишите работу приложения начиная с момента установки.",
-			"uk": "Детально опишіть вашу проблему. Якщо в процесі робити додатку постійно виникають помилки, опишіть роботу додатку починаючи з моменту встановлення."
-		}
-	},
-	{
-		"key": "errorSendFormInfoText",
-		"messages": {
-			"en": "Please open %info% page in the new tab and copy all information from this tab to the form. This will help us to deal with the problem faster.",
-			"ru": "Пожалуйста откройте страницу %info% в новой вкладке и скопируйте всю информацию оттуда в эту форму. Это поможет нам разобраться с причиной ошибки.",
-			"uk": "Будь ласка, відкрийте сторінку %info% в новій вкладці і скопіюйте всю інформацію звідти в цю форму. Це допоможе нам розібратися з причиною помилки."
-		}
-	},
-	{
-		"key" : "errorSendFormWarning",
-		"messages" : {
-			"en": "%appname% app is being created by a community of independent developers. Please provide information about your browser and installed extensions, so we could solve your problem. Please fill this form and write us a letter to %email%.",
-			"ru": "Приложение %appname% разрабатывается группой независимых разработчиков, поэтому нам нужны данные о вашем браузере и установленных расширениях, чтобы было проще разобраться в проблеме. Заполните эту форму и напишите нам письмо по адресу %email%.",
-			"uk": "Додаток %appname% створений групою незалежних розробників, тому нам потрібні данні про ваш браузер та про встановлені розширення, для того щоб було легше розібратися в проблемі. Заповніть цю форму та напишіть нам листа на адресу %email%."
-		}
-	},
-	{
-		"key" : "errorSendFormButtonText",
-		"messages" : {
-			"en" : "Collect data",
-			"ru" : "Собрать данные",
-			"uk" : "Зібрати дані"
-		}
-	},
-	{
-		"key" : "errorSendFormCopyButtonText",
-		"messages" : {
-			"en" : "Copy message text",
-			"ru" : "Скопировать текст сообщения",
-			"uk" : "Скопіювати текст повідомлення"
-		}
-	},
-	{
-		"key" : "copiedToClipboard",
-		"messages" : {
-			"en" : "Copied to clipboard!",
-			"ru" : "Скопировано в буфер обмена!",
-			"uk" : "Скопійовано в буфер обміну!"
-		}
-	},
-	{
 		"key": "fileType",
 		"messages": {
 			"en": "file extension",
@@ -364,6 +300,22 @@
 			"en": "Spread the word about %appname% app. Like and repost a piece of information about the app so your friends can see it",
 			"ru": "Расскажите друзьям о приложении %appname%. Нажмите на эту иконку, чтобы опубликовать информацию о приложении на вашей стенке ВКонтакте",
 			"uk": "Розповісти друзям про додаток %appname%. Натисніть на цю іконку, щоб опублікувати інформацію про додаток на вашій стінці ВКонтакті"
+		}
+	},
+	{
+		"key": "listenAppInstall",
+		"messages": {
+			"en": "Explore %artist% best tracks without opening VK site",
+			"ru": "Слушайте лучшие песни %artist% не открывая ВКонтакте",
+			"uk": "Слухайте кращі пісні% %artist% не вiдкриваючи ВКонтакте"
+		}
+	},
+	{
+		"key": "listenAppOpen",
+		"messages": {
+			"en": "Explore other tracks by %artist%",
+			"ru": "Другие песни %artist%",
+			"uk": "Iнші пісні %artist%"
 		}
 	},
 	{
@@ -490,6 +442,31 @@
 		},
 		"description": "Форма написания фразы 'еще x сообщений'"
 	},
+	{
+		"key": "newApp50Message",
+		"messages": {
+			"en": "Banana boom!",
+			"ru": "Теперь банановый!",
+			"uk": "Тепер банановий!"
+		}
+	},
+	{
+		"key": "newApp50OpenLink",
+		"messages": {
+			"en": "Open in new window",
+			"ru": "Открыть в новом окне",
+			"uk": "Відкрити у новому вікні"
+		}
+	},
+	{
+		"key": "newApp50Title",
+		"messages": {
+			"en": "New %appname% app",
+			"ru": "Новый %appname%",
+			"uk": "Новий %appname%"
+		}
+	},
+
 	{
 		"key": "newMessage",
 		"messages": {
@@ -1208,14 +1185,6 @@
 			"en": "Yes",
 			"ru": "Да",
 			"uk": "Так"
-		}
-	},
-	{
-		"key": "youMustGrantAccessManagement",
-		"messages": {
-			"en": "You must grant access to extensions management so we can get the list of installed extensions and apps. This will help us to deal with the problem faster.",
-			"ru": "Вы должны предоставить доступ к управлению вашими расширениями, чтобы вместе с вашим сообщением об ошибке был отправлен список установленных у вас расширений и приложений. Это поможет нам быстрее разобраться с причиной ошибки.",
-			"uk": "Ви повинні надати доступ до керування вашими розширеннями, щоб разом з вашим повідомленням про помилку був відправлений список встановлених у вас розширень та додатків. Це допоможе нам швидше розібратися з причиною помилки."
 		}
 	},
 	{

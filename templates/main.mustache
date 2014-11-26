@@ -3,7 +3,7 @@
 	<section class="acc-container"{{#multipleAccounts}} style="left: {{multipleAccountsMargin}}px"{{/multipleAccounts}}>
 		<section class="avatars-container">
 			{{#accounts}}
-				<img width="50" height="50" alt="" src="{{avatarSrc}}" data-uid="{{uid}}"/>
+				<img is="avatar-image" width="50" height="50" alt="" src="{{avatarSrc}}" data-uid="{{uid}}"/>
 			{{/accounts}}
 		</section>
 		<span class="fio">{{activeAccountFio}}</span>
@@ -22,5 +22,5 @@
 </section>
 
 <aside>
-	<span class="icon settings" title="{{settingsTitle}}"></span><span class="icon alert" title="{{alertTitle}}"></span><span class="icon github" title="VK Offline @ Github"></span>{{#showLike}}<span class="icon like" title="{{likeTitle}}"></span>{{/showLike}}<span class="news is-empty"></span>
+	<span class="icon settings" title="{{settingsTitle}}"></span>{{#showLike}}<span class="icon like" title="{{likeTitle}}"></span>{{/showLike}}<span class="news is-empty"></span>
 </aside>

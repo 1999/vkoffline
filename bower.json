@@ -6,6 +6,7 @@
     "Dmitry Sorin <info@staypositive.ru>"
   ],
   "dependencies": {
+    "cpa": "git://github.com/GoogleChrome/chrome-platform-analytics.git#ca1.5.2",
     "lodash": "git://github.com/lodash/lodash#2.4.1",
     "sklad": "git://github.com/1999/sklad.git#1.2.0",
     "vow": "git://github.com/dfilatov/vow.git#0.4.5"

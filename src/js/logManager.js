@@ -33,12 +33,4 @@ var LogManager = new (function() {
 			DatabaseManager.log(methodArgs[0], methodName);
 		};
 	}, this);
-
-	/**
-	 * Чтение лога
-	 * @param {Function} callback принимает {Array} массив записей из лога, готовых к отправке, отсортированных по дате
-	 */
-	this.collect = function(callback) {
-		DatabaseManager.collectLogData(callback);
-	};
 });

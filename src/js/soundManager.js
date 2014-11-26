@@ -29,7 +29,7 @@ var SoundManager = (function () {
 
 	function fallback(type) {
 		buffers[type] = new Audio();
-		buffers[type].src = App.resolveURL("sound/" + type + ".mp3");
+		buffers[type].src = chrome.runtime.getURL("sound/" + type + ".mp3");
 	}
 
 	// создаем буферы звуков
@@ -39,7 +39,7 @@ var SoundManager = (function () {
 		}
 
 		var xhr = new XMLHttpRequest;
-		xhr.open("GET", App.resolveURL("sound/" + type + ".mp3"), true);
+		xhr.open("GET", chrome.runtime.getURL("sound/" + type + ".mp3"), true);
 		xhr.responseType = "arraybuffer";
 
 		xhr.addEventListener("load", function () {

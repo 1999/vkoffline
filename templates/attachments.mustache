@@ -1,21 +1,25 @@
 {{#attachments}}
 	{{#photo}}
 		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment photo{{#noimage}} hidden{{/noimage}}" id="{{id}}">
-			<img width="{{width}}" height="{{height}}" alt="" src="{{src}}"/>
+			<img is="external-image" width="{{width}}" height="{{height}}" alt="" src="{{src}}"/>
 		</section>
 	{{/photo}}
 
 	{{#video}}
 		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment video hidden" id="{{id}}">
-			<iframe class="video" frameborder="0" src="" seamless="true"></iframe>
+			<webview class="video" src=""></webview>
 			<span class="description"></span>
 		</section>
 	{{/video}}
 
 	{{#audio}}
 		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment audio hidden" id="{{id}}">
-			<audio src="" preload="metadata" controls/>
+			<audio src="" preload="metadata" controls></audio>
 			<span class="description"></span>
+			<div>
+				<button class="listenapp-open"></button>
+				<a target="_blank" class="listenapp-install" href=""></a>
+			</div>
 		</section>
 	{{/audio}}
 
@@ -27,12 +31,14 @@
 	{{/doc}}
 
 	{{#geopoint}}
-		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment geopoint{{#nopoint}} hidden{{/nopoint}}" id="{{id}}"></section>
+		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment geopoint{{#nopoint}} hidden{{/nopoint}}" id="{{id}}">
+			<img is="external-image"/>
+		</section>
 	{{/geopoint}}
 
 	{{#link}}
 		<section{{#info}} data-info="{{info}}"{{/info}} class="attachment link">
-			<a href="{{url}}">{{title}}</a>
+			<a target="_blank" href="{{url}}">{{title}}</a>
 			<span class="description">{{{description}}}</span>
 		</section>
 	{{/link}}

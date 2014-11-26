@@ -21,6 +21,11 @@ var App = {
 	CHROME_WEBSTORE_ID: "jinklgkideaicpdgmomlckebafjfibjk", /* ID приложения в CWS */
 	ERROR_EMAIL: "vkoffline@staypositive.ru",
 	INIT_TAGS: ["inbox", "sent", "attachments", "important", "trash", "outbox", "drafts"], // изначальные тэги для сообщений
+	GOODBYE_PAGE_URL: "http://staypositive.ru/goodbye-vkofflineapp.html",
+	LISTENAPP_ID: "bggaejdaachpiaibkedeoadbglgdjpab",
+
+	GOOGLE_ANALYTICS_CPA_ID: "vkoffline_chrome_app",
+	GOOGLE_ANALYTICS_CPA_COUNTER: "UA-20919085-11",
 
 	get NAME() {
 		var name;
@@ -67,36 +72,10 @@ var App = {
 
 	// [ID группы, ignorePostsBeforeId]
 	get VK_ADV_GROUP() {
-		return this.DEBUG ? [38283081, 27] : [29809053, 465];
-	},
-
-	// Google Analytics
-	get GA_STAT_ID() {
-		return this.DEBUG ? "UA-20919085-6" : "UA-20919085-5";
+		return this.DEBUG ? [38283081, 27] : [29809053, 575];
 	},
 
 	VK_ID: 2438161, /* ID приложения ВКонтакте */
 	VK_APP_SCOPE: ['friends', 'messages', 'offline', 'photos', 'audio', 'video', 'docs', 'wall', 'groups'], // OAuth-scope для приложения ВКонтакте
-	FRIENDS_UPDATE_TIMEOUT: 86400, // промежуток между обновлениями списка друзей в секундах
-
-	resolveURL: function (path) {
-		var url;
-
-		try {
-			url = chrome.runtime.getURL(path);
-		} catch (e) {
-			url = chrome.extension.getURL(path);
-		}
-
-		return url;
-	},
-
-	requestBackgroundPage: function (callback) {
-		try {
-			chrome.runtime.getBackgroundPage(callback);
-		} catch (e) {
-			var bgWindow = chrome.extension.getBackgroundPage();
-			callback(bgWindow);
-		}
-	}
+	FRIENDS_UPDATE_TIMEOUT: 86400 // промежуток между обновлениями списка друзей в секундах
 };

@@ -1,21 +1,3 @@
-/* ==========================================================
- * Database Manager (VK Offline Chrome app)
- * https://github.com/1999/vkoffline
- * ==========================================================
- * Copyright 2013-2014 Dmitry Sorin <info@staypositive.ru>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ========================================================== */
 function validateJSONString(data, constr) {
 	var someData;
 	try {
@@ -89,7 +71,7 @@ var DatabaseManager = {
 
 						resolve(output);
 					}, function (tx, err) {
-						statSend("Migrate1", "WebDatabase warn", err.message);
+						CPA.sendEvent("Migrate1", "WebDatabase warn", err.message);
 
 						// let it be
 						if (err.message.indexOf("no such table") !== -1) {
@@ -192,10 +174,6 @@ var DatabaseManager = {
 								fulltext: getMessageFulltext(record.body)
 							};
 
-							if (userId == uid) {
-								return;
-							}
-
 							if (!contacts[userId]) {
 								console.warn("No contact with such id: %s", userId);
 								return;
@@ -220,7 +198,7 @@ var DatabaseManager = {
 									that._conn[uid].close();
 								} catch (ex) {}
 
-								statSend("Migrate1", "IDB insert fail", errMsg);
+								CPA.sendEvent("Migrate1", "IDB insert fail", errMsg);
 								reject(errMsg);
 
 								return;
@@ -232,11 +210,11 @@ var DatabaseManager = {
 							resolve();
 						});
 					}, function (errMsg) {
-						statSend("Migrate1", "getAllWebDatabase fail", errMsg);
+						CPA.sendEvent("Migrate1", "getAllWebDatabase fail", errMsg);
 						reject(errMsg);
 					});
 				}, function (errMsg) {
-					statSend("Migrate1", "initUser fail", errMsg);
+					CPA.sendEvent("Migrate1", "initUser fail", errMsg);
 					reject(errMsg);
 				});
 			});
@@ -254,24 +232,27 @@ var DatabaseManager = {
 
 	/**
 	 * Create meta database with log object store
+	 * @return {Promise}
 	 */
-	initMeta: function DatabaseManager_initMeta(callback) {
+	initMeta: function DatabaseManager_initMeta() {
 		var that = this;
 
-		sklad.open('meta', {
-			version: 1,
-			migration: {
-				'1': function (database) {
-					database.createObjectStore("log", {autoIncrement: true});
+		return new Promise(function (resolve) {
+			sklad.open("meta", {
+				version: 1,
+				migration: {
+					'1': function (database) {
+						database.createObjectStore("log", {autoIncrement: true});
+					}
 				}
-			}
-		}, function (err, conn) {
-			if (err) {
-				throw new Error(err.name + ': ' + err.message);
-			}
+			}, function (err, conn) {
+				if (err) {
+					throw new Error(err.name + ': ' + err.message);
+				}
 
-			that._meta = conn;
-			callback();
+				that._meta = conn;
+				resolve();
+			});
 		});
 	},
 
@@ -742,18 +723,25 @@ var DatabaseManager = {
 	 * Получение сообщений из диалога
 	 *
 	 * @param {String} dialogId идентификатор диалога: [\d]+ в случае чата, 0_[\d]+ в случае переписки один на один
-	 * @param {Integer|Null} from с какой записи нужно все получить
+	 * @param {Object} opts
+	 * @param {Number} [opts.from = undefined] с какой записи нужно все получить
+	 * @param {Boolean} [opts.everything = false] нужно ли получить все записи в диалоге
 	 * @param {Function} fnSuccess принимает:
 	 *     {Array} сообщения
 	 *     {Number} количество сообщений в диалоге
 	 * @param {Function} fnFail принимает:
 	 *     {String} строка ошибки
 	 */
-	getDialogThread: function DatabaseManager_getDialogThread(dialogId, from, fnSuccess, fnFail) {
+	getDialogThread: function DatabaseManager_getDialogThread(dialogId, opts, fnSuccess, fnFail) {
 		var userId = this._userId;
 		var conn = this._conn[userId];
 
+		opts.from = opts.from || 0;
+		opts.everything = opts.everything || false;
+
 		function getContactById(id) {
+			id = Number(id);
+
 			return new vow.Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(id)
@@ -765,6 +753,7 @@ var DatabaseManager = {
 					} else {
 						resolve({
 							uid: records[0].key,
+							photo: records[0].value.photo,
 							first_name: records[0].value.first_name,
 							last_name: records[0].value.last_name
 						});
@@ -774,7 +763,7 @@ var DatabaseManager = {
 		}
 
 		function countChatMessages() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "chat_messages",
 					range: IDBKeyRange.only(dialogId)
@@ -789,14 +778,19 @@ var DatabaseManager = {
 		}
 
 		function getChatMessages() {
-			return new vow.Promise(function (resolve, reject) {
-				conn.get("messages", {
+			return new Promise(function (resolve, reject) {
+				var getOpts = {
 					index: "chat_messages",
 					range: IDBKeyRange.only(dialogId),
 					direction: sklad.DESC,
-					offset: from,
-					limit: 30
-				}, function (err, records) {
+					offset: opts.from
+				};
+
+				if (!opts.everything) {
+					getOpts.limit = 30;
+				}
+
+				conn.get("messages", getOpts, function (err, records) {
 					if (err) {
 						reject(err);
 					} else {
@@ -806,15 +800,19 @@ var DatabaseManager = {
 			});
 		}
 
-		vow.all({
-			messages: getChatMessages(),
-			total: countChatMessages()
-		}).then(function (res) {
-			var total = res.total;
+		Promise.all([
+			getChatMessages(),
+			countChatMessages()
+		]).then(function (res) {
+			var messages = res[0].reverse();
+			var total = res[1];
 			var promises = {};
 			var output = [];
 
-			res.messages.reverse().forEach(function (record) {
+			// get current user info
+			promises[userId] = getContactById(userId);
+
+			messages.forEach(function (record) {
 				output.push({
 					mid: record.value.mid,
 					title: record.value.title,
@@ -833,6 +831,7 @@ var DatabaseManager = {
 			});
 
 			vow.all(promises).then(function (res) {
+				var currentUserPhoto = res[userId] ? res[userId].photo : null;
 				output.forEach(function (message) {
 					if (!res[message.uid]) {
 						return;
@@ -840,6 +839,7 @@ var DatabaseManager = {
 
 					message.first_name = res[message.uid].first_name;
 					message.last_name = res[message.uid].last_name;
+					message.photo = (message.tags.indexOf("sent") === -1) ? res[message.uid].photo : currentUserPhoto;
 				});
 
 				fnSuccess([
@@ -855,14 +855,31 @@ var DatabaseManager = {
 	},
 
 	/**
-	 * @param {Integer} mid
+	 * @param {Number} mid
 	 * @param {Function} fnSuccess принимает параметр {Object}
 	 * @param {Function} fnFail принимает параметры {Boolean} isDatabaseError и {String} errorMessage
 	 */
 	getMessageById: function DatabaseManager_getMessageById(mid, fnSuccess, fnFail) {
 		var userId = this._userId;
+		var conn = this._conn[userId];
 
-		this._conn[userId].get("messages", {
+		function getContactPhoto(uid) {
+			return new Promise(function (resolve, reject) {
+				conn.get("contacts", {
+					range: IDBKeyRange.only(uid)
+				}, function (err, records) {
+					if (err) {
+						reject(err);
+					} else if (!records.length) {
+						resolve(null);
+					} else {
+						resolve(records[0].value.photo);
+					}
+				});
+			});
+		}
+
+		conn.get("messages", {
 			range: IDBKeyRange.only(mid)
 		}, function (err, records) {
 			if (err) {
@@ -875,7 +892,13 @@ var DatabaseManager = {
 				return;
 			}
 
-			fnSuccess(records[0].value);
+			var msg = records[0].value;
+			getContactPhoto(msg.uid).then(function (photo) {
+				msg.avatar = photo;
+				fnSuccess(msg);
+			}, function (err) {
+				fnFail(true, err.name + ": " + err.message);
+			});
 		});
 	},
 
@@ -996,7 +1019,7 @@ var DatabaseManager = {
 				date: message.date,
 				read: Boolean(message.read_state),
 				chat: chatId,
-				attachments: validateJSONString(message.attachments, Array),
+				attachments: Array.isArray(message.attachments) ? message.attachments : [],
 				tags: message.tags,
 				has_emoji: Boolean(message.emoji),
 				fulltext: getMessageFulltext(message.body)
@@ -1023,6 +1046,31 @@ var DatabaseManager = {
 			}
 
 			fnSuccess();
+		});
+	},
+
+	/**
+	 * @param {String} mailType - one of "inbox", "sent"
+	 * @return {Promise}
+	 */
+	getLatestTagMessageId: function DatabaseManager_getLatestTagMessageId(mailType) {
+		var userId = this._userId;
+		var conn = this._conn[userId];
+
+		return new Promise(function (resolve, reject) {
+			conn.get("messages", {
+				index: "tag",
+				range: IDBKeyRange.only(mailType),
+				direction: sklad.DESC,
+				limit: 1
+			}, function (err, records) {
+				if (err) {
+					reject(err);
+				} else {
+					var output = records.length ? records[0].value.mid : 0;
+					resolve(output);
+				}
+			});
 		});
 	},
 
@@ -1380,9 +1428,42 @@ var DatabaseManager = {
 	},
 
 	/**
+	 * Получение всех сообщений с вложениями, полученных с ошибками в версии 4.11
+	 * @return {Promise}
+	 */
+	getMessagesWithFalsyAttachments: function DatabaseManager_getMessagesWithFalsyAttachments() {
+		var userId = this._userId;
+		var conn = this._conn[userId];
+
+		return new Promise(function (resolve, reject) {
+			conn.get("messages", {
+				index: "tag",
+				range: IDBKeyRange.only("attachments")
+			}, function (err, records) {
+				if (err) {
+					reject(err.name + ": " + err.message);
+				} else {
+					var output = [];
+
+					records.forEach(function (record) {
+						if (record.value.attachments.length) {
+							return;
+						}
+
+						output.push(record.value.mid);
+					});
+
+					resolve(output);
+				}
+			});
+		});
+	},
+
+	/**
 	 * Получение сообщений определенного типа
+	 *
 	 * @param {String} tag
-	 * @param {Integer} startFrom
+	 * @param {Number} startFrom
 	 * @param {Function} fnSuccess принимает {Array} [{Array} сообщения, {Integer} total]
 	 * @oaram {Function} fnFail принимает {String} errorMessage
 	 */
@@ -1413,8 +1494,10 @@ var DatabaseManager = {
 					if (err) {
 						reject(err);
 					} else {
+						// FIXME: WTF
 						message.first_name = records.length ? records[0].value.first_name : "Not";
 						message.last_name = records.length ? records[0].value.last_name : "Found";
+						message.avatar = records.length ? records[0].value.photo : null;
 
 						resolve();
 					}
@@ -1596,6 +1679,7 @@ var DatabaseManager = {
 					} else {
 						record.first_name = records[0].value.first_name;
 						record.last_name = records[0].value.last_name;
+						record.avatar = records[0].value.photo;
 
 						resolve();
 					}

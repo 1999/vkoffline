@@ -19,150 +19,150 @@
 var Utils = {
 	async: {
 		/**
-	     * Параллельное выполнение задач
-	     * @param {Object|Array} tasks пул задач в виде массива или объекта, где каждый элемент - это {Function}, которая принимает:
-	     *      * @param {Function} callback
-	     *
-	     * @param {Number} concurrency количество одновременно выполняемых операций (необязат.)
-	     * @param {Function} callback принимает:
-	     *      * @param {String|Null} err
-	     *      * @param {Object|Array} results
-	     *
-	     * @link https://npmjs.org/package/async#parallel
-	     */
-	    parallel: function async_parallel(tasks, concurrency, callback) {
-	        if (arguments.length === 2) {
-	            callback = concurrency;
-	            concurrency = 0;
-	        }
+		 * Параллельное выполнение задач
+		 * @param {Object|Array} tasks пул задач в виде массива или объекта, где каждый элемент - это {Function}, которая принимает:
+		 *      * @param {Function} callback
+		 *
+		 * @param {Number} concurrency количество одновременно выполняемых операций (необязат.)
+		 * @param {Function} callback принимает:
+		 *      * @param {String|Null} err
+		 *      * @param {Object|Array} results
+		 *
+		 * @link https://npmjs.org/package/async#parallel
+		 */
+		parallel: function async_parallel(tasks, concurrency, callback) {
+			if (arguments.length === 2) {
+				callback = concurrency;
+				concurrency = 0;
+			}
 
-	        var isNamedQueue = !Array.isArray(tasks);
-	        var tasksKeys = isNamedQueue ? Object.keys(tasks) : new Array(tasks.length);
-	        var resultsData = isNamedQueue ? {} : [];
+			var isNamedQueue = !Array.isArray(tasks);
+			var tasksKeys = isNamedQueue ? Object.keys(tasks) : new Array(tasks.length);
+			var resultsData = isNamedQueue ? {} : [];
 
-	        if (!tasksKeys.length)
-	            return callback(null, resultsData);
+			if (!tasksKeys.length)
+				return callback(null, resultsData);
 
-	        var tasksProcessedNum = 0;
-	        var tasksBeingProcessed = 0;
-	        var tasksTotalNum = tasksKeys.length;
+			var tasksProcessedNum = 0;
+			var tasksBeingProcessed = 0;
+			var tasksTotalNum = tasksKeys.length;
 
-	        (function processTasks() {
-	            if (!tasksKeys.length || (concurrency && concurrency <= tasksBeingProcessed))
-	                return;
+			(function processTasks() {
+				if (!tasksKeys.length || (concurrency && concurrency <= tasksBeingProcessed))
+					return;
 
-	            var taskIndex = tasksKeys.pop() || tasksKeys.length;
-	            tasksBeingProcessed += 1;
+				var taskIndex = tasksKeys.pop() || tasksKeys.length;
+				tasksBeingProcessed += 1;
 
-	            tasks[taskIndex](function (err, data) {
-	                tasksBeingProcessed -= 1;
+				tasks[taskIndex](function (err, data) {
+					tasksBeingProcessed -= 1;
 
-	                if (err) {
-	                    var originalCallback = callback;
-	                    callback = function () { return true };
+					if (err) {
+						var originalCallback = callback;
+						callback = function () { return true };
 
-	                    return originalCallback(err);
-	                }
+						return originalCallback(err);
+					}
 
-	                resultsData[taskIndex] = data;
-	                tasksProcessedNum += 1;
+					resultsData[taskIndex] = data;
+					tasksProcessedNum += 1;
 
-	                if (tasksProcessedNum === tasksTotalNum)
-	                    return callback(null, resultsData);
+					if (tasksProcessedNum === tasksTotalNum)
+						return callback(null, resultsData);
 
-	                processTasks();
-	            });
+					processTasks();
+				});
 
-	            processTasks();
-	        })();
-	    },
+				processTasks();
+			})();
+		},
 
-	    /**
-	     * Последовательное выполнение задач
-	     * @param {Object|Array} tasks пул задач в виде массива или объекта, где каждый элемент - это {Function}, которая принимает:
-	     *      * @param {Function} callback
-	     *
-	     * @param {Function} callback принимает:
-	     *      * @param {String|Null} err
-	     *      * @param {Object|Array} results
-	     *
-	     * @link https://npmjs.org/package/async#series
-	     */
-	    series: function async_series(tasks, callback) {
-	        var isNamedQueue = !Array.isArray(tasks);
-	        var tasksKeys = isNamedQueue ? Object.keys(tasks) : new Array(tasks.length);
-	        var resultsData = isNamedQueue ? {} : [];
+		/**
+		 * Последовательное выполнение задач
+		 * @param {Object|Array} tasks пул задач в виде массива или объекта, где каждый элемент - это {Function}, которая принимает:
+		 *      * @param {Function} callback
+		 *
+		 * @param {Function} callback принимает:
+		 *      * @param {String|Null} err
+		 *      * @param {Object|Array} results
+		 *
+		 * @link https://npmjs.org/package/async#series
+		 */
+		series: function async_series(tasks, callback) {
+			var isNamedQueue = !Array.isArray(tasks);
+			var tasksKeys = isNamedQueue ? Object.keys(tasks) : new Array(tasks.length);
+			var resultsData = isNamedQueue ? {} : [];
 
-	        if (!tasksKeys.length)
-	            return callback(null, resultsData);
+			if (!tasksKeys.length)
+				return callback(null, resultsData);
 
-	        (function processTasks(numTasksProcessed) {
-	            if (numTasksProcessed === tasksKeys.length)
-	                return callback(null, resultsData);
+			(function processTasks(numTasksProcessed) {
+				if (numTasksProcessed === tasksKeys.length)
+					return callback(null, resultsData);
 
-	            var taskIndex = isNamedQueue ? tasksKeys[numTasksProcessed] : numTasksProcessed;
-	            tasks[taskIndex](function (err, data) {
-	                if (err)
-	                    return callback(err);
+				var taskIndex = isNamedQueue ? tasksKeys[numTasksProcessed] : numTasksProcessed;
+				tasks[taskIndex](function (err, data) {
+					if (err)
+						return callback(err);
 
-	                resultsData[taskIndex] = data;
-	                processTasks(++numTasksProcessed);
-	            });
-	        })(0);
-	    },
+					resultsData[taskIndex] = data;
+					processTasks(++numTasksProcessed);
+				});
+			})(0);
+		},
 
-	    /**
-	     * Последовательное выполнение задач с сохранением промежуточных данных между задачами
-	     * @param {Object|Array} tasks пул задач в виде массива или объекта, где каждый элемент - это {Function}, которая принимает:
-	     *      * @param {Function} callback
-	     *
-	     * @param {Function} callback принимает:
-	     *      * @param {String|Null} err
-	     *      * @param {Object|Array} results
-	     *
-	     * @link https://npmjs.org/package/async#waterfall
-	     */
-	    waterfall: function async_waterfall(tasks, callback) {
-	        var isNamedQueue = !Array.isArray(tasks);
-	        var tasksKeys = isNamedQueue ? Object.keys(tasks) : new Array(tasks.length);
+		/**
+		 * Последовательное выполнение задач с сохранением промежуточных данных между задачами
+		 * @param {Object|Array} tasks пул задач в виде массива или объекта, где каждый элемент - это {Function}, которая принимает:
+		 *      * @param {Function} callback
+		 *
+		 * @param {Function} callback принимает:
+		 *      * @param {String|Null} err
+		 *      * @param {Object|Array} results
+		 *
+		 * @link https://npmjs.org/package/async#waterfall
+		 */
+		waterfall: function async_waterfall(tasks, callback) {
+			var isNamedQueue = !Array.isArray(tasks);
+			var tasksKeys = isNamedQueue ? Object.keys(tasks) : new Array(tasks.length);
 
-	        if (!tasksKeys.length)
-	            return callback();
+			if (!tasksKeys.length)
+				return callback();
 
-	        tasksKeys.reverse();
-	        if (!isNamedQueue)
-	            tasks.reverse();
+			tasksKeys.reverse();
+			if (!isNamedQueue)
+				tasks.reverse();
 
-	        (function processTasks() {
-	            var addArgs = Array.prototype.slice.call(arguments, 0);
+			(function processTasks() {
+				var addArgs = Array.prototype.slice.call(arguments, 0);
 
-	            if (!tasksKeys.length)
-	                return callback.apply(null, [null].concat(addArgs));
+				if (!tasksKeys.length)
+					return callback.apply(null, [null].concat(addArgs));
 
-	            var taskIndex = tasksKeys.pop() || tasksKeys.length;
-	            var internalCallback = function (err) {
-	                if (err)
-	                    return callback(err);
+				var taskIndex = tasksKeys.pop() || tasksKeys.length;
+				var internalCallback = function (err) {
+					if (err)
+						return callback(err);
 
-	                processTasks.apply(null, Array.prototype.slice.call(arguments, 1));
-	            };
+					processTasks.apply(null, Array.prototype.slice.call(arguments, 1));
+				};
 
-	            tasks[taskIndex].apply(null, addArgs.concat(internalCallback));
-	        })();
-	    },
+				tasks[taskIndex].apply(null, addArgs.concat(internalCallback));
+			})();
+		},
 
-	    /**
-	     * Более эффективный в некоторых случаях setTimeout(callback, 0)
-	     * @param {Function} callback
-	     * @param {Object} ctx контект выполнения callback
-	     * @link https://developer.mozilla.org/en-US/docs/XPCOM_Interface_Reference/nsIThread#processNextEvent()
-	     */
-	    nextTick: function async_nextTick(callback, ctx) {
-	        if (ctx)
-	            callback = callback.bind(ctx);
+		/**
+		 * Более эффективный в некоторых случаях setTimeout(callback, 0)
+		 * @param {Function} callback
+		 * @param {Object} ctx контект выполнения callback
+		 * @link https://developer.mozilla.org/en-US/docs/XPCOM_Interface_Reference/nsIThread#processNextEvent()
+		 */
+		nextTick: function async_nextTick(callback, ctx) {
+			if (ctx)
+				callback = callback.bind(ctx);
 
-	        setTimeout(callback, 0);
-	    }
+			setTimeout(callback, 0);
+		}
 	},
 
 	string: {
@@ -251,7 +251,7 @@ var Utils = {
 				}
 
 				if (vkSymbols.indexOf(charCode) !== -1) {
-					output += replaceWithImages ? " <img class='emoji' src='" + baseImgPath + charCode + ".png' width='16' height='16' alt=''/> " : " ";
+					output += replaceWithImages ? " <img is='external-image' class='emoji' src='" + baseImgPath + charCode + ".png' width='16' height='16' alt=''/> " : " ";
 				} else {
 					output += str[i];
 				}
@@ -344,3 +344,214 @@ var Utils = {
 		}
 	}
 };
+
+(function (exports) {
+	"use strict";
+
+	var BLANK_TRANSPARENT_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
+
+	function fetchImage(url) {
+		return new Promise(function (resolve, reject) {
+			var xhr = new XMLHttpRequest;
+			xhr.open("GET", url, true);
+			xhr.responseType = "blob";
+
+			xhr.addEventListener("load", function () {
+				resolve(this.response);
+			}, false);
+
+			xhr.addEventListener("error", function () {
+				reject();
+			}, false);
+
+			xhr.send();
+		});
+	}
+
+	function requestFileSystem() {
+		return new Promise(function (resolve, reject) {
+			(window.webkitRequestFileSystem || window.requestFileSystem)(window.PERSISTENT, 0, resolve, reject);
+		});
+	}
+
+	/**
+	 * Get contact photo stored inside local filesystem
+	 * @param {Number} uid
+	 * @return {Promise}
+	 */
+	function getContactStoredPhoto(uid) {
+		return new Promise(function (resolve, reject) {
+			requestFileSystem().then(function (fsLink) {
+				fsLink.root.getFile(uid + "_th.jpg", {create: false}, function (fileEntry) {
+					// check if file was created more than 1d ago
+					fileEntry.file(function (fileBlob) {
+						var dayBeforeNow = new Date;
+						dayBeforeNow.setDate(dayBeforeNow.getDate() - 1);
+
+						if (fileBlob.lastModifiedDate > dayBeforeNow) {
+							resolve(fileEntry);
+						} else {
+							reject();
+						}
+					}, reject);
+
+					resolve(fileEntry);
+				}, reject);
+			}, reject);
+		});
+	}
+
+	function processExternalImage() {
+		var that = this;
+		var imageSource = this.getAttribute("src") || "";
+
+		if (!imageSource) {
+			return;
+		}
+
+		this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+		this.dataset.originalSrc = imageSource;
+		this.classList.add("loading");
+
+		// download image
+		fetchImage(imageSource).then(function (blob) {
+			var uri = URL.createObjectURL(blob);
+			that.setAttribute("src", uri);
+
+			that.classList.remove("loading");
+		});
+	}
+
+	function getAvatarImage(imageSource, uid) {
+		return new Promise(function (resolve, reject) {
+			getContactStoredPhoto(uid).then(function (fileEntry) {
+				resolve(fileEntry.toURL());
+			}, function () {
+				if (imageSource.indexOf("http") !== 0) {
+					resolve(imageSource);
+					return;
+				}
+
+				Promise.all([
+					fetchImage(imageSource),
+					requestFileSystem()
+				]).then(function (res) {
+					var blob = res[0];
+					var fsLink = res[1];
+
+					fsLink.root.getFile(uid + "_th.jpg", {create: true}, function (fileEntry) {
+						fileEntry.createWriter(function (fileWriter) {
+							fileWriter.onwriteend = function () {
+								resolve(fileEntry.toURL());
+							}
+
+							fileWriter.onerror = reject;
+							fileWriter.write(blob);
+						});
+					});
+				}, reject);
+			});
+		});
+	}
+
+	/**
+	 * Get downloaded or download avatar image
+	 *
+	 * @param {String} imageSource
+	 * @param {Number} uid
+	 * @return {Promise} which resolves with downloaded URL (filesystem: or blob:)
+	 */
+	exports.getAvatarImage = getAvatarImage;
+
+	exports.uuid = function uuid() {
+		return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+			var r = Math.random() * 16 | 0;
+			var v = (c == "x") ? r : (r&0x3|0x8);
+
+			return v.toString(16);
+		});
+	};
+
+	exports.openInNewWindow = function openInNewWindow(url) {
+		chrome.app.window.create(url, {
+			id: uuid(),
+			innerBounds: {
+				minWidth: 1000,
+				maxHeight: 50
+			}
+		});
+	};
+
+	/**
+	 * Notify app windows about smth
+	 */
+	exports.notifySelf = function notifySelf(data) {
+		chrome.runtime.sendMessage(data);
+	};
+
+	/**
+	 * Get data from background page
+	 * @param {Mixed} data
+	 * @return {Promise}
+	 */
+	exports.requestBackground = function requestBackground(data) {
+		return new Promise(function (resolve) {
+			chrome.runtime.sendMessage(data, resolve);
+		});
+	};
+
+	/**
+	 * Custom <img is="external-image"> container for loading external images
+	 */
+	document.registerElement("external-image", {
+		extends: "img",
+		prototype: _.create(HTMLImageElement.prototype, {
+			createdCallback: processExternalImage,
+
+			attributeChangedCallback: function (attrName, oldVal, newVal) {
+				if (attrName !== "src") {
+					return;
+				}
+
+				if (newVal.indexOf("http") !== 0) {
+					return;
+				}
+
+				processExternalImage.call(this);
+			},
+
+			detachedCallback: function () {
+				var imageSource = this.getAttribute("src");
+				if (imageSource.indexOf("blob:") === 0) {
+					URL.revokeObjectURL(imageSource);
+				}
+			}
+		})
+	});
+
+	/**
+	 * Custom <img is="avatar-image"> container for loading and saving avatars
+	 */
+	document.registerElement("avatar-image", {
+		extends: "img",
+		prototype: _.create(HTMLImageElement.prototype, {
+			createdCallback: function () {
+				var that = this;
+				var imageSource = this.getAttribute("src");
+				var uid = Number(this.dataset.uid);
+
+				this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+				this.dataset.originalSrc = imageSource;
+				this.classList.add("loading");
+
+				getAvatarImage(imageSource, uid).then(function (uri) {
+					that.classList.remove("loading");
+					that.setAttribute("src", uri);
+				}, function () {
+					that.classList.remove("loading");
+					that.setAttribute("src", chrome.runtime.getURL("pic/question_th.gif"));
+				});
+			}
+		})
+	});
+})(window);

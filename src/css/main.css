@@ -1,51 +1,13 @@
-/* ==========================================================
- * Global styles (VK Offline Chrome app)
- * https://github.com/1999/vkoffline
- * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ========================================================== */
-
-/* scrollbar */
-::-webkit-scrollbar {
-	width: 8px;
-	height: 8px;
-}
-
-::-webkit-scrollbar-track-piece {
-	background-color: #eee;
-}
-
-::-webkit-scrollbar-thumb {
-	background-color: #bfbfbf;
-	border-radius: 8px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-	background-color: #aaa;
-}
-
-::-webkit-scrollbar-thumb:active {
-	background-color: #999;
-}
-
 /* custom fonts */
 @font-face {
 	font-family: "Modern Pictograms";
 	src: url(../Modern-Pictograms.otf); /* http://thedesignoffice.org/project/modern-pictograms/ */
 }
 
+
+html, body {
+    overflow: visible;
+}
 
 html {
 	height: 100%;
@@ -55,12 +17,17 @@ body {
 	background: url(../pic/loading.gif) 50% 50% no-repeat, url(../pic/guest-bg.jpg) 0 0 repeat;
 	height: auto;
 	padding: 5% 0;
-	font: 16px/24px "PT Sans", "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font: 16px/24px "Helvetica Neue", Arial, Helvetica, sans-serif;
 	color: #333;
 	min-width: 900px;
 	min-height: 600px;
 	box-sizing: border-box;
 	-webkit-font-smoothing: antialiased;
+}
+
+body.authview {
+	padding: 0;
+	margin: 0;
 }
 
 body.white {
@@ -69,7 +36,7 @@ body.white {
 }
 
 input, select, textarea, button {
-	font: 16px/24px "PT Sans", "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font: 16px/24px "Helvetica Neue", Arial, Helvetica, sans-serif;
 	resize: none;
 }
 
@@ -99,6 +66,13 @@ textarea:focus:not([type="file"]), input:focus:not([type="file"]) {
 }
 
 /* стили приложения */
+webview.oauth {
+	left: 0;
+	position: absolute;
+	top: 0;
+	z-index: 999;
+}
+
 #header {
 	height: 10%;
 	min-height: 88px; /* 50 + 3*2 + 32 */
@@ -733,7 +707,7 @@ body:not(.grey) #content:after {
 	display: block;
 }
 
-#content > section.news-container > section iframe.video {
+#content > section.news-container > section webview.video {
 	width: 520px;
 	height: 395px;
 	display: block;
@@ -1247,7 +1221,7 @@ section.attachment audio {
 	display: block;
 }
 
-section.attachment iframe.video {
+section.attachment webview.video {
 	width: 520px;
 	height: 390px;
 	display: block;
@@ -1264,12 +1238,6 @@ section.attachment span.description {
 	font-size: 14px;
 	line-height: 20px;
 }
-
-section.attachment.geopoint {
-	height: 360px;
-	background: url(../pic/loading.gif) 50% 50% no-repeat;
-}
-
 
 /* поиск контакта */
 #content > section.search-contacts-container {}
@@ -1653,13 +1621,16 @@ body.grey section.buttons p {
 
 body.grey img {
 	-webkit-box-reflect: below 12px -webkit-linear-gradient(top, rgba(0, 0, 0, 0), rgba(0, 0, 0, .5));
-	background: url(../pic/loading2.gif) 50% 50% no-repeat;
 	opacity: .8;
 	box-shadow: 0 0 16px rgba(0, 0, 0, .5);
 	margin: 24px auto;
 	border-radius: 16px;
 	text-align: center;
 	display: block;
+}
+
+body.grey img.loading {
+	background: url(../pic/loading2.gif) 50% 50% no-repeat;
 }
 
 body.grey h1 {
@@ -1691,7 +1662,7 @@ body.grey section.data {
 	width: 900px;
 }
 
-body.grey section.data img, body.grey section.data iframe {
+body.grey section.data img, body.grey section.data webview {
 	float: right;
 	margin: 0 0 24px 36px;
 	-webkit-box-reflect: none;
@@ -1739,10 +1710,6 @@ body.grey section.syncing section.synctype p {
 	text-indent: 2px;
 }
 
-body.grey section.syncing section.synctype p span:after {
-	content: "%";
-}
-
 body.grey section.syncing section.synctype progress {
 	width: 900px;
 }
@@ -1784,6 +1751,10 @@ section.pre {
 	background-color: #DFF0D8;
 	border-color: #D6E9C6;
 	color: #468847;
+}
+
+.listenapp-open:not(.active), .listenapp-install:not(.active) {
+	display: none;
 }
 
 /* http://twitter.github.com/bootstrap/components.html#alerts */

@@ -1,104 +1,97 @@
-/* ==========================================================
- * Background page (VK Offline Chrome app)
- * https://github.com/1999/vkoffline
- * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ========================================================== */
-
-(function () {
-	function previewListener(request, sender, sendResponse) {
-		if (request.action === "uiDraw") {
-			sendResponse(false);
-			return true;
-		}
-	}
-
-	window.addEventListener("load", function () {
-		chrome.runtime.onMessage.removeListener(previewListener);
-		chrome.runtime.sendMessage({action: "ui"});
-	}, false);
-
-	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
-		if (alarmInfo.name === "dayuse") {
-			statSend("Lifecycle", "Dayuse", "Total users", 1);
-			statSend("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
-
-			var appInstallTime = StorageManager.get("app_install_time");
-			if (appInstallTime) {
-				var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
-				statSend("Lifecycle", "Dayuse", "App life time", totalDaysLive);
-			}
-
-			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
-			for (var url in requestsLog) {
-				statSend("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
-			}
-
-			StorageManager.remove("requests");
-		} else if (alarmInfo.name === "actualizeChats") {
-			DatabaseManager.actualizeChatDates();
-		} else if (alarmInfo.name === "actualizeContacts") {
-			DatabaseManager.actualizeContacts().catch(function (errMsg) {
-				LogManager.error(errMsg);
-				statSend("Custom-Errors", "Database error", errMsg);
-			});
-		}
-	});
-
-	chrome.runtime.onMessage.addListener(previewListener);
-})();
-
-
 window.onerror = function(msg, url, line) {
 	var msgError = msg + ' in ' + url + ' (line: ' + line + ')';
 
-	if (App.DEBUG)
-		alert([msgError]);
-
+	console.error(msgError);
 	LogManager.error(msgError);
 };
 
-// запись custom-статистики
-function statSend(category, action, optLabel, optValue) {
-	var args = [];
+(function () {
+	"use strict";
 
-	for (var i = 0, len = Math.min(arguments.length, 4); i < len; i++) {
-		if (i === 3) {
-			if (typeof optValue === "boolean") {
-				optValue = Number(optValue);
-			} else if (typeof optValue !== "number") {
-				optValue = parseInt(optValue, 10) || 0;
-			}
+	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
 
-			args.push(optValue);
-		} else {
-			if (typeof arguments[i] !== "string") {
-				args.push(JSON.stringify(arguments[i]));
-			} else {
-				args.push(arguments[i]);
-			}
+	/**
+	 * Показать chrome.notification
+	 *
+	 * @param {Object} data
+	 * @param {String} data.title
+	 * @param {String} data.message
+	 * @param {String} data.icon
+	 * @param {Number} [data.uid]
+	 * @param {String} [data.id]
+	 * @param {String} [data.sound]
+	 * @param {Number} [data.timeout]
+	 * @param {Function} [data.onclick]
+	 */
+	function showChromeNotification(data) {
+		// Linux check
+		// @see https://developer.chrome.com/extensions/notifications
+		if (!chrome.notifications)
+			return;
+
+		var promise = data.uid
+			? getAvatarImage(data.icon, data.uid)
+			: Promise.resolve(data.icon);
+
+		var showChromeNotificationInner = function (uri) {
+			uri = uri || data.icon;
+
+			chrome.notifications.create((data.id || Math.random()) + '', {
+				type: 'basic',
+				iconUrl: uri,
+				title: data.title,
+				message: data.message,
+				isClickable: true
+			}, function (notificationId) {
+				if (data.onclick) {
+					notificationHandlers[notificationId] = data.onclick;
+				}
+
+				if (data.sound) {
+					SoundManager.play(data.sound);
+				}
+
+				if (data.timeout) {
+					setTimeout(function () {
+						chrome.notifications.clear(notificationId, _.noop);
+					}, data.timeout * 1000);
+				}
+			});
 		}
+
+		promise.then(showChromeNotificationInner, function () {
+			showChromeNotificationInner();
+		});
 	}
 
-	try {
-		window._gaq.push(["_trackEvent"].concat(args));
-	} catch (e) {}
-};
+	/**
+	 * Flatten settings by getting their values in this moment
+	 * @return {Object}
+	 */
+	function getFlatSettings() {
+		var flatSettings = {};
+		_.forIn(SettingsManager, function (value, key) {
+			flatSettings[key] = value;
+		});
 
-document.addEventListener("DOMContentLoaded", function () {
-	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
+		return flatSettings;
+	}
+
+	function leaveOneAppWindowInstance(openIfNoExist) {
+		var appWindows = chrome.app.window.getAll();
+		appWindows.forEach(function (win, isNotFirst) {
+			if (isNotFirst) {
+				win.close();
+			} else {
+				win.focus();
+				win.show();
+			}
+		});
+
+		if (!appWindows.length && openIfNoExist) {
+			openAppWindow();
+		}
+	}
 
 	// notification click handlers
 	var notificationHandlers = {};
@@ -112,231 +105,128 @@ document.addEventListener("DOMContentLoaded", function () {
 		delete notificationHandlers[notificationId];
 	});
 
-	// получение аватарок
-	function fetchPhoto(photoUrl, fn) {
-		var xhr = new XMLHttpRequest();
-		xhr.open("GET", photoUrl, true);
-		xhr.responseType = "blob";
+	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
+		if (alarmInfo.name === "dayuse") {
+			CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
+			CPA.sendEvent("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
 
-		xhr.addEventListener("load", function () {
-			fn(xhr.response);
-			xhr = null;
-		}, false);
-
-		xhr.send();
-	}
-
-	/**
-	 * Показать chrome.notification
-	 *
-	 * @param {Object} data
-	 * @param {String} data.title
-	 * @param {String} data.message
-	 * @param {String} data.icon
-	 * @param {String} [data.id]
-	 * @param {String} [data.sound]
-	 * @param {Number} [data.timeout]
-	 * @param {Function} [data.onclick]
-	 */
-	function showChromeNotification(data) {
-		// Linux? Didn't hear
-		// @see https://developer.chrome.com/extensions/notifications
-		if (!chrome.notifications)
-			return;
-
-		chrome.notifications.create((data.id || Math.random()) + '', {
-			type: 'basic',
-			iconUrl: data.icon,
-			title: data.title,
-			message: data.message,
-			isClickable: true
-		}, function (notificationId) {
-			if (data.onclick) {
-				notificationHandlers[notificationId] = data.onclick;
+			var appInstallTime = StorageManager.get("app_install_time");
+			if (appInstallTime) {
+				var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
+				CPA.sendEvent("Lifecycle", "Dayuse", "App life time", totalDaysLive);
 			}
 
-			// FIXME uncomment this when chrome.notifications start working in legacy packaged apps
-			// @see https://code.google.com/p/chromium/issues/detail?id=386027
-			// if (data.sound) {
-			// 	SoundManager.play(data.sound);
-			// }
-
-			if (data.timeout) {
-				setTimeout(function () {
-					chrome.notifications.clear(notificationId, _.noop);
-				}, data.timeout * 1000);
+			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
+			for (var url in requestsLog) {
+				CPA.sendEvent("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
 			}
-		});
-	}
 
-	/**
-	 * Нахождение табов фронтенда
-	 * @param {Function} callback принимает:
-	 *		{Boolean} есть ли открытые окна Chrome
-	 *		{Array} массив открытых вкладок
-	 */
-	function findFrontendTabs(callback) {
-		chrome.windows.getAll({populate: true}, function (windows) {
-			var foundAppTabs = [];
-			var appFrontendUrl = App.resolveURL("main.html");
-
-			if (!windows.length)
-				return callback(false, foundAppTabs);
-
-			windows.forEach(function (windowElem) {
-				windowElem.tabs.forEach(function (tab) {
-					// ищем таб приложения
-					if (tab.url.indexOf(appFrontendUrl) !== 0)
-						return;
-
-					if (windowElem.type === "popup" || windowElem.type === "app") {
-						if (windowElem.focused) {
-							foundAppTabs.push({"type" : "app", "priority" : 1, "windowId" : windowElem.id});
-						} else {
-							foundAppTabs.push({"type" : "app", "priority" : 2, "windowId" : windowElem.id});
-						}
-					} else {
-						if (windowElem.focused) {
-							if (tab.active) {
-								foundAppTabs.push({"type" : "tab", "priority" : 3, "windowId" : windowElem.id, "tabId" : tab.id});
-							} else {
-								if (tab.pinned) {
-									foundAppTabs.push({"type" : "tab", "priority" : 4, "windowId" : windowElem.id, "tabId" : tab.id});
-								} else {
-									foundAppTabs.push({"type" : "tab", "priority" : 5, "windowId" : windowElem.id, "tabId" : tab.id});
-								}
-							}
-						} else {
-							if (tab.active) {
-								foundAppTabs.push({"type" : "tab", "priority" : 6, "windowId" : windowElem.id, "tabId" : tab.id});
-							} else {
-								if (tab.pinned) {
-									foundAppTabs.push({"type" : "tab", "priority" : 7, "windowId" : windowElem.id, "tabId" : tab.id});
-								} else {
-									foundAppTabs.push({"type" : "tab", "priority" : 8, "windowId" : windowElem.id, "tabId" : tab.id});
-								}
-							}
-						}
-					}
-				});
+			StorageManager.remove("requests");
+		} else if (alarmInfo.name === "actualizeChats") {
+			DatabaseManager.actualizeChatDates();
+		} else if (alarmInfo.name === "actualizeContacts") {
+			DatabaseManager.actualizeContacts().catch(function (errMsg) {
+				LogManager.error(errMsg);
+				CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 			});
+		}
+	});
 
-			// сортируем найденные табы фронтэнда по приоритету
-			foundAppTabs.sort(function (a, b) {
-				return a.priority - b.priority;
-			});
+	// install & update handling
+	chrome.runtime.onInstalled.addListener(function (details) {
+		var appName = chrome.runtime.getManifest().name;
+		var currentVersion = chrome.runtime.getManifest().version;
 
-			callback(true, foundAppTabs);
-		});
-	}
+		switch (details.reason) {
+			case "install":
+				CPA.changePermittedState(true);
+				CPA.sendEvent("Lifecycle", "Dayuse", "Install", 1);
 
-	/**
-	 * Фокусировать вкладку с приложением
-	 *
-	 * @param {Boolean} [closeOthers=false] закрывать остальные вкладки с приложением
-	 * @param {Function} [cb]
-	 */
-	function focusAppTab(closeOthers, cb) {
-		findFrontendTabs(function (chromeWindowsExist, tabsList) {
-			var appFrontendUrl = App.resolveURL("main.html");
+				MigrationManager.start(currentVersion);
+				break;
 
-			if (!chromeWindowsExist) {
-				chrome.windows.create({url: appFrontendUrl});
-				return;
-			}
-
-			if (!tabsList.length) {
-				chrome.tabs.create({url: appFrontendUrl});
-				return;
-			}
-
-			if (closeOthers) {
-				tabsList.forEach(function (tabInfo, index) {
-					if (index === 0) {
-						chrome.windows.update(tabInfo.windowId, {focused: true});
-						if (tabInfo.type === "tab") {
-							try {
-								chrome.tabs.update(tabInfo.tabId, {active: true});
-							} catch (e) {
-								chrome.tabs.update(tabInfo.tabId, {selected: true});
-							}
-						}
-					} else {
-						if (tabInfo.type === "app") {
-							chrome.windows.remove(tabInfo.windowId);
-						} else {
-							chrome.tabs.remove(tabInfo.tabId);
-						}
-					}
-				});
-			} else {
-				// фокусируем первый таб приложения в списке
-				chrome.windows.update(tabsList[0].windowId, {focused: true});
-				if (tabsList[0].type === "tab") {
-					try {
-						chrome.tabs.update(tabsList[0].tabId, {active: true});
-					} catch (e) {
-						chrome.tabs.update(tabsList[0].tabId, {selected: true});
-					}
+			case "update":
+				if (currentVersion !== details.previousVersion) {
+					MigrationManager.start(currentVersion);
+					CPA.sendEvent("Lifecycle", "Dayuse", "Upgrade", 1);
 				}
-			}
 
-			cb && cb();
-		});
-	}
-
-	Utils.async.parallel({
-		storage: function (callback) {
-			StorageManager.load(callback);
-		},
-		fs: function (callback) {
-			(window.webkitRequestFileSystem || window.requestFileSystem)(window.PERSISTENT, 0, function (windowFsLink) {
-				callback(null, windowFsLink);
-			}, function () {
-				statSend("App-Data", "FS Broken", {
-					chrome: navigatorVersion,
-					app: app.VERSION
-				});
-
-				// http://code.google.com/p/chromium/issues/detail?id=94314
-				callback(null, null);
-			});
-		},
-		db: function (callback) {
-			DatabaseManager.initMeta(callback);
-		},
-		// 4.11 - это последняя legacy packaged app версия приложения
-		// ее предназначение - сконвертировать данные в новые, поддерживаемые в Chrome Packaged Apps
-		// LocalStorage -> chrome.storage.local, WebDatabase -> IndexedDB
-		// Также задача заставлять пользователей обновить апп до 5
-		migration: function (callback) {
-			MigrationManager.start(callback);
+				break;
 		}
-	}, function readyToGo(err, results) {
-		var fsLink = results.fs;
-
-		// записываем дату установки
-		if (StorageManager.get("app_install_time") === null) {
-			StorageManager.set("app_install_time", Date.now());
-		}
-
-		ReqManager.init(statSend);
-		LogManager.config("App started");
 
 		chrome.alarms.get("dayuse", function (alarmInfo) {
-			if (!alarmInfo) {
-				chrome.alarms.create("dayuse", {
-					delayInMinutes: 24 * 60,
-					periodInMinutes: 24 * 60
-				});
-			}
+            if (!alarmInfo) {
+                chrome.alarms.create("dayuse", {
+                    delayInMinutes: 24 * 60,
+                    periodInMinutes: 24 * 60
+                });
+            }
+        });
+
+		var uninstallUrl = App.GOODBYE_PAGE_URL + "?ver=" + currentVersion;
+		if (typeof chrome.runtime.setUninstallURL === "function") {
+			chrome.runtime.setUninstallURL(uninstallUrl);
+		}
+
+		var installDateKey = "app_install_time";
+		chrome.storage.local.get(installDateKey, function (records) {
+			records[installDateKey] = records[installDateKey] || Date.now();
+			chrome.storage.local.set(records);
 		});
+	});
 
-		var OAuthTabData = []; // массив открытых вкладок авторизации OAuth
-		var oAuthRequestData; // "new", "add", "update" (варианты получения токена ВКонтакте)
+	// listen to messages from Listen! app
+	chrome.runtime.onMessageExternal.addListener(function (msg, sender, sendResponse) {
+		if (sender.id !== App.LISTENAPP_ID) {
+			sendResponse(false);
+			return;
+		}
 
-		var updateTokenForUserId = null, // при обновлении токенов нужно запоминать для какого пользователя требовалось обновление
-			syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
+		switch (msg.action) {
+			case "importAuthToken":
+				if (AccountsManager.currentUserId) {
+					sendResponse({
+						user_id: Number(AccountsManager.currentUserId),
+						token: AccountsManager.list[AccountsManager.currentUserId].token
+					});
+				} else {
+					sendResponse(null);
+				}
+
+				break;
+		}
+	});
+
+	function openAppWindow(navigateState) {
+		chrome.app.window.create("main.html", {
+			id: uuid(),
+			innerBounds: {
+				minWidth: 1000,
+				minHeight: 700
+			}
+		}, function (win) {
+			// flatten settings by getting their values in this moment
+			win.contentWindow.Settings = getFlatSettings();
+
+			// pass current user data
+			win.contentWindow.Account = {
+				currentUserId: AccountsManager.currentUserId,
+				currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+			};
+		});
+	}
+
+	// app lifecycle
+	chrome.app.runtime.onLaunched.addListener(openAppWindow);
+	chrome.app.runtime.onRestarted.addListener(openAppWindow);
+
+	Promise.all([
+		StorageManager.load(),
+		DatabaseManager.initMeta()
+	]).then(function readyToGo(err) {
+		LogManager.config("App started");
+
+		var syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
 			uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...}
 
 		var clearSyncingDataCounters = function(userId) {
@@ -373,52 +263,6 @@ document.addEventListener("DOMContentLoaded", function () {
 			ReqManager.abortAll();
 			chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "offline"});
 		}, false);
-
-		var loadAvatar = function(contactId, fnSuccess, fnFail) {
-			CacheManager.avatars[contactId] = ""; // положение обозначает, что данные загружаются
-
-			if (fsLink === null) {
-				DatabaseManager.getContactById(AccountsManager.currentUserId, contactId, function (userDoc) {
-					var photoGot = false;
-
-					try {
-						CacheManager.avatars[contactId] = userDoc.photo;
-						photoGot = true;
-					} catch (e) {
-						statSend("Custom-Errors", "Exception error", e.message);
-						delete CacheManager.avatars[contactId];
-
-						if (typeof fnFail === "function") {
-							fnFail();
-						}
-					}
-
-					if (photoGot) {
-						fnSuccess();
-					}
-				}, function (err) {
-					delete CacheManager.avatars[contactId];
-
-					if (typeof fnFail === "function") {
-						fnFail();
-					}
-				});
-			} else {
-				fsLink.root.getFile(contactId + "_th.jpg", {"create" : false}, function(fileEntry) {
-					CacheManager.avatars[contactId] = fileEntry.toURL();
-					fnSuccess();
-				}, function(err) {
-					statSend("Custom-Errors", "Filesystem error", err.message)
-
-					delete CacheManager.avatars[contactId];
-
-					if (typeof fnFail === "function") {
-						fnFail();
-					}
-				});
-			}
-		};
-
 
 		var longPollEventsRegistrar = {
 			init: function(currentUserId) {
@@ -464,7 +308,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								DatabaseManager.markMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
+										CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 									}
 								});
 							} else if (data[2] & 1) {
@@ -472,7 +316,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : false, "id" : data[1]});
 								}, function (errMsg) {
 									LogManager.error(errMsg);
-									statSend("Custom-Errors", "Database error", errMsg);
+									CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 								});
 							}
 
@@ -484,7 +328,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								DatabaseManager.unmarkMessageWithTag(data[1], "trash", _.noop, function (isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
+										CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 									}
 								});
 							} else if (data[2] & 8) {
@@ -492,7 +336,7 @@ document.addEventListener("DOMContentLoaded", function () {
 								DatabaseManager.unmarkMessageWithTag(data[1], "important", _.noop, function (isDatabaseError, errMsg) {
 									if (isDatabaseError) {
 										LogManager.error(errMsg);
-										statSend("Custom-Errors", "Database error", errMsg);
+										CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 									}
 								});
 							} else if (data[2] & 1) {
@@ -500,7 +344,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									chrome.runtime.sendMessage({"action" : "msgReadStatusChange", "read" : true, "id" : data[1]});
 								}, function (errMsg) {
 									LogManager.error(errMsg);
-									statSend("Custom-Errors", "Database error", errMsg);
+									CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 								});
 							}
 
@@ -554,60 +398,28 @@ document.addEventListener("DOMContentLoaded", function () {
 									});
 
 									if (mailType === "inbox") {
-										if (CacheManager.avatars[msgData.uid] !== undefined && CacheManager.avatars[msgData.uid].length) {
-											showNotification(CacheManager.avatars[msgData.uid]);
-										} else {
-											loadAvatar(msgData.uid, function() {
-												showNotification(CacheManager.avatars[msgData.uid]);
-											}, function() {
-												showNotification(App.resolveURL("pic/question_th.gif"));
-											});
-										}
+										var avatar = userData.photo || chrome.runtime.getURL("pic/question_th.gif");
+										showNotification(avatar, userData.uid);
 									}
 
-									function showNotification(avatarUrl) {
-										if (SettingsManager.NotificationsTime === 0)
+									function showNotification(avatarUrl, uid) {
+										if (SettingsManager.NotificationsTime === 0/* || SettingsManager.ShowWhenVK === 0*/)
 											return;
 
-										// ищем открытые вкладки ВКонтакте
-										chrome.windows.getAll({populate: true}, function (windows) {
-											var vkTabFound = false;
-											var appTabActive = false;
-											var appFrontendUrl = App.resolveURL("main.html");
-
-											windows.forEach(function (windowElem) {
-												windowElem.tabs.forEach(function (tab) {
-													if (/^https?:\/\/vk\.com\//.test(tab.url)) {
-														vkTabFound = true;
-													}
-
-													if (windowElem.focused && tab.active && tab.url.indexOf(appFrontendUrl) === 0) {
-														appTabActive = true;
-													}
-												});
-											});
-
-											if (SettingsManager.ShowWhenVK === 0 && vkTabFound)
-												return;
-
-											// не показываем уведомления, когда активен таб приложения
-											if (appTabActive)
-												return;
-
-											showChromeNotification({
-												title: fio,
-												message: msgData.body.replace(/<br>/gm, "\n"),
-												icon: avatarUrl,
-												sound: "message",
-												timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
-												onclick: function () {
-													LogManager.config("Clicked notification with message #" + msgData.mid);
-													focusAppTab();
-												}
-											});
-
-											LogManager.config("Open notification with message #" + msgData.mid);
+										showChromeNotification({
+											uid: uid,
+											title: userData.first_name + " " + userData.last_name,
+											message: msgData.body.replace(/<br>/gm, "\n"),
+											icon: avatarUrl,
+											sound: "message",
+											timeout: (SettingsManager.NotificationsTime === 12) ? undefined : SettingsManager.NotificationsTime * 5,
+											onclick: function () {
+												LogManager.config("Clicked notification with message #" + msgData.mid);
+												leaveOneAppWindowInstance(true);
+											}
 										});
+
+										LogManager.config("Open notification with message #" + msgData.mid);
 									}
 								});
 							};
@@ -675,8 +487,9 @@ document.addEventListener("DOMContentLoaded", function () {
 				}, function (errCode) {
 					delete self._longPollXhrIds[currentUserId];
 
-					if (errCode === ReqManager.ACCESS_DENIED)
-						CacheManager.isTokenExpired = true;
+					if (errCode === ReqManager.ACCESS_DENIED) {
+						chrome.runtime.sendMessage({action: "tokenExpired"});
+					}
 
 					switch (errCode) {
 						case ReqManager.ABORT:
@@ -783,11 +596,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			// поздравляем текущего пользователя с ДР
 			getUserProfile(currentUserId, currentUserId, function (currentUserData) {
-				// пробуем сразу же загрузить аватарку активного профиля
-				loadAvatar(currentUserId, function() {
-					chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : currentUserId});
-				});
-
 				var nowDate = new Date(),
 					nowDay = nowDate.getDate(),
 					nowYear = nowDate.getFullYear(),
@@ -808,15 +616,15 @@ document.addEventListener("DOMContentLoaded", function () {
 				showChromeNotification({
 					title: App.NAME,
 					message: chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME),
-					icon: App.resolveURL("pic/smile.png"),
+					icon: chrome.runtime.getURL("pic/smile.png"),
 					sound: "message",
 					onclick: function () {
-						statSend("App-Actions", "BD notification click");
-						focusAppTab();
+						CPA.sendEvent("App-Actions", "BD notification click");
+						leaveOneAppWindowInstance(true);
 					}
 				});
 
-				statSend("App-Data", "Show BD notification");
+				CPA.sendEvent("App-Data", "Show BD notification");
 			});
 
 			ReqManager.apiMethod("friends.get", {fields: "first_name,last_name,sex,domain,bdate,photo,contacts"}, function (data) {
@@ -829,16 +637,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				// записываем данные друзей в БД и скачиваем их аватарки
 				updateUsersData(currentUserId, data.response).then(function (users) {
-					function showBirthdayNotification(title, message, avatar) {
-						showChromeNotification({
-							title: title,
-							message: message,
-							icon: avatar,
-							sound: "message",
-							onclick: focusAppTab
-						});
-					}
-
 					users.forEach(function (userDoc) {
 						var bDate, i;
 
@@ -894,15 +692,16 @@ document.addEventListener("DOMContentLoaded", function () {
 							msg += " (" + i18nBirthDay[1].replace("%years%", yoNow + " " + Utils.string.plural(yoNow, i18nYears)) + ")";
 						}
 
-						if (CacheManager.avatars[userDoc.uid] !== undefined && CacheManager.avatars[userDoc.uid].length) {
-							showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
-						} else {
-							loadAvatar(userDoc.uid, function() {
-								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, CacheManager.avatars[userDoc.uid]);
-							}, function() {
-								showBirthdayNotification(userDoc.first_name + " " + userDoc.last_name, msg, App.resolveURL("pic/question_th.gif"));
-							});
-						}
+						showChromeNotification({
+							uid: userDoc.uid,
+							title: userDoc.first_name + " " + userDoc.last_name,
+							message: msg,
+							icon: userDoc.photo || chrome.runtime.getURL("pic/question_th.gif"),
+							sound: "message",
+							onclick: function () {
+								leaveOneAppWindowInstance(true);
+							}
+						});
 					});
 
 					var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
@@ -926,7 +725,9 @@ document.addEventListener("DOMContentLoaded", function () {
 							]).then(function () {
 								chrome.runtime.sendMessage({
 									action: "ui",
-									which: "user"
+									which: "user",
+									currentUserId: AccountsManager.currentUserId,
+									currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
 								});
 							});
 						}
@@ -964,24 +765,6 @@ document.addEventListener("DOMContentLoaded", function () {
 					// добавляем uid в список обрабатываемых
 					uidsProcessing[currentUserId][userData.uid] = true;
 
-					// скачиваем аватарку
-					if (fsLink) {
-						fetchPhoto(userData.photo, function (blob) {
-							fsLink.root.getFile(userData.uid + "_th.jpg", {create: true}, function(fileEntry) {
-								fileEntry.createWriter(function (fileWriter) {
-									fileWriter.write(blob);
-								}, function (err) {
-									LogManager.warn(err.message);
-								});
-							}, function (err) {
-								LogManager.warn(err.message);
-							});
-						});
-					}
-
-					// очищаем закэшированную аватарку
-					delete CacheManager.avatars[userData.uid];
-
 					// обновляем ФИО пользователя
 					if (currentUserId === userData.uid) {
 						AccountsManager.setFio(currentUserId, userData.first_name + " " + userData.last_name);
@@ -999,7 +782,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					var errMessage = err.name + ": " + err.message;
 
 					LogManager.error(errMessage);
-					statSend("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
+					CPA.sendEvent("Custom-Errors", "Database error", "Failed to replace contact: " + errMessage);
 
 					reject(errMessage);
 				});
@@ -1013,22 +796,43 @@ document.addEventListener("DOMContentLoaded", function () {
 		 * дойти до момента, когда внутреннняя функция записи сообщений в БД вернет ошибку DUPLICATE ID. mailSync не должна
 		 * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
 		 */
-		var mailSync = function(currentUserId, mailType) {
-			var reqData = {},
-				userDataForRequest = AccountsManager.list[currentUserId],
+		var mailSync = function(currentUserId, mailType, latestMessageId) {
+			var offset = syncingData[currentUserId][mailType][1];
+			var userDataForRequest = AccountsManager.list[currentUserId],
 				compatName = (mailType === "inbox") ? "inbox" : "outbox",
 				permKey = "perm_" + compatName + "_" + currentUserId,
 				firstSync = (StorageManager.get(permKey) === null);
 
-			reqData.offset = syncingData[currentUserId][mailType][1];
-			reqData.access_token = userDataForRequest.token;
-			reqData.count = 200;
-			reqData.preview_length = 0;
-			if (mailType === "sent") {
-				reqData.out = 1;
-			}
+			var latestMsg = offset
+				? Promise.resolve(latestMessageId)
+				: DatabaseManager.getLatestTagMessageId(mailType);
 
-			ReqManager.apiMethod("messages.get", reqData, function(data) {
+			var getMessages = new Promise(function (resolve, reject) {
+				var reqData = {
+					access_token: userDataForRequest.token,
+					count: 200,
+					preview_length: 0,
+					out: (mailType === "sent") ? 1 : 0,
+					offset: offset
+				};
+
+				ReqManager.apiMethod("messages.get", reqData, resolve, function (errCode, errData) {
+					reject({
+						code: errCode,
+						data: errData
+					});
+				});
+			});
+
+			Promise.all([
+				getMessages,
+				latestMsg
+			]).then(function (res) {
+				var data = res[0];
+				var latestMessageId = res[1];
+				var timeToStopAfter = false; // message found with id equal to latestMessageId
+
+				// flatten response structure
 				var messages = [],
 					dataSyncedFn;
 
@@ -1059,7 +863,9 @@ document.addEventListener("DOMContentLoaded", function () {
 								]).then(function () {
 									chrome.runtime.sendMessage({
 										action: "ui",
-										which: "user"
+										which: "user",
+										currentUserId: AccountsManager.currentUserId,
+										currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
 									});
 								});
 							}
@@ -1080,12 +886,17 @@ document.addEventListener("DOMContentLoaded", function () {
 				}
 
 				// отсекаем общий счетчик сообщений
-				data.response.forEach(function (msgData, index) {
+				_.forEach(data.response, function (msgData, index) {
 					var coords;
 
 					// пропускаем общий счетчик
 					if (!index)
 						return;
+
+					if (msgData.mid === latestMessageId) {
+						timeToStopAfter = true;
+						return false;
+					}
 
 					// backwards-compatibility. До 4 версии при отсутствии вложений писался пустой объект
 					// теперь мы определяем это на фронте при отрисовке
@@ -1108,7 +919,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					msgData.tags = [mailType];
 
 					if (msgData.attachments.length)
-						msgData.tags.push('attachments');
+						msgData.tags.push("attachments");
 
 					// проверяем существует ли пользователь
 					if (!uidsProcessing[currentUserId][msgData.uid]) {
@@ -1119,8 +930,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					messages.push(msgData);
 					if (msgData.read_state === 0 && StorageManager.get(permKey) === null) {
-						// до 4 версии здесь показывалось уведомление
-						// TODO учесть var isSupportAccount = (userData.uid === config.VkSupportUid),
+						// FIXME: calculate number of new messages
+						// show notification afterwards
 					}
 				});
 
@@ -1135,21 +946,27 @@ document.addEventListener("DOMContentLoaded", function () {
 						"current" : syncingData[currentUserId][mailType][1]
 					});
 
-					if (syncingData[currentUserId][mailType][1] > data.response[0]) {
+					if (timeToStopAfter || syncingData[currentUserId][mailType][1] > data.response[0]) {
 						dataSyncedFn();
 						return;
 					}
 
-					window.setTimeout(mailSync, 350, currentUserId, mailType);
+					window.setTimeout(mailSync, 350, currentUserId, mailType, latestMessageId);
 				}, _.noop);
-			}, function (errCode, errData) {
-				switch (errCode) {
+			}, function (err) {
+				if (err.name instanceof DOMError) {
+					var errMsg = err.name + ": " + err.message;
+					throw new Error(errMsg);
+				}
+
+				switch (err.code) {
 					case ReqManager.ACCESS_DENIED :
 						// TODO error
 						break;
 
 					default :
-						window.setTimeout(mailSync, 5000, currentUserId, mailType);
+						console.log('Error ', err);
+						window.setTimeout(mailSync, 5000, currentUserId, mailType, latestMessageId);
 						break;
 				}
 			});
@@ -1166,10 +983,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			// сбрасываем все XHR-запросы
 			ReqManager.abortAll();
-
-			// инициализация кэша URL аватарок
-			CacheManager.init(AccountsManager.currentUserId, "avatars");
-			CacheManager.init(AccountsManager.currentUserId, "isTokenExpired", false);
 
 			// инициализируем БД
 			DatabaseManager.initUser(currentUserId, function () {
@@ -1192,225 +1005,161 @@ document.addEventListener("DOMContentLoaded", function () {
 				}
 			}, function (errMsg) {
 				LogManager.error(errMsg);
-				statSend("Critical-Errors", "Database init user", errMsg);
+				CPA.sendEvent("Critical-Errors", "Database init user", errMsg);
 			});
 		};
 
-		/**
-		 * Обработка результатов OAuth-авторизации
-		 */
-		chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-			var tabIndex = OAuthTabData.indexOf(tabId);
-			if (tabIndex === -1 || !changeInfo.url)
-				return;
-
-			if (changeInfo.url.indexOf("#error") !== -1 || changeInfo.url.indexOf("security breach") !== -1) {
-				OAuthTabData.splice(tabIndex, 1);
-				statSend("App-Actions", "OAuth access cancelled");
-
-				// закрываем таб oAuth
-				chrome.tabs.remove(tabId);
-
-				focusAppTab(true, function () {
-					var failReason = (changeInfo.url.indexOf("security breach") !== -1) ? "securityBreach" : "denyAccess";
-
-					chrome.runtime.sendMessage({
-						action: "appWontWorkWithoutAccessGranted",
-						from: oAuthRequestData,
-						reason: failReason
-					});
-				});
-
-				return;
-			}
-
-			var tokenMatches = changeInfo.url.match(/#access_token=(\w+).*user_id=(\d+)/);
-			if (tokenMatches) {
-				var token = tokenMatches[1];
-				var userId = tokenMatches[2];
-
-				OAuthTabData.splice(tabIndex, 1);
-				statSend("App-Actions", "OAuth access granted", userId);
-
-				chrome.tabs.remove(tabId);
-
-				findFrontendTabs(function (chromeWindowsExist, tabsList) {
-					var appFrontendUrl = App.resolveURL("main.html");
-
-					switch (oAuthRequestData) {
-						case "new" :
-							AccountsManager.setData(userId, token, "...");
-							AccountsManager.currentUserId = userId;
-
-							var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
-							wallTokenUpdated[AccountsManager.currentUserId] = 1;
-							StorageManager.set("wall_token_updated", wallTokenUpdated);
-
-							startUserSession(function () {
-								if (!chromeWindowsExist)
-									return chrome.windows.create({url: appFrontendUrl});
-
-								if (!tabsList.length)
-									return chrome.tabs.create({url: appFrontendUrl});
-
-								// закрываем все табы, кроме первого в списке по приоритету
-								tabsList.forEach(function (tabInfo, index) {
-									if (index === 0) {
-										chrome.windows.update(tabInfo.windowId, {focused: true});
-										if (tabInfo.type === "tab") {
-											try {
-												chrome.tabs.update(tabInfo.tabId, {active: true});
-											} catch (e) {
-												chrome.tabs.update(tabInfo.tabId, {selected: true});
-											}
-										}
-									} else {
-										if (tabInfo.type === "app") {
-											chrome.windows.remove(tabInfo.windowId);
-										} else {
-											chrome.tabs.remove(tabInfo.tabId);
-										}
-									}
-								});
-
-								chrome.runtime.sendMessage({
-									action: "ui",
-									which: "syncing"
-								});
-							});
-
-							statSend("App-Actions", "First account added");
-							break;
-
-						case "add" :
-							var newUserGranted = (AccountsManager.list[userId] === undefined);
-							if (newUserGranted) {
-								AccountsManager.setData(userId, token, "...");
-								AccountsManager.currentUserId = userId;
-
-								var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
-								wallTokenUpdated[AccountsManager.currentUserId] = 1;
-								StorageManager.set("wall_token_updated", wallTokenUpdated);
-
-								startUserSession(function () {
-									if (!chromeWindowsExist)
-										return chrome.windows.create({url: appFrontendUrl});
-
-									if (!tabsList.length)
-										return chrome.tabs.create({url: appFrontendUrl});
-
-									// закрываем все табы, кроме первого в списке по приоритету
-									tabsList.forEach(function (tabInfo, index) {
-										if (index === 0) {
-											chrome.windows.update(tabInfo.windowId, {focused: true});
-											if (tabInfo.type === "tab") {
-												try {
-													chrome.tabs.update(tabInfo.tabId, {active: true});
-												} catch (e) {
-													chrome.tabs.update(tabInfo.tabId, {selected: true});
-												}
-											}
-										} else {
-											if (tabInfo.type === "app") {
-												chrome.windows.remove(tabInfo.windowId);
-											} else {
-												chrome.tabs.remove(tabInfo.tabId);
-											}
-										}
-									});
-
-									chrome.runtime.sendMessage({
-										action: "ui",
-										which: "syncing"
-									});
-								});
-
-								statSend("App-Actions", "2+ account added");
-							} else {
-								AccountsManager.setData(userId, token);
-								focusAppTab();
-
-								// уведомляем об ошибке
-								chrome.runtime.sendMessage({
-									action: "tokenUpdatedInsteadOfAccountAdd",
-									uid: userId,
-									fio: AccountsManager.list[userId].fio
-								});
-							}
-
-							break;
-
-						case "update" :
-							var neededUserTokenUpdated = (updateTokenForUserId === userId);
-							var newUserGranted = true;
-
-							for (var listUserId in AccountsManager.list) {
-								if (listUserId === userId) {
-									newUserGranted = false;
-									break;
-								}
-							}
-
-							if (newUserGranted) {
-								// уведомляем об ошибке
-								chrome.runtime.sendMessage({
-									action: "tokenAddedInsteadOfUpdate",
-									uid: userId,
-									token: token
-								});
-							} else {
-								AccountsManager.setData(userId, token);
-
-								if (neededUserTokenUpdated) {
-									statSend("App-Actions", "Account token updated");
-									chrome.runtime.sendMessage({
-										action: "tokenUpdated"
-									});
-								} else {
-									chrome.runtime.sendMessage({
-										action: "tokenUpdatedForWrongUser",
-										uid: userId,
-										fio: AccountsManager.list[userId].fio
-									});
-								}
-							}
-
-							if (!chromeWindowsExist)
-								return chrome.windows.create({url: appFrontendUrl});
-
-							if (!tabsList.length)
-								return chrome.tabs.create({url: appFrontendUrl});
-
-							// показываем первый таб
-							chrome.windows.update(tabsList[0].windowId, {focused: true});
-							if (tabsList[0].type === "tab") {
-								try {
-									chrome.tabs.update(tabsList[0].tabId, {active: true});
-								} catch (e) {
-									chrome.tabs.update(tabsList[0].tabId, {selected: true});
-								}
-							}
-
-							break;
-					}
-				});
-
-				return;
-			}
-		});
-
-
-		chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+		chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 			var sendAsyncResponse = false;
 
 			switch (request.action) {
+				case "addFirstAccount":
+					AccountsManager.setData(request.uid, request.token, "...");
+					AccountsManager.currentUserId = request.uid;
+
+					var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+					wallTokenUpdated[AccountsManager.currentUserId] = 1;
+					StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+					startUserSession(function () {
+						chrome.runtime.sendMessage({
+							action: "ui",
+							which: "syncing",
+							currentUserId: AccountsManager.currentUserId,
+							currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+						});
+					});
+
+					break;
+
+				case "addAnotherAccount":
+					var newUserGranted = (AccountsManager.list[request.uid] === undefined);
+					if (!newUserGranted) {
+						AccountsManager.setData(request.uid, request.token);
+
+						// уведомляем об ошибке
+						chrome.runtime.sendMessage({
+							action: "tokenUpdatedInsteadOfAccountAdd",
+							uid: request.uid,
+							fio: AccountsManager.list[request.uid].fio
+						});
+
+						return;
+					}
+
+					CPA.sendEvent("App-Actions", "2+ account added");
+
+					AccountsManager.setData(request.uid, request.token, "...");
+					AccountsManager.currentUserId = request.uid;
+
+					var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+					wallTokenUpdated[AccountsManager.currentUserId] = 1;
+					StorageManager.set("wall_token_updated", wallTokenUpdated);
+
+					startUserSession(function () {
+						chrome.runtime.sendMessage({
+							action: "ui",
+							which: "syncing"
+						});
+					});
+
+					break;
+
+				case "updateExistingToken":
+					var neededUserTokenUpdated = (request.neededUid === request.uid);
+					var newUserGranted = true;
+
+					for (var listUserId in AccountsManager.list) {
+						listUserId = Number(listUserId);
+
+						if (listUserId === request.uid) {
+							newUserGranted = false;
+							break;
+						}
+					}
+
+					if (newUserGranted) {
+						// уведомляем об ошибке
+						chrome.runtime.sendMessage({
+							action: "tokenAddedInsteadOfUpdate",
+							uid: request.uid,
+							token: request.token
+						});
+
+						return;
+					}
+
+					AccountsManager.setData(request.uid, request.token);
+
+					if (neededUserTokenUpdated) {
+						CPA.sendEvent("App-Actions", "Account token updated");
+
+						chrome.runtime.sendMessage({
+							action: "tokenUpdated"
+						});
+					} else {
+						chrome.runtime.sendMessage({
+							action: "tokenUpdatedForWrongUser",
+							uid: request.uid,
+							fio: AccountsManager.list[request.uid].fio
+						});
+					}
+
+					break;
+
+				case "getAccountsList":
+					sendAsyncResponse = true;
+
+					var accounts = {};
+					var promises = [];
+
+					var assignAvatar = function (account, uid) {
+						return new Promise(function (resolve, reject) {
+							DatabaseManager.getContactById(AccountsManager.currentUserId, uid, function (contactData) {
+								account.avatar = contactData.photo;
+								resolve();
+							}, function (err) {
+								if (errMsg) {
+									LogManager.error(errMsg);
+								}
+
+								resolve();
+							});
+						})
+					}
+
+					_.forIn(AccountsManager.list, function (value, key) {
+						accounts[key] = value;
+						promises.push(assignAvatar(value, key));
+					});
+
+					Promise.all(promises).then(function () {
+						sendResponse(accounts);
+					});
+
+					break;
+
+				case "saveSettings":
+					_.forIn(request.settings, function (value, key) {
+						SettingsManager[key] = value;
+					});
+
+					// notify app windows
+					chrome.runtime.sendMessage({
+						action: "settingsChanged",
+						settings: getFlatSettings()
+					});
+
+					break;
+
 				case "uiDraw" :
 					sendAsyncResponse = true;
 					sendResponse(true);
 
-					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
-						inboxSynced, sentSynced, friendsSynced,
-						wallTokenUpdated;
+					var uiType;
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
+					var inboxSynced, sentSynced, friendsSynced;
+					var wallTokenUpdated;
 
 					if (AccountsManager.currentUserId) {
 						inboxSynced = (StorageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);
@@ -1428,20 +1177,29 @@ document.addEventListener("DOMContentLoaded", function () {
 
 					switch (uiType) {
 						case "user" :
-							statSend("UI-Draw", "Users", AccountsManager.currentUserId);
+							CPA.sendAppView("Users");
+							CPA.sendEvent("UI-Draw", "Users", AccountsManager.currentUserId);
 							break;
 
 						case "syncing" :
-							statSend("UI-Draw", "Syncing", AccountsManager.currentUserId);
+							CPA.sendAppView("Syncing");
+							CPA.sendEvent("UI-Draw", "Syncing", AccountsManager.currentUserId);
 							break;
 
 						case "guest" :
-							statSend("UI-Draw", "Guests");
+							CPA.sendAppView("Guests");
+							CPA.sendEvent("UI-Draw", "Guests");
 							break;
 					}
 
 					// уведомляем фронт
-					chrome.runtime.sendMessage({"action" : "ui", "which" : uiType});
+					chrome.runtime.sendMessage({
+						action: "ui",
+						which: uiType,
+						currentUserId: AccountsManager.currentUserId,
+						currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+					});
+
 					break;
 
 				case "closeNotification":
@@ -1534,10 +1292,12 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "getDialogThread" :
-					var from = (request.from !== undefined) ? request.from : null;
-
 					sendAsyncResponse = true;
-					DatabaseManager.getDialogThread(request.id, from, sendResponse, function(errMsg) {
+
+					DatabaseManager.getDialogThread(request.id, {
+						from: (request.from !== undefined) ? request.from : 0,
+						everything: Boolean(request.print)
+					}, sendResponse, function (errMsg) {
 						sendResponse([[], 0]);
 						LogManager.error(errMsg);
 					});
@@ -1551,15 +1311,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 						if (isDatabaseError) {
 							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
+							CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 						}
-					});
-
-					break;
-
-				case "loadAvatar" :
-					loadAvatar(request.uid, function() {
-						chrome.runtime.sendMessage({"action" : "avatarLoaded", "uid" : request.uid});
 					});
 
 					break;
@@ -1592,7 +1345,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 				// TODO как-то формализировать
 				case "errorGot" :
-					statSend("Custom-Errors", request.error, request.message);
+					CPA.sendEvent("Custom-Errors", request.error, request.message);
 					break;
 
 				case "sendMessage" :
@@ -1631,12 +1384,12 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					ReqManager.apiMethod("messages.send", msgParams, function(data) {
-						statSend("App-Actions", "Sent Message", AccountsManager.currentUserId);
+						CPA.sendEvent("App-Actions", "Sent Message", AccountsManager.currentUserId);
 						SoundManager.play("sent");
 
 						sendResponse([0, data]);
 					}, function(errCode, errData) {
-						statSend("Custom-Errors", "Failed to send message", errCode);
+						CPA.sendEvent("Custom-Errors", "Failed to send message", errCode);
 						SoundManager.play("error");
 
 						switch (errCode) {
@@ -1655,11 +1408,6 @@ document.addEventListener("DOMContentLoaded", function () {
 						}
 					});
 
-					break;
-
-				case "collectLogData":
-					sendAsyncResponse = true;
-					LogManager.collect(sendResponse);
 					break;
 
 				case "getMessagesUploadServer" :
@@ -1753,7 +1501,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "addLike" :
-					statSend("App-Actions", "Like and repost");
+					CPA.sendEvent("App-Actions", "Like and repost");
 					sendAsyncResponse = true;
 
 					var sendLikeRequest = function() {
@@ -1866,7 +1614,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 							ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
 								if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 
 									sendResponse(null);
 									return;
@@ -1881,7 +1629,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									}
 								}
 
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}, function(errCode, errData) {
 								switch (errCode) {
 									case ReqManager.NO_INTERNET :
@@ -1901,7 +1649,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							ReqManager.apiMethod("docs.getById", {"docs" : requestData.ownerId + "_" + requestData.id}, function(data) {
 								var output = (data.response.length) ? data.response[0] : null;
 								if (output === null) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 								}
 
 								sendResponse(output);
@@ -1930,7 +1678,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					var sendRequest = function(msgId) {
 						ReqManager.apiMethod("messages.getById", {"mid" : msgId}, function(data) {
 							if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].geo === undefined) {
-								statSend("Custom-Errors", "Attachment info missing", request);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", request);
 
 								sendResponse(null);
 								return;
@@ -1961,7 +1709,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						ReqManager.apiMethod("audio.getById", {"audios" : requestData.ownerId + "_" + requestData.id}, function(data) {
 							var output = (data.response.length) ? data.response[0] : null;
 							if (output === null) {
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}
 
 							sendResponse(output);
@@ -1989,7 +1737,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						ReqManager.apiMethod("video.get", {"videos" : requestData.ownerId + "_" + requestData.id}, function(data) {
 							var output = (data.response instanceof Array && data.response.length === 2) ? data.response[1] : null;
 							if (output === null) {
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}
 
 							sendResponse(output);
@@ -2022,7 +1770,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 							ReqManager.apiMethod("messages.getById", {"mid" : requestData.mid}, function(data) {
 								if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].attachments === undefined) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 
 									sendResponse(null);
 									return;
@@ -2037,7 +1785,7 @@ document.addEventListener("DOMContentLoaded", function () {
 									}
 								}
 
-								statSend("Custom-Errors", "Attachment info missing", requestData);
+								CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 							}, function(errCode, errData) {
 								switch (errCode) {
 									case ReqManager.NO_INTERNET :
@@ -2057,7 +1805,7 @@ document.addEventListener("DOMContentLoaded", function () {
 							ReqManager.apiMethod("photos.getById", {"photos" : requestData.ownerId + "_" + requestData.id}, function(data) {
 								var output = (data.response.length) ? data.response[0] : null;
 								if (output === null) {
-									statSend("Custom-Errors", "Attachment info missing", requestData);
+									CPA.sendEvent("Custom-Errors", "Attachment info missing", requestData);
 								}
 
 								sendResponse(output);
@@ -2087,7 +1835,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}, function (isDatabaseError, errMsg) {
 						if (isDatabaseError) {
 							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
+							CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 						}
 
 						sendResponse(false);
@@ -2096,13 +1844,17 @@ document.addEventListener("DOMContentLoaded", function () {
 					sendAsyncResponse = true;
 					break;
 
+				case "migrateIntrested":
+					openAppWindow();
+					break;
+
 				case "unmarkMessageTag" :
 					DatabaseManager.unmarkMessageWithTag(request.mid, request.tag, function() {
 						sendResponse(true);
 					}, function(isDatabaseError, errMsg) {
 						if (isDatabaseError) {
 							LogManager.error(errMsg);
-							statSend("Custom-Errors", "Database error", errMsg);
+							CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 						}
 
 						sendResponse(false);
@@ -2135,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "serverRestoreMessage" :
-					statSend("App-Data", "Use restore messages");
+					CPA.sendEvent("App-Data", "Use restore messages");
 
 					var sendRestoreMessageRequest = function(msgId) {
 						ReqManager.apiMethod("messages.restore", {"mid" : msgId}, function(data) {
@@ -2202,7 +1954,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "speechChange" :
-					statSend("App-Actions", "Speech change", {
+					CPA.sendEvent("App-Actions", "Speech change", {
 						"chrome" : navigatorVersion,
 						"app" : App.VERSION,
 						"uid" : AccountsManager.currentUserId
@@ -2211,30 +1963,30 @@ document.addEventListener("DOMContentLoaded", function () {
 					break;
 
 				case "newsPostSeen" :
-					statSend("App-Data", "News seen", request.id);
+					CPA.sendEvent("App-Data", "News seen", request.id);
 					break;
 
 				case "newsLinkClicked" :
-					statSend("App-Actions", "News link clicked", [request.id, request.url]);
+					CPA.sendEvent("App-Actions", "News link clicked", [request.id, request.url]);
 					break;
 
 				case "newsAudioPlaying" :
-					statSend("App-Actions", "Audio playing", [request.id, request.owner_id, request.aid]);
+					CPA.sendEvent("App-Actions", "Audio playing", [request.id, request.owner_id, request.aid]);
 					break;
 
 				case "tourWatch" :
-					statSend("App-Data", "WP seen", request.step);
+					CPA.sendEvent("App-Data", "WP seen", request.step);
 					break;
 
 				case "useImportantTag" :
-					statSend("App-Data", "Use important tag", request.type);
+					CPA.sendEvent("App-Data", "Use important tag", request.type);
 					break;
 
 				case "getTagsFrequency" :
 					sendAsyncResponse = true;
 					DatabaseManager.getTagsCount(sendResponse, function (errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse({});
 					});
@@ -2245,7 +1997,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					sendAsyncResponse = true;
 					DatabaseManager.getMessagesByType(request.tag, request.totalShown || 0, sendResponse, function(errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse([[], 0]);
 					});
@@ -2270,7 +2022,7 @@ document.addEventListener("DOMContentLoaded", function () {
 						}
 					}, function (errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse([[], 0, request.value]);
 					});
@@ -2285,33 +2037,9 @@ document.addEventListener("DOMContentLoaded", function () {
 						sendResponse([correspondence, total, request.value]);
 					}, function(errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 
 						sendResponse([[], 0, request.value]);
-					});
-
-					break;
-
-				case "getOAuthToken":
-					oAuthRequestData = request.type;
-
-					if (request.type === "update")
-						updateTokenForUserId = request.uid;
-
-					chrome.tabs.create({
-						"url" : "http://api.vk.com/oauth/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=http://api.vk.com/blank.html&display=page&response_type=token"
-					}, function (tab) {
-						OAuthTabData.push(tab.id);
-					});
-
-					break;
-
-				case "newUserAfterUpdateToken":
-					focusAppTab(true, function () {
-						chrome.runtime.sendMessage({
-							action: "ui",
-							which: "syncing"
-						});
 					});
 
 					break;
@@ -2320,29 +2048,31 @@ document.addEventListener("DOMContentLoaded", function () {
 					var output = syncingData[AccountsManager.currentUserId];
 					sendAsyncResponse = true;
 
-					sendResponse(output);
+					DatabaseManager.getContactById(AccountsManager.currentUserId, AccountsManager.currentUserId, function (userData) {
+						sendResponse({
+							data: output,
+							avatar: userData.photo
+						});
+					}, function () {
+						sendResponse({
+							data: output
+						});
+					});
+
 					break;
 
 				case "switchToAccount" :
 					ReqManager.abortAll();
 					AccountsManager.currentUserId = request.uid;
 
-					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true}),
-						wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined),
-						startUser = true;
-
-					function leaveOneTabFn() {
-						focusAppTab(true, function () {
-							chrome.runtime.sendMessage({
-								action: "ui"
-							});
-						});
-					};
+					var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
+					var wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+					var startUser = true;
 
 					if (startUser) {
-						startUserSession(leaveOneTabFn);
+						startUserSession(leaveOneAppWindowInstance);
 					} else {
-						leaveOneTabFn();
+						leaveOneAppWindowInstance();
 					}
 
 					break;
@@ -2369,11 +2099,7 @@ document.addEventListener("DOMContentLoaded", function () {
 					}
 
 					// закрываем все табы приложения кроме одного
-					focusAppTab(true, function () {
-						chrome.runtime.sendMessage({
-							action: "ui"
-						});
-					});
+					leaveOneAppWindowInstance();
 
 					break;
 
@@ -2395,13 +2121,13 @@ document.addEventListener("DOMContentLoaded", function () {
 					sendReadMessageRequest(request.mid);
 					DatabaseManager.markAsRead(request.mid, null, function (errMsg) {
 						LogManager.error(errMsg);
-						statSend("Custom-Errors", "Database error", errMsg);
+						CPA.sendEvent("Custom-Errors", "Database error", errMsg);
 					});
 
 					break;
 
 				case "DNDhappened" :
-					statSend("App-Actions", "DND", request.num);
+					CPA.sendEvent("App-Actions", "DND", request.num);
 					break;
 			}
 
@@ -2415,4 +2141,4 @@ document.addEventListener("DOMContentLoaded", function () {
 			startUserSession();
 		}
 	});
-});
+})();

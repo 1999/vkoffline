@@ -20,6 +20,13 @@
 document.addEventListener("click", function (e) {
 	var matchesSelectorFn = (Element.prototype.webkitMatchesSelector || Element.prototype.matchesSelector);
 	var routes = {
+		// открытие Listen!
+		".listenapp-open": function (target, evt) {
+			chrome.runtime.sendMessage(App.LISTENAPP_ID, {
+				action: "searchArtist",
+				q: target.dataset.artist
+			});
+		},
 		// закрытие окна уведомления
 		"section.result > span.close": function (target, evt) {
 			target.parentNode.remove();
@@ -119,9 +126,7 @@ document.addEventListener("click", function (e) {
 				msgId = msgSection.data("mid"),
 				uid = $(msgSection, "img").data("uid");
 
-			chrome.tabs.create({
-				url: App.resolveURL("print.html?mid=" + msgId + "&uid=" + uid)
-			});
+			openInNewWindow("print.html?mid=" + msgId + "&uid=" + uid);
 		},
 		// ответ на сообщение
 		"#content > section.right.thread-container > section.open span.reply": function (target, evt) {
@@ -183,21 +188,15 @@ document.addEventListener("click", function (e) {
 					var imgElem = $(target, "img");
 
 					if (requestData.length === 2) {
-						var image = new Image();
-						image.onload = function () {
-							target.removeClass("hidden");
+						target.removeClass("hidden");
 
-							var imgAspect = image.width / image.height;
-							var imgWidth = Math.min(availableWidth, image.width);
+						var imgAspect = imgElem.width / imgElem.height;
+						var imgWidth = Math.min(availableWidth, imgElem.width);
 
-							imgElem.attr({
-								width: imgWidth,
-								height: imgWidth / imgAspect,
-								src: requestData[1]
-							});
-						};
-
-						image.src = requestData[1];
+						imgElem.attr({
+							width: imgWidth,
+							height: imgWidth / imgAspect
+						});
 					} else {
 						chrome.runtime.sendMessage({
 							action: "getPhotoById",
@@ -214,6 +213,7 @@ document.addEventListener("click", function (e) {
 							var imgWidth = Math.min(availableWidth, photoInfo.width);
 
 							imgElem.attr({
+								is: "external-image",
 								width: imgWidth,
 								height: imgWidth / imgAspect,
 								src: Utils.misc.searchBiggestImage(photoInfo)
@@ -233,10 +233,7 @@ document.addEventListener("click", function (e) {
 						if (!audioInfo)
 							return;
 
-						target.removeClass("hidden");
-
-						$(target, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
-						$(target, "audio").attr("src", audioInfo.url);
+						self._drawAudioSection(target, audioInfo);
 					});
 
 					break;
@@ -254,7 +251,7 @@ document.addEventListener("click", function (e) {
 						target.removeClass("hidden");
 						var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
 
-						$(target, "iframe").attr("src", videoInfo.player);
+						$(target, "webview").attr("src", videoInfo.player);
 						$(target, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
 					});
 
@@ -274,13 +271,14 @@ document.addEventListener("click", function (e) {
 						var regex = new RegExp(fileInfo.ext + "$");
 						var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
 
-						$(target, "a").attr({
-							href: fileInfo.url,
-							download: fileName
-						}).text(fileInfo.title);
+						var attachLink = target.querySelector("a");
+						attachLink.setAttribute("href", fileInfo.url);
+						attachLink.setAttribute("download", fileName);
+						attachLink.innerHTML = fileInfo.title;
 
 						var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-						$(target, "span.description").text(descriptionText);
+						var attachDescription = target.querySelector("span.description");
+						attachDescription.innerHTML = descriptionText;
 					});
 
 					break;
@@ -294,7 +292,7 @@ document.addEventListener("click", function (e) {
 							return;
 
 						target.removeClass("hidden");
-						self._drawGeoPointAsync(target.id, pointInfo[0], pointInfo[1]);
+						self._drawGeoPoint(target.id, pointInfo[0], pointInfo[1]);
 
 						target.scrollIntoView();
 					});
@@ -371,7 +369,7 @@ document.addEventListener("click", function (e) {
 			var leftSection = $("#content > section.left");
 			var activeSectionTag = $(leftSection, "li.active").data("tag");
 			var isTrashFolderContents = (leftSection.hasClass("manage-mail") && activeSectionTag === "trash");
-			var serverToo = (self.SettingsManager.DeleteUser !== 0);
+			var serverToo = (Settings.DeleteUser !== 0);
 
 			if (isTrashFolderContents) {
 				if (confirm(chrome.i18n.getMessage("deleteMessageForever"))) {
@@ -396,7 +394,7 @@ document.addEventListener("click", function (e) {
 				},
 				// удаляем на сервере
 				server: function (callback) {
-					if (self.SettingsManager.DeleteUser !== 0) {
+					if (Settings.DeleteUser !== 0) {
 						chrome.runtime.sendMessage({
 							action: "serverDeleteMessage",
 							mid: msgId
@@ -506,87 +504,9 @@ document.addEventListener("submit", function (e) {
 	e.preventDefault();
 
 	var routes = {
-		// UI:errorSend
-		"#content > section.one form": function () {
-			var sendBtn = $(form, "button[type='submit']").attr("disabled", true).text(Utils.string.ucfirst(chrome.i18n.getMessage("pleaseWait")) + "...");
-
-			chrome.permissions.request({
-				permissions: ["management", "clipboardWrite"]
-			}, function (granted) {
-				if (!granted) {
-					var warningContents = Templates.render("errorSendWarning", {
-						mustGrantManagement: chrome.i18n.getMessage("youMustGrantAccessManagement")
-					});
-
-					var btnText = Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle"));
-					sendBtn.removeAttr("disabled").text(btnText).before(warningContents);
-
-					return;
-				}
-
-				Utils.async.parallel({
-					extensions: function (callback) {
-						try {
-							chrome.management.getAll(function (infoArray) {
-								var extensionsData = [];
-								infoArray.forEach(function (extensionInfo) {
-									var data = [
-										"[" + ((extensionInfo.isApp) ? "app" : "ext") + "] " + extensionInfo.name + " v" + extensionInfo.version,
-										"enabled: " + extensionInfo.enabled,
-										"id: " + extensionInfo.id,
-										"homepage: " + extensionInfo.homepageUrl,
-										"permissions: " + Array.prototype.concat(extensionInfo.permissions).concat(extensionInfo.hostPermissions)
-									].join(", ");
-
-									extensionsData.push({text: data});
-								});
-
-								callback(null, extensionsData);
-							});
-						} catch (e) {
-							// https://code.google.com/p/chromium/issues/detail?id=125706
-							callback();
-						}
-					},
-					log: function (callback) {
-						chrome.runtime.sendMessage({action: "collectLogData"}, function (data) {
-							var output = data.map(function (logString) {
-								return {text: logString};
-							});
-
-							callback(null, output);
-						});
-					}
-				}, function (err, results) {
-					var resultMessageContents = Templates.render("errorSendFormResult", {
-						descriptionText: form.elements.text.value,
-						chromeVersion: form.elements.info.value,
-						extensionsList: (results.extensions) ? results.extensions : ["Exception #125706"],
-						log: results.log,
-						buttonText: chrome.i18n.getMessage("errorSendFormCopyButtonText")
-					});
-
-					var sectionOne = $("#content > section.one");
-					$(sectionOne, "form").remove();
-					sectionOne.append(resultMessageContents);
-
-					var copyTextBtn = $(sectionOne, "button");
-					copyTextBtn.bind("click", function () {
-						// выделяем текст в section.pre
-						var range = document.createRange();
-						range.selectNode($(sectionOne, "section.pre"));
-						window.getSelection().addRange(range);
-
-						document.execCommand("copy");
-						this.attr("disabled", true).text(chrome.i18n.getMessage("copiedToClipboard"));
-					});
-
-					sectionOne.scrollTop = 0;
-				});
-			});
-		},
 		// settings
 		"#content > section.settings-container form": function () {
+			var collectedSettings = {};
 			Array.prototype.forEach.call(form.elements, function (elem) {
 				var itemName = elem.attr("name"),
 					itemType = elem.attr("type"),
@@ -596,23 +516,25 @@ document.addEventListener("submit", function (e) {
 					return;
 
 				switch (itemType) {
-					case "range" :
+					case "range":
 						// такой странный код используется потому что в value из input[type="range"] с min=0, max=1
 						// содержится не 0.7, а 0.700000001 итд. (mac, chrome19)
-						self.SettingsManager[itemName] = (itemName !== "SoundLevel")
+						collectedSettings[itemName] = (itemName !== "SoundLevel")
 							? itemValue
 							: itemValue / 10;
 
 						break;
 
-					case "radio" :
+					case "radio":
 						if (elem.checked) {
-							self.SettingsManager[itemName] = itemValue;
+							collectedSettings[itemName] = itemValue;
 						}
 
 						break;
 				}
 			});
+
+			chrome.runtime.sendMessage({action: "saveSettings", settings: collectedSettings});
 
 			var saveBtn = $(form, "button[type='submit']").text(chrome.i18n.getMessage("saveBtnClicked")).attr("disabled", true);
 			window.setTimeout(function () {
@@ -624,7 +546,7 @@ document.addEventListener("submit", function (e) {
 			var self = this;
 			var sendObj = {action: "sendMessage"};
 			var dataContainer = $("#content > section.right");
-			var saveMessageKey = "message_" + this.AccountsManager.currentUserId + "_" + dataContainer.data("dialogId");
+			var saveMessageKey = "message_" + Account.currentUserId + "_" + dataContainer.data("dialogId");
 			var isChat = dataContainer.hasClass("chat-container");
 			var form = $(dataContainer, "form.reply");
 			var face2face = form.hasClass("face2face");
@@ -782,7 +704,7 @@ document.addEventListener("submit", function (e) {
 			$(form, "button.send").text(pleaseWaitText).attr("disabled", true);
 			$$(form, "section.result").remove();
 
-			if (self.SettingsManager.AttachGeolocation === 1) {
+			if (Settings.AttachGeolocation === 1) {
 				navigator.geolocation.getCurrentPosition(function (position) {
 					sendObj.coords = position.coords;
 					sendFn();
@@ -838,7 +760,7 @@ var AppUI = {
 				});
 			}
 
-			switch (self.SettingsManager.SortContacts) {
+			switch (Settings.SortContacts) {
 				case 0 :
 					sortType = "lastdate";
 					break;
@@ -892,19 +814,6 @@ var AppUI = {
 			});
 		},
 
-		// генерация сообщений об ошибке
-		errorSend: function () {
-			var oneSection = $("#content > section.one").empty().removeClass().addClass("one", "error-container").removeData();
-			var formContents = Templates.render("errorSendForm", {
-				warningText: chrome.i18n.getMessage("errorSendFormWarning").replace("%appname%", App.NAME).replace("%email%", '<a href="mailto:' + App.ERROR_EMAIL + '">' + App.ERROR_EMAIL + '</a>'),
-				descriptionText: chrome.i18n.getMessage("errorSendFormDescriptionText"),
-				infoText: chrome.i18n.getMessage("errorSendFormInfoText").replace("%info%", "<a href='chrome://version'>chrome://version</a>"),
-				buttonText: chrome.i18n.getMessage("errorSendFormButtonText")
-			});
-
-			oneSection.html(formContents);
-		},
-
 		// обучалка для гостей
 		tourStep: function (num) {
 			var STEPSNUM = 6;
@@ -937,13 +846,9 @@ var AppUI = {
 				e.stopPropagation();
 			});
 
-			$("section.buttons.in-tour button.access").bind("click", function (e) {
-				chrome.runtime.sendMessage({
-					"action" : "getOAuthToken",
-					"type" : "new"
-				});
-
-				e.stopPropagation();
+			$("section.buttons.in-tour button.access").bind("click", function (evt) {
+				evt.stopPropagation();
+				Auth.requestFirstToken();
 			});
 		},
 
@@ -981,16 +886,6 @@ var AppUI = {
 					leftHeaderText.text(userData.first_name + " " + userData.last_name);
 
 				var userDomain = userData.domain || "id" + uid;
-
-				// avatar
-				var avatarSrc = "pic/question_th.gif";
-				if (self.CacheManager.avatars[uid] !== undefined) {
-					if (self.CacheManager.avatars[uid].length) {
-						avatarSrc = self.CacheManager.avatars[uid];
-					}
-				} else {
-					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
-				}
 
 				var linkTitle = (/^id[0-9]+$/.test(userDomain))
 					? "vk.com/" + userDomain
@@ -1038,7 +933,7 @@ var AppUI = {
 				}
 
 				var contents = Templates.render("contactInfo", {
-					avatarSrc: avatarSrc,
+					avatarSrc: userData.photo,
 					uid: uid,
 					linkToProfile: "http://vk.com/" + userDomain,
 					linkTitle: linkTitle,
@@ -1307,10 +1202,7 @@ var AppUI = {
 			// добавление аккаунта
 			addAccountIcon.bind("click", function () {
 				$$(leftSection, "section.result").remove();
-				chrome.runtime.sendMessage({
-					action: "getOAuthToken",
-					type: "add"
-				});
+				Auth.addNewAccount();
 			});
 
 			var optionsData = {
@@ -1324,9 +1216,9 @@ var AppUI = {
 				name: "SortContacts",
 				radio: true,
 				items: [
-					{value: 0, active: (self.SettingsManager.SortContacts === 0), title: chrome.i18n.getMessage("settingsSortContactsLast")},
-					{value: 1, active: (self.SettingsManager.SortContacts === 1), title: chrome.i18n.getMessage("settingsSortContactsPopular")},
-					{value: 2, active: (self.SettingsManager.SortContacts === 2), title: chrome.i18n.getMessage("settingsSortContactsAlpha")}
+					{value: 0, active: (Settings.SortContacts === 0), title: chrome.i18n.getMessage("settingsSortContactsLast")},
+					{value: 1, active: (Settings.SortContacts === 1), title: chrome.i18n.getMessage("settingsSortContactsPopular")},
+					{value: 2, active: (Settings.SortContacts === 2), title: chrome.i18n.getMessage("settingsSortContactsAlpha")}
 				]
 			});
 
@@ -1336,9 +1228,9 @@ var AppUI = {
 				name: "DeleteUser",
 				radio: true,
 				items: [
-					{value: 0, active: (self.SettingsManager.DeleteUser === 0), title: chrome.i18n.getMessage("settingsDeleteUserLocal")},
-					{value: 1, active: (self.SettingsManager.DeleteUser === 1), title: chrome.i18n.getMessage("settingsDeleteUserServer")},
-					{value: 2, active: (self.SettingsManager.DeleteUser === 2), title: chrome.i18n.getMessage("settingsDeleteUserEverything")}
+					{value: 0, active: (Settings.SortContacts === 0), title: chrome.i18n.getMessage("settingsDeleteUserLocal")},
+					{value: 1, active: (Settings.SortContacts === 1), title: chrome.i18n.getMessage("settingsDeleteUserServer")},
+					{value: 2, active: (Settings.SortContacts === 2), title: chrome.i18n.getMessage("settingsDeleteUserEverything")}
 				]
 			});
 
@@ -1347,7 +1239,7 @@ var AppUI = {
 				header: chrome.i18n.getMessage("settingsSoundLevel"),
 				name: "SoundLevel",
 				range: true,
-				value: self.SettingsManager.SoundLevel * 10,
+				value: Settings.SoundLevel * 10,
 				min: 0,
 				max: 10,
 				step: 1
@@ -1359,7 +1251,7 @@ var AppUI = {
 				name: "NotificationsTime",
 				range: true,
 				info: true,
-				value: self.SettingsManager.NotificationsTime,
+				value: Settings.NotificationsTime,
 				min: 0,
 				max: 12,
 				step: 1
@@ -1371,8 +1263,8 @@ var AppUI = {
 				name: "ShowWhenVK",
 				radio: true,
 				items: [
-					{value: 0, active: (self.SettingsManager.ShowWhenVK === 0), title: chrome.i18n.getMessage("no")},
-					{value: 1, active: (self.SettingsManager.ShowWhenVK === 1), title: chrome.i18n.getMessage("yes")}
+					{value: 0, active: (Settings.ShowWhenVK === 0), title: chrome.i18n.getMessage("no")},
+					{value: 1, active: (Settings.ShowWhenVK === 1), title: chrome.i18n.getMessage("yes")}
 				]
 			});
 
@@ -1382,8 +1274,8 @@ var AppUI = {
 				name: "ShowBirthdayNotifications",
 				radio: true,
 				items: [
-					{value: 0, active: (self.SettingsManager.ShowBirthdayNotifications === 0), title: chrome.i18n.getMessage("no")},
-					{value: 1, active: (self.SettingsManager.ShowBirthdayNotifications === 1), title: chrome.i18n.getMessage("yes")}
+					{value: 0, active: (Settings.ShowBirthdayNotifications === 0), title: chrome.i18n.getMessage("no")},
+					{value: 1, active: (Settings.ShowBirthdayNotifications === 1), title: chrome.i18n.getMessage("yes")}
 				]
 			});
 
@@ -1393,8 +1285,8 @@ var AppUI = {
 				name: "AttachGeolocation",
 				radio: true,
 				items: [
-					{value: 0, active: (self.SettingsManager.AttachGeolocation === 0), title: chrome.i18n.getMessage("no")},
-					{value: 1, active: (self.SettingsManager.AttachGeolocation === 1), title: chrome.i18n.getMessage("yes")}
+					{value: 0, active: (Settings.AttachGeolocation === 0), title: chrome.i18n.getMessage("no")},
+					{value: 1, active: (Settings.AttachGeolocation === 1), title: chrome.i18n.getMessage("yes")}
 				]
 			});
 
@@ -1404,8 +1296,8 @@ var AppUI = {
 				name: "ShowOnline",
 				radio: true,
 				items: [
-					{value: 0, active: (self.SettingsManager.ShowOnline === 0), title: chrome.i18n.getMessage("no")},
-					{value: 1, active: (self.SettingsManager.ShowOnline === 1), title: chrome.i18n.getMessage("yes")}
+					{value: 0, active: (Settings.ShowOnline === 0), title: chrome.i18n.getMessage("no")},
+					{value: 1, active: (Settings.ShowOnline === 1), title: chrome.i18n.getMessage("yes")}
 				]
 			});
 
@@ -1415,9 +1307,9 @@ var AppUI = {
 				name: "Debug",
 				radio: true,
 				items: [
-					{value: 0, active: (self.SettingsManager.Debug === 0), title: chrome.i18n.getMessage("settingsDebugWarningsErrors")},
-					{value: 1, active: (self.SettingsManager.Debug === 1), title: chrome.i18n.getMessage("settingsDebugMore")},
-					{value: 2, active: (self.SettingsManager.Debug === 2), title: chrome.i18n.getMessage("settingsDebugEverything")}
+					{value: 0, active: (Settings.Debug === 0), title: chrome.i18n.getMessage("settingsDebugWarningsErrors")},
+					{value: 1, active: (Settings.Debug === 1), title: chrome.i18n.getMessage("settingsDebugMore")},
+					{value: 2, active: (Settings.Debug === 2), title: chrome.i18n.getMessage("settingsDebugEverything")}
 				]
 			});
 
@@ -1425,7 +1317,7 @@ var AppUI = {
 			rightSection.html(optionsHTML);
 
 			$(rightSection, "input[name='SoundLevel']").bind("change", function () {
-				self.SoundManager.play("message", this.val() / 10);
+				SoundManager.play("message", this.val() / 10);
 			});
 
 			var notificationsTimeElem = $(rightSection, "output.range-info");
@@ -1452,80 +1344,62 @@ var AppUI = {
 			notificationsRange.dispatchEvent(evt);
 
 			// заполняем список аккаунтов
-			var usersTplData = [];
-			var userData, chunkData;
-			var avatarSrc, switchAccountText;
+			chrome.runtime.sendMessage({action: "getAccountsList"}, function (accounts) {
+				var usersTplData = [];
 
-			for (var uid in self.AccountsManager.list) {
-				userData = self.AccountsManager.list[uid];
+				_.forIn(accounts, function (userData, uid) {
+					var switchAccountText = (uid == Account.currentUserId)
+						? chrome.i18n.getMessage("currentActiveAccount")
+						: chrome.i18n.getMessage("switchToAnotherAccount");
 
-				// подготовка аватарки
-				avatarSrc = "pic/question_th.gif";
-				if (self.CacheManager.avatars[uid] !== undefined) {
-					if (self.CacheManager.avatars[uid].length) {
-						avatarSrc = self.CacheManager.avatars[uid];
-					}
-				} else {
-					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
-				}
-
-				switchAccountText = (uid == self.AccountsManager.currentUserId)
-					? chrome.i18n.getMessage("currentActiveAccount")
-					: chrome.i18n.getMessage("switchToAnotherAccount");
-
-				chunkData = {
-					id: uid,
-					avatarSrc: avatarSrc,
-					deleteAccountText: chrome.i18n.getMessage("deleteAccount"),
-					updateTokenText: chrome.i18n.getMessage("updateAccountToken"),
-					switchAccountText: switchAccountText,
-					active: (uid == self.AccountsManager.currentUserId),
-					fio: userData.fio
-				};
-
-				usersTplData.push(chunkData);
-			}
-
-			var accountsHTML = Templates.render("settingsAccounts", {users: usersTplData});
-			leftSection.html(accountsHTML);
-
-			$$(leftSection, "span.switch").bind("click", function () {
-				if (this.hasClass("active"))
-					return;
-
-				var uid = this.closestParent("section[data-uid]").data("uid");
-				chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : uid});
-			});
-
-			$$(leftSection, "span.update").bind("click", function () {
-				$$(leftSection, "section.result").remove();
-
-				var uid = this.closestParent("section[data-uid]").data("uid");
-				chrome.runtime.sendMessage({
-					action: "getOAuthToken",
-					type: "update",
-					uid: uid
+					usersTplData.push({
+						id: uid,
+						avatarSrc: userData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
+						deleteAccountText: chrome.i18n.getMessage("deleteAccount"),
+						updateTokenText: chrome.i18n.getMessage("updateAccountToken"),
+						switchAccountText: switchAccountText,
+						active: (uid == Account.currentUserId),
+						fio: userData.fio
+					});
 				});
-			});
 
-			$$(leftSection, "span.delete").bind("click", function () {
-				var accountSection = this.closestParent("section[data-uid]");
-				var uid = accountSection.data("uid");
-				var nextAccountSection, nextAccountUid;
+				var accountsHTML = Templates.render("settingsAccounts", {users: usersTplData});
+				leftSection.html(accountsHTML);
 
-				if (accountSection.nextElementSibling) {
-					nextAccountUid = accountSection.nextElementSibling.data("uid");
-				} else {
-					nextAccountUid = (accountSection.previousElementSibling)
-						? accountSection.previousElementSibling.data("uid")
-						: false;
-				}
+				$$(leftSection, "span.switch").bind("click", function () {
+					if (this.hasClass("active"))
+						return;
 
-				$$(leftSection, "section.result").remove();
-				chrome.runtime.sendMessage({
-					action: "deleteAccount",
-					uid: uid,
-					next: nextAccountUid
+					var uid = this.closestParent("section[data-uid]").data("uid");
+					chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : uid});
+				});
+
+				$$(leftSection, "span.update").bind("click", function () {
+					$$(leftSection, "section.result").remove();
+
+					var uid = Number(this.closestParent("section[data-uid]").data("uid"));
+					Auth.updateExistingToken(uid);
+				});
+
+				$$(leftSection, "span.delete").bind("click", function () {
+					var accountSection = this.closestParent("section[data-uid]");
+					var uid = accountSection.data("uid");
+					var nextAccountSection, nextAccountUid;
+
+					if (accountSection.nextElementSibling) {
+						nextAccountUid = accountSection.nextElementSibling.data("uid");
+					} else {
+						nextAccountUid = (accountSection.previousElementSibling)
+							? accountSection.previousElementSibling.data("uid")
+							: false;
+					}
+
+					$$(leftSection, "section.result").remove();
+					chrome.runtime.sendMessage({
+						action: "deleteAccount",
+						uid: uid,
+						next: nextAccountUid
+					});
 				});
 			});
 		},
@@ -1604,7 +1478,7 @@ var AppUI = {
 								var attachmentArea = $("#" + id).removeClass("hidden");
 								var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
 
-								$(attachmentArea, "iframe").attr("src", videoInfo.player);
+								$(attachmentArea, "webview").attr("src", videoInfo.player);
 								$(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
 							});
 
@@ -1626,10 +1500,8 @@ var AppUI = {
 								if (!audioInfo)
 									return;
 
-								var attachmentArea = $("#" + id).removeClass("hidden");
-
-								$(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
-								$(attachmentArea, "audio").attr("src", audioInfo.url).bind("playing", function () {
+								var attachmentArea = self._drawAudioSection(id, audioInfo);
+								$(attachmentArea, "audio").bind("playing", function () {
 									chrome.runtime.sendMessage({
 										action: "newsAudioPlaying",
 										id: postData.id,
@@ -1754,9 +1626,7 @@ var AppUI = {
 				}, true);
 
 				rightHeaderPrint.bind("click", function() {
-					chrome.tabs.create({
-						"url" : App.resolveURL("print.html?did=" + dialogId)
-					});
+					openInNewWindow("print.html?did=" + dialogId);
 				});
 
 				// rightHeaderSearch.bind("click", function() {
@@ -1836,7 +1706,7 @@ var AppUI = {
 
 				for (var i = startIndex; i >= 0; i--) {
 					isInboxMsg = (messages[i].tags.indexOf("inbox") !== -1);
-					msgSenderUid = (isInboxMsg) ? messages[i].uid : self.AccountsManager.currentUserId;
+					msgSenderUid = (isInboxMsg) ? messages[i].uid : Account.currentUserId;
 					msgSection = self._prepareMessage(messages[i]);
 
 					if (i === startIndex) {
@@ -2296,9 +2166,7 @@ var AppUI = {
 			document.body.removeClass().addClass("grey").html(contents);
 
 			$("button.green").bind("click", function () {
-				chrome.tabs.create({
-					url: "https://www.google.com/chrome/"
-				});
+				openInNewWindow("https://www.google.com/chrome/");
 			});
 		},
 
@@ -2328,13 +2196,9 @@ var AppUI = {
 				grantAccessBtn: chrome.i18n.getMessage("installGrantAccess")
 			});
 
-			var authFn = function (e) {
-				chrome.runtime.sendMessage({
-					action: "getOAuthToken",
-					type: "new"
-				});
-
-				e.stopPropagation();
+			var authFn = function (evt) {
+				evt.stopPropagation();
+				Auth.requestFirstToken();
 			};
 
 			document.body.removeClass().addClass("grey").html(contents);
@@ -2353,20 +2217,14 @@ var AppUI = {
 
 			chrome.runtime.sendMessage({
 				action: "currentSyncValues"
-			}, function (syncingData) {
-				var avatarSrc = "pic/question_th.gif";
-				if (self.CacheManager.avatars[self.AccountsManager.currentUserId] !== undefined) {
-					if (self.CacheManager.avatars[self.AccountsManager.currentUserId].length) {
-						avatarSrc = self.CacheManager.avatars[self.AccountsManager.currentUserId];
-					}
-				} else {
-					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : self.AccountsManager.currentUserId});
-				}
+			}, function (res) {
+				var syncingData = res.data;
+				var avatarSrc = res.avatar || chrome.runtime.getURL("pic/question_th.gif");
 
 				var tplData = {
 					avatarSrc: avatarSrc,
-					uid: self.AccountsManager.currentUserId,
-					fio: (self.AccountsManager.current.fio === "...") ? "#" + self.AccountsManager.currentUserId : self.AccountsManager.current.fio,
+					uid: Account.currentUserId,
+					fio: (Account.currentUserFio === "...") ? "#" + Account.currentUserId : Account.currentUserFio,
 					data: []
 				};
 
@@ -2374,7 +2232,8 @@ var AppUI = {
 					tplData.data.push({
 						key: key,
 						description: chrome.i18n.getMessage("syncing" + Utils.string.ucfirst(key)),
-						percentSynced: (syncingData[key][0]) ? Math.ceil(syncingData[key][1] / syncingData[key][0] * 100) : 0,
+						done: syncingData[key][1],
+						total: syncingData[key][0] || syncingData[key][1],
 						max: syncingData[key][0],
 						current: syncingData[key][1]
 					});
@@ -2389,194 +2248,151 @@ var AppUI = {
 			var self = this;
 			var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
 			var appLike = StorageManager.get("app_like", {constructor: Array, strict: true, create: true});
-			var tokenUpdatedForUser = (wallTokenUpdated[this.AccountsManager.currentUserId] === 1);
-			var appLikedByUser = (appLike.indexOf(this.AccountsManager.currentUserId) !== -1);
+			var tokenUpdatedForUser = (wallTokenUpdated[Account.currentUserId] === 1);
+			var appLikedByUser = (appLike.indexOf(Account.currentUserId) !== -1);
 
 			var tplData = {
 				multipleAccountsMargin: 3,
 				accounts: [],
-				activeAccountFio: (this.AccountsManager.current.fio === "...") ? "#" + this.AccountsManager.currentUserId : this.AccountsManager.current.fio,
+				activeAccountFio: (Account.currentUserFio === "...") ? "#" + Account.currentUserId : Account.currentUserFio,
 				offline: !navigator.onLine,
-				tokenExpired: this.CacheManager.isTokenExpired,
+				tokenExpired: false,
 				settingsTitle: chrome.i18n.getMessage("options"),
-				alertTitle: chrome.i18n.getMessage("alertIconTitle"),
 				likeTitle: chrome.i18n.getMessage("likeIconTitle").replace("%appname%", App.NAME) + "!",
 				showLike: (tokenUpdatedForUser && appLikedByUser === false)
 			};
 
-			var accountsNum = 0;
-			var accountData, avatarSrc, methodToInsert;
+			chrome.runtime.sendMessage({action: "getAccountsList"}, function (accounts) {
+				var accountsNum = 0;
 
-			for (var uid in this.AccountsManager.list) {
-				accountData = {
-					avatarSrc: "pic/question_th.gif",
-					uid: uid
-				};
+				_.forIn(accounts, function (userData, uid) {
+					var accountData = {
+						avatarSrc: userData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
+						uid: uid
+					};
 
-				if (this.CacheManager.avatars[uid] !== undefined) {
-					if (this.CacheManager.avatars[uid].length) {
-						accountData.avatarSrc = this.CacheManager.avatars[uid];
+					// текущий пользователь должен быть последним в списке
+					var methodToInsert = (uid == Account.currentUserId) ? "push" : "unshift";
+					Array.prototype[methodToInsert].call(tplData.accounts, accountData);
+
+					if (accountsNum) {
+						// FIXME: OMG
+						tplData.multipleAccountsMargin -= 56;
 					}
-				} else {
-					chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
-				}
 
-				// текущий пользователь должен быть последним в списке
-				methodToInsert = (parseInt(uid, 10) === this.AccountsManager.currentUserId) ? "push" : "unshift";
-				Array.prototype[methodToInsert].call(tplData.accounts, accountData);
-
-				if (accountsNum)
-					tplData.multipleAccountsMargin -= 56;
-
-				accountsNum += 1;
-			}
-
-			tplData.multipleAccounts = (accountsNum > 1);
-
-			document.body.removeClass().addClass("white");
-			if (navigator.platform.indexOf("Win") !== -1)
-				document.body.addClass("win");
-
-			var html = Templates.render("main", tplData);
-			document.body.html(html);
-
-
-			// ставим простой таймаут, чтобы после смены аккаунта / перезагрузки страницы не прыгал блок с аватарками
-			window.setTimeout(function() {
-				$("section.acc-container").addClass("loaded");
-			}, 1000);
-
-			$("section.acc-container").bind("click", function(e) {
-				var hasManyAccounts = ($$(this, "img[data-uid]").length > 1);
-				var matchesSelectorFn = (this.webkitMatchesSelector || this.matchesSelector);
-				var avatarClicked = matchesSelectorFn.call(e.target, "img[data-uid]");
-				var uidClicked = avatarClicked ? parseInt(e.target.data("uid"), 10) : null;
-
-				if (avatarClicked && hasManyAccounts && uidClicked !== self.AccountsManager.currentUserId) {
-					chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : e.target.data("uid")});
-				} else {
-					self.main("user", true);
-				}
-			});
-
-			$("span.icon.github").bind("click", function() {
-				chrome.tabs.create({
-					url: "https://github.com/1999/vkoffline"
+					accountsNum += 1;
 				});
-			});
 
-			$("span.icon.alert").bind("click", function() {
-				self.view("errorSend", {
-					uiType: "full",
-					headers: {
-						one: [
-							{"type" : "text", "name" : chrome.i18n.getMessage("errorFormTitle")}
-						]
+				tplData.multipleAccounts = (accountsNum > 1);
+
+				document.body.removeClass().addClass("white");
+				if (navigator.platform.indexOf("Win") !== -1)
+					document.body.addClass("win");
+
+				var html = Templates.render("main", tplData);
+				document.body.html(html);
+
+
+				// ставим простой таймаут, чтобы после смены аккаунта / перезагрузки страницы не прыгал блок с аватарками
+				window.setTimeout(function() {
+					$("section.acc-container").addClass("loaded");
+				}, 1000);
+
+				$("section.acc-container").bind("click", function(e) {
+					var hasManyAccounts = ($$(this, "img[data-uid]").length > 1);
+					var matchesSelectorFn = (this.webkitMatchesSelector || this.matchesSelector);
+					var avatarClicked = matchesSelectorFn.call(e.target, "img[data-uid]");
+					var uidClicked = avatarClicked ? parseInt(e.target.data("uid"), 10) : null;
+
+					if (avatarClicked && hasManyAccounts && uidClicked !== Account.currentUserId) {
+						chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : e.target.data("uid")});
+					} else {
+						self.main("user", true);
 					}
 				});
-			});
 
-			$("span.icon.settings").bind("click", function() {
-				self.view("settings", {
-					uiType: "partial",
-					headers: {
-						left: [
-							{"type" : "text", "name" : chrome.i18n.getMessage("accounts")},
-							{"type" : "icon", "name" : "plus", "title" : chrome.i18n.getMessage("addMoreProfiles")}
-						],
-						right: [
-							{"type" : "text", "name" : chrome.i18n.getMessage("options")}
-						]
-					}
-				});
-			});
-
-			var likeIcon = $("span.icon.like");
-			if (likeIcon) {
-				likeIcon.bind("click", function() {
-					var appLike = StorageManager.get("app_like", {constructor: Array, strict: true, create: true});
-					var icon = this;
-
-					chrome.runtime.sendMessage({action: "addLike"}, function (likeResult) {
-						switch (likeResult) {
-							case 1 :
-								appLike.push(self.AccountsManager.currentUserId);
-								StorageManager.set("app_like", appLike);
-
-								// @todo thanks?
-								icon.remove();
-								break;
-
-							case 0 :
-								icon.remove();
-								break;
+				$("span.icon.settings").bind("click", function() {
+					self.view("settings", {
+						uiType: "partial",
+						headers: {
+							left: [
+								{"type" : "text", "name" : chrome.i18n.getMessage("accounts")},
+								{"type" : "icon", "name" : "plus", "title" : chrome.i18n.getMessage("addMoreProfiles")}
+							],
+							right: [
+								{"type" : "text", "name" : chrome.i18n.getMessage("options")}
+							]
 						}
 					});
 				});
-			}
 
-			// сразу обновляем иконку оповещений
-			var newsIcon = $("span.news")
-			this.updateNewsIcon(newsIcon);
+				var likeIcon = $("span.icon.like");
+				if (likeIcon) {
+					likeIcon.bind("click", function() {
+						var appLike = StorageManager.get("app_like", {constructor: Array, strict: true, create: true});
+						var icon = this;
 
-			newsIcon.bind("click", function() {
-				self.view("news", {
-					uiType: "full",
-					headers: {
-						one: [
-							{"type" : "text", "name" : chrome.i18n.getMessage("newNotifications")}
+						chrome.runtime.sendMessage({action: "addLike"}, function (likeResult) {
+							switch (likeResult) {
+								case 1 :
+									appLike.push(Account.currentUserId);
+									StorageManager.set("app_like", appLike);
+
+									// @todo thanks?
+									icon.remove();
+									break;
+
+								case 0 :
+									icon.remove();
+									break;
+							}
+						});
+					});
+				}
+
+				// сразу обновляем иконку оповещений
+				var newsIcon = $("span.news")
+				self.updateNewsIcon(newsIcon);
+
+				newsIcon.bind("click", function() {
+					self.view("news", {
+						uiType: "full",
+						headers: {
+							one: [
+								{"type" : "text", "name" : chrome.i18n.getMessage("newNotifications")}
+							]
+						}
+					});
+				});
+
+
+				// показываем список контактов
+				self.view("contactsList", {
+					"uiType" : "partial",
+					"headers" : {
+						"left" : [
+							{"type" : "text", "name" : chrome.i18n.getMessage("contactsName")},
+							{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchContact")}
 						]
 					}
 				});
+
+				// показываем диалоги
+				self.view("mailList", {
+					"uiType" : "partial",
+					"headers" : {
+						"right" : [
+							{"type" : "text", "name" : chrome.i18n.getMessage("correspondence")},
+							{"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
+							/*{"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")},*/
+							{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")}
+						]
+					}
+				});
+
+				chrome.runtime.sendMessage({"action" : "userUIDrawn"});
 			});
-
-
-			// показываем список контактов
-			this.view("contactsList", {
-				"uiType" : "partial",
-				"headers" : {
-					"left" : [
-						{"type" : "text", "name" : chrome.i18n.getMessage("contactsName")},
-						{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchContact")}
-					]
-				}
-			});
-
-			// показываем диалоги
-			this.view("mailList", {
-				"uiType" : "partial",
-				"headers" : {
-					"right" : [
-						{"type" : "text", "name" : chrome.i18n.getMessage("correspondence")},
-						{"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
-						/*{"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")},*/
-						{"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")}
-					]
-				}
-			});
-
-			chrome.runtime.sendMessage({"action" : "userUIDrawn"});
 		}
-	},
-
-	get AccountsManager() {
-		delete this.AccountsManager;
-		return this.AccountsManager = chrome.extension.getBackgroundPage().AccountsManager;
-	},
-
-	get SoundManager() {
-		delete this.SoundManager;
-		return this.SoundManager = chrome.extension.getBackgroundPage().SoundManager;
-	},
-
-	get CacheManager() {
-		delete this.CacheManager;
-		return this.CacheManager = chrome.extension.getBackgroundPage().CacheManager;
-	},
-
-	get SettingsManager() {
-		delete this.SettingsManager;
-		return this.SettingsManager = chrome.extension.getBackgroundPage().SettingsManager;
 	},
 
 	get prevShownView() {
@@ -2608,7 +2424,7 @@ var AppUI = {
 	addReceivedMessage: function (msgData) {
 		var self = this,
 			isInboxMsg = (msgData.tags.indexOf("inbox") !== -1),
-			msgSenderUid = (isInboxMsg) ? msgData.uid : self.AccountsManager.currentUserId,
+			msgSenderUid = (isInboxMsg) ? msgData.uid : Account.currentUserId,
 			chatContainer = $("#content > section.chat-container"),
 			msgDataObj = self._prepareMessage(msgData, true),
 			lastUserSpeechSection = $(chatContainer, "section.user-speech:last-of-type"),
@@ -2646,16 +2462,7 @@ var AppUI = {
 	_prepareHalfSection: function (msgData, searchTerm) {
 		var self = this;
 		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
-		var uid = isInboxMsg ? msgData.uid : self.AccountsManager.currentUserId;
-
-		var avatarSrc = "pic/question_th.gif";
-		if (self.CacheManager.avatars[uid] !== undefined) {
-			if (self.CacheManager.avatars[uid].length) {
-				avatarSrc = self.CacheManager.avatars[uid];
-			}
-		} else {
-			chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : uid});
-		}
+		var uid = msgData.uid ; //isInboxMsg ? msgData.uid : Account.currentUserId;
 
 		var contactFio = msgData.first_name + " " + msgData.last_name;
 		if (!isInboxMsg)
@@ -2676,7 +2483,7 @@ var AppUI = {
 		var output = {
 			is_new: (msgData.tags.indexOf("inbox") !== -1 && msgData.status === 0),
 			mid: msgData.mid,
-			avatarSrc: avatarSrc,
+			avatarSrc: msgData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
 			uid: uid,
 			humanDate: Utils.string.humanDate(msgData.date),
 			fio: contactFio,
@@ -2720,20 +2527,13 @@ var AppUI = {
 		if (userData.mobile_phone)
 			phones.push(userData.mobile_phone);
 
-		var avatarSrc = "pic/question_th.gif";
-		if (this.CacheManager.avatars[userData.uid]) {
-			avatarSrc = this.CacheManager.avatars[userData.uid];
-		} else {
-			chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : userData.uid});
-		}
-
 		return {
 			uid: userData.uid,
-			avatarSrc: avatarSrc,
+			avatarSrc: userData.photo,
 			showMoreInfo: chrome.i18n.getMessage("showMoreInfoAboutContactOrMessage"),
 			fio: fio,
 			phones: phones.join(", "),
-			hidden: (this.AccountsManager.currentUserId === userData.uid)
+			hidden: (Account.currentUserId === userData.uid)
 		};
 	},
 
@@ -2745,8 +2545,6 @@ var AppUI = {
 		var self = this;
 		var isInbox = (msgData.tags.indexOf("inbox") !== -1);
 		var unread = forceShowUnread || (msgData.status === 0 && isInbox);
-
-		var attachments = [];
 		var msgObj;
 
 		msgData.body = Utils.string.replaceLinks(msgData.body);
@@ -2767,16 +2565,7 @@ var AppUI = {
 			attachments: []
 		};
 
-		try {
-			msgData.attachments = JSON.parse(msgData.attachments);
-		} catch (e) {
-			msgData.attachments = [];
-		}
-
-		if (!(msgData.attachments instanceof Array) || !msgData.attachments.length)
-			return output;
-
-		msgData.attachments.forEach(function (attachmentInfo) {
+		(msgData.attachments || []).forEach(function (attachmentInfo) {
 			var type = (attachmentInfo instanceof Array) ? attachmentInfo[0] : attachmentInfo.type;
 			var id = "att_" + Math.random().toString().substr(2);
 			var tplData = {};
@@ -2788,6 +2577,10 @@ var AppUI = {
 
 				if (type === "photo") {
 					tplData.noimage = true;
+				} else if (type === "geopoint") {
+					tplData.nopoint = true;
+				} else if (type === "doc") {
+					tplData.nolink = true;
 				}
 			} else { // mailSync
 				switch (attachmentInfo.type) {
@@ -2806,10 +2599,13 @@ var AppUI = {
 						break;
 
 					case "photo":
+						var biggestPhoto = Utils.misc.searchBiggestImage(attachmentInfo.photo);
+
 						tplData.photo = true;
 						tplData.id = id;
 						tplData.noimage = true;
-						tplData.info = JSON.stringify(["photo", Utils.misc.searchBiggestImage(attachmentInfo.photo)]);
+						tplData.info = JSON.stringify(["photo", biggestPhoto]);
+						tplData.src = biggestPhoto;
 						break;
 
 					case "doc":
@@ -2877,12 +2673,6 @@ var AppUI = {
 				msgTplData.id = id;
 
 			// преобразуем вложения
-			try {
-				msgInfo.attachments = JSON.parse(msgInfo.attachments);
-			} catch (e) {
-				msgInfo.attachments = [];
-			}
-
 			(msgInfo.attachments || []).forEach(function (attachmentData) {
 				var id = "rnd_" + Math.random().toString().substr(2);
 				var attachmentType = (attachmentData instanceof Array) ? attachmentData[0] : attachmentData.type;
@@ -2967,7 +2757,7 @@ var AppUI = {
 						case "geopoint":
 							// на этом этапе HTML еще не существует
 							Utils.async.nextTick(function () {
-								self._drawGeoPointAsync(id, data.lat, data.lng);
+								self._drawGeoPoint(id, data.lat, data.lng);
 							});
 
 							break;
@@ -3015,10 +2805,7 @@ var AppUI = {
 							if (!audioInfo)
 								return;
 
-							var attachmentArea = $("#" + id).removeClass("hidden");
-
-							$(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
-							$(attachmentArea, "audio").attr("src", audioInfo.url);
+							self._drawAudioSection(id, audioInfo);
 						});
 
 						break;
@@ -3035,7 +2822,7 @@ var AppUI = {
 							var attachmentArea = $("#" + id).removeClass("hidden");
 							var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
 
-							$(attachmentArea, "iframe").attr("src", videoInfo.player);
+							$(attachmentArea, "webview").attr("src", videoInfo.player);
 							$(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
 						});
 
@@ -3055,13 +2842,14 @@ var AppUI = {
 							var attachmentArea = $("#" + id).removeClass("hidden");
 							var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
 
-							$(attachmentArea, "a").attr({
-								href: fileInfo.url,
-								download: fileName
-							}).text(data.title);
+							var attachLink = attachmentArea.querySelector("a");
+							attachLink.setAttribute("href", fileInfo.url);
+							attachLink.setAttribute("download", fileName);
+							attachLink.innerHTML = fileInfo.title;
 
 							var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-							$(attachmentArea, "span.description").text(descriptionText);
+							var attachDescription = attachmentArea.querySelector("span.description");
+							attachDescription.innerHTML = descriptionText;
 						});
 
 						break;
@@ -3075,7 +2863,7 @@ var AppUI = {
 								return;
 
 							var attachmentArea = $("#" + id).removeClass("hidden");
-							self._drawGeoPointAsync(id, pointInfo[0], pointInfo[1]);
+							self._drawGeoPoint(id, pointInfo[0], pointInfo[1]);
 						});
 
 						break;
@@ -3117,7 +2905,7 @@ var AppUI = {
 			}
 
 			thread.participants.forEach(function (contactData) {
-				var isCurrentUser = (contactData.uid === self.AccountsManager.currentUserId);
+				var isCurrentUser = (contactData.uid === Account.currentUserId);
 				var fio = isCurrentUser ? null : contactData.first_name + " " + contactData.last_name;
 				var userName = isCurrentUser ? chrome.i18n.getMessage("participantMe") : contactData.first_name;
 
@@ -3136,21 +2924,12 @@ var AppUI = {
 
 	_drawUserSpeechSection: function (msgData) {
 		var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
-		var msgSenderUid = isInboxMsg ? msgData.uid : this.AccountsManager.currentUserId;
-		var fio = isInboxMsg ? msgData.first_name + " " + msgData.last_name : this.AccountsManager.current.fio;
-
-		var avatarSrc = "pic/question_th.gif";
-		if (this.CacheManager.avatars[msgSenderUid] !== undefined) {
-			if (this.CacheManager.avatars[msgSenderUid].length) {
-				avatarSrc = this.CacheManager.avatars[msgSenderUid];
-			}
-		} else {
-			chrome.runtime.sendMessage({"action" : "loadAvatar", "uid" : msgSenderUid});
-		}
+		var msgSenderUid = isInboxMsg ? msgData.uid : Account.currentUserId;
+		var fio = isInboxMsg ? msgData.first_name + " " + msgData.last_name : Account.currentUserFio;
 
 		var html = Templates.render("userSpeech", {
 			uid: msgSenderUid,
-			avatarSrc: avatarSrc,
+			avatarSrc: msgData.photo,
 			fio: fio
 		});
 
@@ -3164,42 +2943,52 @@ var AppUI = {
 	 * @param {Float} lat
 	 * @param {Float} lng
 	 */
-	_drawGeoPointAsync: function (domElemId, lat, lng) {
-		var onYMapsReady = function() {
-			ymaps.ready(function () {
-				var map = new ymaps.Map(domElemId, {
-					center: [lat, lng],
-					zoom: 12
-				});
+	_drawGeoPoint: function (domElemId, lat, lng) {
+		var domElem = document.getElementById(domElemId);
+		var imgElem = domElem.querySelector("img");
+		var availableWidth = domElem.offsetWidth;
+		var height = Math.round(availableWidth * 2 / 3);
 
-				map.controls.add('mapTools');
-				map.controls.add('typeSelector');
-				map.controls.add('zoomControl');
+		imgElem.attr({
+			width: availableWidth,
+			height: height,
+			src: [
+				"https://maps.googleapis.com/maps/api/staticmap?center=" + lat + "," + lng,
+				"zoom=14",
+				"size=" + availableWidth + "x" + height,
+				"maptype=roadmap",
+				"sensor=false",
+				"markers=color:blue%7Clabel:S%7C" + lat + "," + lng
+			].join("&")
+		});
+	},
 
-				var point = new ymaps.GeoObject({
-					geometry: {
-						type: "Point",
-						coordinates: [lat, lng]
-					}
-				});
+	_drawAudioSection: function (elem, audioInfo) {
+		var attachmentArea = (typeof elem === "string")
+			? $("#" + elem)
+			: elem;
 
-				map.geoObjects.add(point);
-			});
-		};
+		var attachmentListenappOpen = $(attachmentArea, ".listenapp-open");
+		var attachmentListenappInstall = $(attachmentArea, ".listenapp-install");
 
-		if (typeof ymaps === "undefined") {
-			// можно грузить ЯК для других локалей, но не всегда есть сами карты для не RU-локали
-			// var uiLocale = chrome.i18n.getMessage("@@ui_locale").split("_")[0];
-			var ymapsLibSrc = "https://api-maps.yandex.ru/2.0-stable/?load=package.standard,package.geoObjects&lang=ru-RU";
+		$(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
+		$(attachmentArea, "audio").attr("src", audioInfo.url);
 
-			var ymapsLib = document.createElement("script");
-			ymapsLib.setAttribute("src", ymapsLibSrc);
-			ymapsLib.onload = onYMapsReady;
+		chrome.runtime.sendMessage(App.LISTENAPP_ID, {action: "isAlive"}, function (isAlive) {
+			if (isAlive) {
+				attachmentListenappOpen.dataset.artist = audioInfo.artist;
+				attachmentListenappOpen.innerHTML = chrome.i18n.getMessage("listenAppOpen").replace("%artist%", audioInfo.artist);
+				attachmentListenappOpen.classList.add("active");
+			} else {
+				attachmentListenappInstall.innerHTML = chrome.i18n.getMessage("listenAppInstall").replace("%artist%", audioInfo.artist),
+				attachmentListenappInstall.setAttribute("href", "https://chrome.google.com/webstore/detail/" + App.LISTENAPP_ID);
+				attachmentListenappInstall.addClass("active");
+			}
 
-			$("head").append(ymapsLib);
-		} else {
-			onYMapsReady();
-		}
+			attachmentArea.removeClass("hidden");
+		});
+
+		return attachmentArea;
 	},
 
 	/**
@@ -3208,7 +2997,7 @@ var AppUI = {
 	_drawMessageSendForm: function (formType) {
 		var self = this;
 		var threadContainer = $("#content > section.right");
-		var saveMessageKey = "message_" + this.AccountsManager.currentUserId + "_" + threadContainer.data("dialogId");
+		var saveMessageKey = "message_" + Account.currentUserId + "_" + threadContainer.data("dialogId");
 		var savedMessageText = StorageManager.get(saveMessageKey) || "";
 		var isChat = threadContainer.hasClass("chat-container");
 		var face2face = (formType === "face-to-face");

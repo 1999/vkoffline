@@ -21,7 +21,7 @@ window.onload = function() {
 	if (!location.search.length)
 		return;
 
-	App.requestBackgroundPage(function (backgroundPage) {
+	chrome.runtime.getBackgroundPage(function (backgroundPage) {
 		var searchData = {};
 		var AccountsManager = backgroundPage.AccountsManager;
 		var printType, msgData, userData;

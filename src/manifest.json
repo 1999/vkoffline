@@ -1,6 +1,6 @@
 {
 	"name" : "__MSG_appName__ DEV",
-	"version" : "4.11",
+	"version" : "5.0",
 	"description" : "__MSG_appDescription__",
 	"default_locale" : "ru",
 	"icons" : {
@@ -8,60 +8,43 @@
 		"48" : "pic/icon48.png",
 		"16" : "pic/icon16.png"
 	},
-	"app" : {
-		"launch" : {
-			"local_path" : "main.html"
+	"app": {
+		"background": {
+			"scripts": [
+				"bower_components/lodash/dist/lodash.min.js",
+				"bower_components/vow/vow.min.js",
+				"bower_components/sklad/sklad.js",
+
+				"js/app.js",
+				"js/utils.js",
+
+				"bower_components/cpa/google-analytics-bundle.js",
+				"js/cpa.js",
+
+				"js/soundManager.js",
+				"js/storageManager.js",
+				"js/accountsManager.js",
+				"js/databaseManager.js",
+				"js/settingsManager.js",
+				"js/logManager.js",
+				"js/reqManager.js",
+				"js/migrationManager.js",
+				"js/backend.js"
+			]
 		}
 	},
-
-	"content_scripts": [
-		{
-			"matches": ["*://vk.com/*"],
-			"js": ["content_scripts/external.js"]
-		}
-	],
 
 	"manifest_version" : 2,
-	"content_security_policy" : "script-src 'self' https://api-maps.yandex.ru https://ssl.google-analytics.com; object-src 'self'",
-	"web_accessible_resources": [
-		"pic/icon48.png",
-		"pic/smile.png"
-	],
-	"background": {
-		"scripts": [
-			"bower_components/lodash/dist/lodash.min.js",
-			"bower_components/vow/vow.min.js",
-			"bower_components/sklad/sklad.js",
-			"js/app.js",
-			"js/utils.js",
-			"js/soundManager.js",
-			"js/storageManager.js",
-			"js/accountsManager.js",
-			"js/databaseManager.js",
-			"js/settingsManager.js",
-			"js/logManager.js",
-			"js/cacheManager.js",
-			"js/reqManager.js",
-			"js/migrationManager.js",
-			"js/backend.js",
-			"js/counter.js"
-		]
-	},
 	"offline_enabled" : true,
-	"minimum_chrome_version" : "33",
+	"minimum_chrome_version" : "35",
 	"permissions" : [
 		"alarms",
-		"background",
 		"unlimitedStorage",
 		"storage",
-		"tabs",
 		"notifications",
+		"webview",
 		"*://*.vk.com/*",
 		"*://*.userapi.com/*",
 		"*://*.vk.me/*"
-	],
-	"optional_permissions" : [
-		"management",
-		"clipboardWrite"
 	]
 }

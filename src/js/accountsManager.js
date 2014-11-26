@@ -140,6 +140,6 @@ var AccountsManager = (function () {
 				parseTokens();
 
 			return tokens;
-		},
+		}
 	};
 })();

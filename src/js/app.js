@@ -23,6 +23,7 @@ var App = {
 	INIT_TAGS: ["inbox", "sent", "attachments", "important", "trash", "outbox", "drafts"], // изначальные тэги для сообщений
 	GOODBYE_PAGE_URL: "http://staypositive.ru/goodbye-vkofflineapp.html",
 	LISTENAPP_ID: "bggaejdaachpiaibkedeoadbglgdjpab",
+	LAUNCHER_EXTENSION_ID: "kokdpdbdcbjlehlgbkaoandedpmjodfh",
 
 	GOOGLE_ANALYTICS_CPA_ID: "vkoffline_chrome_app",
 	GOOGLE_ANALYTICS_CPA_COUNTER: "UA-20919085-11",

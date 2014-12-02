@@ -177,23 +177,19 @@ window.onerror = function(msg, url, line) {
 
 	// listen to messages from Listen! app
 	chrome.runtime.onMessageExternal.addListener(function (msg, sender, sendResponse) {
-		if (sender.id !== App.LISTENAPP_ID) {
+		if (sender.id === App.LISTENAPP_ID && msg.action === "importAuthToken") {
+			if (AccountsManager.currentUserId) {
+				sendResponse({
+					user_id: Number(AccountsManager.currentUserId),
+					token: AccountsManager.list[AccountsManager.currentUserId].token
+				});
+			} else {
+				sendResponse(null);
+			}
+		} else if (sender.id === App.LAUNCHER_EXTENSION_ID && msg.action === "launch") {
+			leaveOneAppWindowInstance(true);
+		} else {
 			sendResponse(false);
-			return;
-		}
-
-		switch (msg.action) {
-			case "importAuthToken":
-				if (AccountsManager.currentUserId) {
-					sendResponse({
-						user_id: Number(AccountsManager.currentUserId),
-						token: AccountsManager.list[AccountsManager.currentUserId].token
-					});
-				} else {
-					sendResponse(null);
-				}
-
-				break;
 		}
 	});
 

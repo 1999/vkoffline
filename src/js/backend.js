@@ -70,8 +70,8 @@ window.onerror = function(msg, url, line) {
 	 */
 	function getFlatSettings() {
 		var flatSettings = {};
-		_.forIn(SettingsManager, function (value, key) {
-			flatSettings[key] = value;
+		SettingsManager.getAvailable().forEach(function (key) {
+			flatSettings[key] = SettingsManager[key];
 		});
 
 		return flatSettings;
@@ -220,6 +220,7 @@ window.onerror = function(msg, url, line) {
 		StorageManager.load(),
 		DatabaseManager.initMeta()
 	]).then(function readyToGo(err) {
+		SettingsManager.init();
 		LogManager.config("App started");
 
 		var syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел

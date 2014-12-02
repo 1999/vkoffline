@@ -1,28 +1,7 @@
-/* ==========================================================
- * Settings Manager (VK Offline Chrome app)
- * https://github.com/1999/vkoffline
- * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ========================================================== */
+'use strict';
 
-var SettingsManager = new (function() {
-	// загружаем данные из LS
-	var internalSettings = StorageManager.get("settings", {constructor: Object, strict: true, create: true});
-
-	// устанавливаем геттеры и сеттеры для данных
-	[
+var SettingsManager = (function () {
+	var availableSettings = [
 		{
 			key: "Debug", // debug-level
 			defaultValue: 0,
@@ -77,55 +56,73 @@ var SettingsManager = new (function() {
 			allowedValues: [0, 1],
 			valueType: "integer"
 		}
-	].forEach(function (settingElem) {
-		this.__defineGetter__(settingElem.key, function () {
-			var outputValue;
+	];
 
-			if (internalSettings[settingElem.key] !== undefined) {
-				switch (settingElem.valueType) {
-					case "integer" :
-						outputValue = parseInt(internalSettings[settingElem.key], 10);
-						break;
+	return {
+		init: function SettingsManager_init() {
+			// загружаем данные из chrome.storage.local
+			var internalSettings = StorageManager.get("settings", {constructor: Object, strict: true, create: true});
 
-					case "float" :
-						outputValue = parseFloat(internalSettings[settingElem.key]);
-						break;
+			// устанавливаем геттеры и сеттеры для данных
+			availableSettings.forEach(function (settingElem) {
+				Object.defineProperty(this, settingElem.key, {
+					get: function () {
+						var outputValue;
 
-					case "string" :
-						outputValue = internalSettings[settingElem.key] + "";
-						break;
-				}
+						if (internalSettings[settingElem.key] !== undefined) {
+							switch (settingElem.valueType) {
+								case "integer":
+									outputValue = parseInt(internalSettings[settingElem.key], 10);
+									break;
 
-				if (settingElem.allowedValues.indexOf(outputValue) !== -1) {
-					return outputValue;
-				}
-			}
+								case "float":
+									outputValue = parseFloat(internalSettings[settingElem.key]);
+									break;
 
-			return settingElem.defaultValue;
-		});
+								case "string":
+									outputValue = internalSettings[settingElem.key] + "";
+									break;
+							}
 
-		this.__defineSetter__(settingElem.key, function (value) {
-			var outputValue;
+							if (settingElem.allowedValues.indexOf(outputValue) !== -1) {
+								return outputValue;
+							}
+						}
 
-			switch (settingElem.valueType) {
-				case "integer" :
-					outputValue = parseInt(value, 10);
-					break;
+						return settingElem.defaultValue;
+					},
 
-				case "float" :
-					outputValue = parseFloat(value);
-					break;
+					set: function (value) {
+						var outputValue;
 
-				case "string" :
-					outputValue = value + "";
-					break;
-			}
+						switch (settingElem.valueType) {
+							case "integer" :
+								outputValue = parseInt(value, 10);
+								break;
 
-			internalSettings[settingElem.key] = (settingElem.allowedValues.indexOf(outputValue) !== -1)
-				? outputValue
-				: settingElem.defaultValue;
+							case "float" :
+								outputValue = parseFloat(value);
+								break;
 
-			StorageManager.set("settings", internalSettings);
-		});
-	}, this);
-});
+							case "string" :
+								outputValue = value + "";
+								break;
+						}
+
+						internalSettings[settingElem.key] = (settingElem.allowedValues.indexOf(outputValue) !== -1)
+							? outputValue
+							: settingElem.defaultValue;
+
+						StorageManager.set("settings", internalSettings);
+					}
+				});
+			}, this);
+		},
+
+		getAvailable: function SettingsManager_getAvailable() {
+			return availableSettings.map(function (elem) {
+				return elem.key;
+			});
+		}
+	};
+})();

@@ -18,12 +18,26 @@ var Auth = (function () {
 			var oauthRedirectURI = "https://oauth.vk.com/blank.html";
 			var webview = document.createElement("webview");
 			webview.classList.add("oauth");
-			webview.setAttribute("src", "https://oauth.vk.com/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=" + oauthRedirectURI + "&display=page&response_type=token");
 			webview.style.width = window.innerWidth + "px";
 			webview.style.height = window.innerHeight - 5 + "px";
 
+			var isFirstLoad = true;
+			webview.setAttribute("src", oauthRedirectURI);
+
 			webview.addEventListener("loadcommit", function (evt) {
 				if (!evt.isTopLevel || evt.url.indexOf(oauthRedirectURI) !== 0) {
+					return;
+				}
+
+				if (isFirstLoad) {
+					// @see http://stackoverflow.com/questions/27259427/when-is-the-best-time-to-call-webview-cleardata/27259660
+					webview.clearData({since: 0}, {cookies: true});
+
+					setTimeout(function () {
+						webview.setAttribute("src", "https://oauth.vk.com/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=" + oauthRedirectURI + "&display=page&response_type=token");
+					}, 100);
+
+					isFirstLoad = false;
 					return;
 				}
 

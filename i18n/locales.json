@@ -189,6 +189,14 @@
 		}
 	},
 	{
+		"key": "downloadPhoto",
+		"messages": {
+			"en": "Download photo",
+			"ru": "Скачать изображение",
+			"uk": "Зберегти зображення"
+		}
+	},
+	{
 		"key": "dropFilesHere",
 		"messages": {
 			"en": "Drop files here...",

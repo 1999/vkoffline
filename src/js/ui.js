@@ -209,6 +209,7 @@ document.addEventListener("click", function (e) {
 
 							target.removeClass("hidden");
 
+							var biggestImageSrc = Utils.misc.searchBiggestImage(photoInfo);
 							var imgAspect = photoInfo.width / photoInfo.height;
 							var imgWidth = Math.min(availableWidth, photoInfo.width);
 
@@ -216,8 +217,11 @@ document.addEventListener("click", function (e) {
 								is: "external-image",
 								width: imgWidth,
 								height: imgWidth / imgAspect,
-								src: Utils.misc.searchBiggestImage(photoInfo)
+								src: biggestImageSrc
 							});
+
+							var photoDownloadElem = $(target, "a");
+							photoDownloadElem.setAttribute("href", biggestImageSrc);
 						});
 					}
 
@@ -1578,7 +1582,11 @@ var AppUI = {
 				chrome.runtime.sendMessage({"action" : "newsPostSeen", "id" : postData.id});
 			});
 
-			var newsHTML = Templates.render("news", {news: newsData});
+			var newsHTML = Templates.render("news", {
+				news: newsData,
+				downloadPhotoText: chrome.i18n.getMessage("downloadPhoto")
+			});
+
 			oneSection.html(newsHTML);
 
 			var link_ = $(oneSection, "a");
@@ -2562,6 +2570,7 @@ var AppUI = {
 			important: (msgData.tags.indexOf("important") !== -1),
 			importantTitle: chrome.i18n.getMessage("importantMessage"),
 			body: msgData.body,
+			downloadPhotoText: chrome.i18n.getMessage("downloadPhoto"),
 			attachments: []
 		};
 
@@ -2667,6 +2676,7 @@ var AppUI = {
 			msgTplData.startTyping = chrome.i18n.getMessage("startTypingMessage");
 			msgTplData.important = (!isTrashFolderContents && msgInfo.tags.indexOf("important") !== -1);
 			msgTplData.importantText = chrome.i18n.getMessage("importantMessage");
+			msgTplData.downloadPhotoText = chrome.i18n.getMessage("downloadPhoto");
 			msgTplData.attachments = [];
 
 			if (id.length)
@@ -2723,6 +2733,7 @@ var AppUI = {
 								image.onload = function () {
 									var attachmentArea = $("#" + id).removeClass("hidden");
 									var attachmentImg = $(attachmentArea, "img");
+
 									var imgAspect = image.width / image.height;
 									var imgWidth = Math.min(availableWidth, image.width);
 
@@ -2784,14 +2795,19 @@ var AppUI = {
 
 							var attachmentArea = $("#" + id).removeClass("hidden");
 							var attachmentImg = $(attachmentArea, "img");
+							var attachmentDownload = $(attachmentArea, "a");
+
+							var biggestImageSrc = Utils.misc.searchBiggestImage(photoInfo);
 							var imgAspect = photoInfo.width / photoInfo.height;
 							var imgWidth = Math.min(availableWidth, photoInfo.width);
 
 							attachmentImg.attr({
 								width: imgWidth,
 								height: imgWidth / imgAspect,
-								src: Utils.misc.searchBiggestImage(photoInfo)
+								src: biggestImageSrc
 							});
+
+							attachmentDownload.setAttribute("href", biggestImageSrc);
 						});
 
 						break;

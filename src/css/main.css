@@ -1722,7 +1722,20 @@ section.pre {
 	margin-top: 8px;
 }
 
+.skip-sync {
+	background: #ddd;
+    border: 1px solid #aaa;
+    box-shadow: 0 0 4px #aaa;
+	float: right;
+    margin: 10px 0;
+    opacity: .4;
+    transition: opacity .1s ease;
+    will-change: opacity;
+}
 
+.skip-sync:hover {
+	opacity: 1;
+}
 
 
 #info div {

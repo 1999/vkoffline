@@ -9,6 +9,7 @@ window.onerror = function(msg, url, line) {
 	"use strict";
 
 	var navigatorVersion = parseInt(navigator.userAgent.match(/Chrome\/([\d]+)/)[1], 10);
+	var forceSkipSync = false;
 
 	/**
 	 * Показать chrome.notification
@@ -843,7 +844,7 @@ window.onerror = function(msg, url, line) {
 			var getMessages = new Promise(function (resolve, reject) {
 				var reqData = {
 					access_token: userDataForRequest.token,
-					count: 200,
+					count: 100,
 					preview_length: 0,
 					out: (mailType === "sent") ? 1 : 0,
 					offset: offset
@@ -907,7 +908,7 @@ window.onerror = function(msg, url, line) {
 				};
 
 				// все получили
-				if (data.response === 0 || (data.response instanceof Array && data.response.length === 1)) {
+				if (data.response === 0 || (data.response instanceof Array && data.response.length === 1) || forceSkipSync) {
 					dataSyncedFn();
 					return;
 				}
@@ -984,7 +985,7 @@ window.onerror = function(msg, url, line) {
 						return;
 					}
 
-					window.setTimeout(mailSync, 350, currentUserId, mailType, latestMessageId);
+					mailSync(currentUserId, mailType, latestMessageId);
 				}, _.noop);
 			}, function (err) {
 				if (err.name instanceof DOMError) {
@@ -2075,6 +2076,11 @@ window.onerror = function(msg, url, line) {
 						sendResponse([[], 0, request.value]);
 					});
 
+					break;
+
+				case "skipSync":
+					forceSkipSync = true;
+					CPA.sendEvent("App-Actions", "Skip sync");
 					break;
 
 				case "currentSyncValues" :

@@ -20,6 +20,16 @@
 document.addEventListener("click", function (e) {
 	var matchesSelectorFn = (Element.prototype.webkitMatchesSelector || Element.prototype.matchesSelector);
 	var routes = {
+		// пропустить синхронизацию
+		".skip-sync": function (target, evt) {
+			if (!target.dataset.once) {
+				target.dataset.once = 'yes';
+				target.innerHTML = chrome.i18n.getMessage("areyouready");
+			} else {
+				chrome.runtime.sendMessage({action: "skipSync"});
+				target.innerHTML = Utils.string.ucfirst(chrome.i18n.getMessage("pleaseWait")) + "&hellip;";
+			}
+		},
 		// открытие Listen!
 		".listenapp-open": function (target, evt) {
 			chrome.runtime.sendMessage(App.LISTENAPP_ID, {
@@ -2233,6 +2243,7 @@ var AppUI = {
 					avatarSrc: avatarSrc,
 					uid: Account.currentUserId,
 					fio: (Account.currentUserFio === "...") ? "#" + Account.currentUserId : Account.currentUserFio,
+					skipSync: chrome.i18n.getMessage("skipSync"),
 					data: []
 				};
 

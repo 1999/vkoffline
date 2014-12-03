@@ -11,9 +11,10 @@ var Auth = (function () {
 
 	/**
 	 * VK OAuth webview
+	 * @param {String} type - one of "add", "update" and "new"
 	 * @return {Promise}
 	 */
-	function initAuthWebview() { // new, add, update (uid)
+	function initAuthWebview(type) { // new, add, update (uid)
 		return new Promise(function (resolve, reject) {
 			var oauthRedirectURI = "https://oauth.vk.com/blank.html";
 			var webview = document.createElement("webview");
@@ -21,8 +22,16 @@ var Auth = (function () {
 			webview.style.width = window.innerWidth + "px";
 			webview.style.height = window.innerHeight - 5 + "px";
 
-			var isFirstLoad = true;
-			webview.setAttribute("src", oauthRedirectURI);
+			function loadOAuth() {
+				webview.setAttribute("src", "https://oauth.vk.com/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=" + oauthRedirectURI + "&display=page&response_type=token");
+			}
+
+			var isFirstLoad = (type !== "new");
+			if (type === "new") {
+				loadOAuth();
+			} else {
+				webview.setAttribute("src", oauthRedirectURI);
+			}
 
 			webview.addEventListener("loadcommit", function (evt) {
 				if (!evt.isTopLevel || evt.url.indexOf(oauthRedirectURI) !== 0) {
@@ -32,12 +41,9 @@ var Auth = (function () {
 				if (isFirstLoad) {
 					// @see http://stackoverflow.com/questions/27259427/when-is-the-best-time-to-call-webview-cleardata/27259660
 					webview.clearData({since: 0}, {cookies: true});
-
-					setTimeout(function () {
-						webview.setAttribute("src", "https://oauth.vk.com/authorize?client_id=" + App.VK_ID + "&scope=" + App.VK_APP_SCOPE.join(",") + "&redirect_uri=" + oauthRedirectURI + "&display=page&response_type=token");
-					}, 100);
-
 					isFirstLoad = false;
+
+					setTimeout(loadOAuth, 100);
 					return;
 				}
 
@@ -102,7 +108,7 @@ var Auth = (function () {
 		 * Request token for the first user in app
 		 */
 		requestFirstToken: function Auth_requestFirstToken() {
-			initAuthWebview().then(function (res) {
+			initAuthWebview("new").then(function (res) {
 				statSend("App-Actions", "First account added");
 
 				chrome.runtime.sendMessage({
@@ -118,7 +124,7 @@ var Auth = (function () {
 		 * @return {Promise}
 		 */
 		addNewAccount: function Auth_addNewAccount() {
-			return initAuthWebview().then(function (res) {
+			return initAuthWebview("add").then(function (res) {
 				chrome.runtime.sendMessage({
 					action: "addAnotherAccount",
 					token: res.token,
@@ -132,7 +138,7 @@ var Auth = (function () {
 		 * @return {Promise}
 		 */
 		updateExistingToken: function Auth_updateExistingToken(updateTokenForUserId) {
-			return initAuthWebview().then(function (res) {
+			return initAuthWebview("update").then(function (res) {
 				chrome.runtime.sendMessage({
 					action: "updateExistingToken",
 					token: res.token,

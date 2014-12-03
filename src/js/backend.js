@@ -106,29 +106,40 @@ window.onerror = function(msg, url, line) {
 	});
 
 	chrome.alarms.onAlarm.addListener(function (alarmInfo) {
-		if (alarmInfo.name === "dayuse") {
-			CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
-			CPA.sendEvent("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
+		switch (alarmInfo.name) {
+			case "dayuse":
+				CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
+				CPA.sendEvent("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
 
-			var appInstallTime = StorageManager.get("app_install_time");
-			if (appInstallTime) {
-				var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
-				CPA.sendEvent("Lifecycle", "Dayuse", "App life time", totalDaysLive);
-			}
+				var appInstallTime = StorageManager.get("app_install_time");
+				if (appInstallTime) {
+					var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
+					CPA.sendEvent("Lifecycle", "Dayuse", "App life time", totalDaysLive);
+				}
 
-			var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
-			for (var url in requestsLog) {
-				CPA.sendEvent("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
-			}
+				var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
+				for (var url in requestsLog) {
+					CPA.sendEvent("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
+				}
 
-			StorageManager.remove("requests");
-		} else if (alarmInfo.name === "actualizeChats") {
-			DatabaseManager.actualizeChatDates();
-		} else if (alarmInfo.name === "actualizeContacts") {
-			DatabaseManager.actualizeContacts().catch(function (errMsg) {
-				LogManager.error(errMsg);
-				CPA.sendEvent("Custom-Errors", "Database error", errMsg);
-			});
+				StorageManager.remove("requests");
+				break;
+
+			case "actualizeChats":
+				DatabaseManager.actualizeChatDates();
+				break;
+
+			case "actualizeContacts":
+				DatabaseManager.actualizeContacts().catch(function (errMsg) {
+					LogManager.error(errMsg);
+					CPA.sendEvent("Custom-Errors", "Database error", errMsg);
+				});
+
+				break;
+
+			case "sleeping-awake":
+				// do nothing. this alarm is just for waking up an app
+				break;
 		}
 	});
 
@@ -173,6 +184,9 @@ window.onerror = function(msg, url, line) {
 			records[installDateKey] = records[installDateKey] || Date.now();
 			chrome.storage.local.set(records);
 		});
+
+		// create sleeping awake alarm
+		chrome.alarms.create("sleeping-awake", {periodInMinutes: 1});
 	});
 
 	// listen to messages from Listen! app

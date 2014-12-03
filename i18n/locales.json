@@ -303,6 +303,22 @@
 		}
 	},
 	{
+		"key": "launcherNotificationTitle",
+		"messages": {
+			"en": "Looking for VK Offline launcher?",
+			"ru": "Как запустить VK Offline?",
+			"uk": "Як запустити VK Offline?"
+		}
+	},
+	{
+		"key": "launcherNotificationMessage",
+		"messages": {
+			"en": "Google \"VK Offline launcher\" extension in Chrome Web Store!",
+			"ru": "Ищите расширение \"Запуск VKontake Offline\" в Chrome Web Store!",
+			"uk": "Шукайте додаток \"Запуск VKontake Offline\" в Chrome Web Store!"
+		}
+	},
+	{
 		"key": "likeIconTitle",
 		"messages": {
 			"en": "Spread the word about %appname% app. Like and repost a piece of information about the app so your friends can see it",

@@ -137,6 +137,22 @@ window.onerror = function(msg, url, line) {
 
 				break;
 
+			case "propose-launcher":
+				// promote VK Offline launcher
+				chrome.notifications && chrome.notifications.create(Math.random() + "", {
+					type: "image",
+					imageUrl: chrome.runtime.getURL("pic/launcher.png"),
+					title: chrome.i18n.getMessage("launcherNotificationTitle"),
+					message: chrome.i18n.getMessage("launcherNotificationMessage"),
+					iconUrl: chrome.runtime.getURL("pic/icon48.png"),
+					isClickable: false
+				}, function (id) {
+					SoundManager.play("message");
+					CPA.sendEvent("Lifecycle", "Actions", "Install.NotifyLauncherPromote.Show");
+				});
+
+				break;
+
 			case "sleeping-awake":
 				// do nothing. this alarm is just for waking up an app
 				break;
@@ -154,6 +170,10 @@ window.onerror = function(msg, url, line) {
 				CPA.sendEvent("Lifecycle", "Dayuse", "Install", 1);
 
 				MigrationManager.start(currentVersion);
+
+				// propose to install VK Offline launcher after 2 minutes on inactivity after install
+				// inactivity means not opening app window
+				chrome.alarms.create("propose-launcher", {delayInMinutes: 2});
 				break;
 
 			case "update":
@@ -166,13 +186,13 @@ window.onerror = function(msg, url, line) {
 		}
 
 		chrome.alarms.get("dayuse", function (alarmInfo) {
-            if (!alarmInfo) {
-                chrome.alarms.create("dayuse", {
-                    delayInMinutes: 24 * 60,
-                    periodInMinutes: 24 * 60
-                });
-            }
-        });
+			if (!alarmInfo) {
+				chrome.alarms.create("dayuse", {
+					delayInMinutes: 24 * 60,
+					periodInMinutes: 24 * 60
+				});
+			}
+		});
 
 		var uninstallUrl = App.GOODBYE_PAGE_URL + "?ver=" + currentVersion;
 		if (typeof chrome.runtime.setUninstallURL === "function") {
@@ -224,6 +244,8 @@ window.onerror = function(msg, url, line) {
 				currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
 			};
 		});
+
+		chrome.alarms.clear("propose-launcher", _.noop);
 	}
 
 	// app lifecycle

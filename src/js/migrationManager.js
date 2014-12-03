@@ -15,7 +15,7 @@ var MigrationManager = (function () {
 					StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
 				}
 
-				if (currentVersion === "5.2") {
+				if (currentVersion === "5.2" && appVersionsHistory.length > 1) {
 					// promote VK Offline launcher
 					chrome.notifications && chrome.notifications.create(Math.random() + "", {
 						type: "image",

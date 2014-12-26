@@ -538,7 +538,7 @@ window.onerror = function(msg, url, line) {
 			_longPollInit: function(currentUserId) {
 				var domain = this._longPollData[currentUserId].server.replace("vkontakte.ru", "vk.com");
 
-				this._longPollXhrIds[currentUserId] = ReqManager.forceUrlGet("http://" + domain, {
+				this._longPollXhrIds[currentUserId] = ReqManager.forceUrlGet("https://" + domain, {
 					"act" : "a_check",
 					"key" : this._longPollData[currentUserId].key,
 					"ts" : this._longPollData[currentUserId].ts,

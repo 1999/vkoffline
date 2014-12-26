@@ -252,6 +252,10 @@ var ReqManager = (function () {
 				params = {};
 			}
 
+			if (method.indexOf("getLongPollServer") !== -1) {
+				params.use_ssl = 1;
+			}
+
 			if (params.access_token === undefined) {
 				params.access_token = AccountsManager.current.token;
 			} else if (params.access_token === null) {

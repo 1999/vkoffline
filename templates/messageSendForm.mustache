@@ -13,7 +13,6 @@
 
 	<section class="manage text">
 		<textarea autofocus required>{{savedMessageText}}</textarea>
-		<input x-webkit-speech/>
 	</section>
 
 	<section class="manage attachments hidden">
@@ -38,6 +37,7 @@
 
 	<section class="captcha"></section>
 	<button class="send">{{sendBtnText}}</button>
+	<button class="speech-start">{{startRecording}}</button>
 
 	{{^isChat}}
 		<button class="close" type="button">{{closeBtnText}}</button>

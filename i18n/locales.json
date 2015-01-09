@@ -894,6 +894,22 @@
 		}
 	},
 	{
+		"key": "speechProcessing",
+		"messages": {
+			"en": "Continue speaking",
+			"ru": "Продолжайте говорить",
+			"uk": "Продовжуйте говорити"
+		}
+	},
+	{
+		"key": "speechStart",
+		"messages": {
+			"en": "Speech to text",
+			"ru": "Голосовой ввод",
+			"uk": "Голосове введення"
+		}
+	},
+	{
 		"key": "switchToAnotherAccount",
 		"messages": {
 			"en": "switch to this account",

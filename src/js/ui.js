@@ -3037,10 +3037,11 @@ var AppUI = {
 			waitForImplementationText: chrome.i18n.getMessage("tourStep4Description").split("|")[1] + " " + chrome.i18n.getMessage("tourStep4SmallDescription"),
 			sendBtnText: Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle")),
 			isChat: isChat,
-			closeBtnText: Utils.string.ucfirst(chrome.i18n.getMessage("close"))
+			closeBtnText: Utils.string.ucfirst(chrome.i18n.getMessage("close")),
+			startRecording: chrome.i18n.getMessage("speechStart")
 		};
 
-		["text", "attachments", "video", "audio"].forEach(function (msgType) {
+		["text", "attachments"/*, "audio", "video"*/].forEach(function (msgType) {
 			var i18nTerm = "messageType" + Utils.string.ucfirst(msgType);
 
 			tplData.types.push({
@@ -3353,25 +3354,6 @@ var AppUI = {
 			form.data("timeoutId", timeoutId);
 		});
 
-		$(form, "input[x-webkit-speech]").bind("focus", function () {
-			$(form, "textarea").focus();
-		}).bind("webkitspeechchange", function () {
-			var replyAreaTextarea = $(form, "textarea");
-			var spokenWords = this.val();
-			var existingWords = replyAreaTextarea.val();
-			var newWords = existingWords.substr(0, replyAreaTextarea.selectionStart) + spokenWords + " " + existingWords.substr(replyAreaTextarea.selectionEnd);
-
-			replyAreaTextarea.val(newWords);
-			this.val("");
-
-			chrome.runtime.sendMessage({"action" : "speechChange"});
-
-			// dispatch fake keyup event
-			var evt = document.createEvent("KeyboardEvent");
-			evt.initKeyboardEvent("keypress", true, true, null, false, false, false, false, 9, 0);
-			replyAreaTextarea.dispatchEvent(evt);
-		});
-
 		$(form, "input[type='file']").bind("change", function onChangeHandler(e) {
 			var appendSections = onFilesAdded(e.target.files);
 			var attachmentsManageSection = this.closestParent("section.manage");
@@ -3382,6 +3364,39 @@ var AppUI = {
 			// добавляем новый input[type="file"]
 			var newAttachFileInput = $("<input type='file' multiple>").bind("change", onChangeHandler);
 			attachmentsManageSection.append(newAttachFileInput);
+		});
+
+		// обработка голосового ввода
+		$(form, ".speech-start").bind("click", function () {
+			var startSpeech = this.attr("disabled", "disabled").html(chrome.i18n.getMessage("speechProcessing"));
+			var replyAreaTextarea = $(form, "textarea");
+			var SPOKEN_WORDS_SEPERATOR = ". ";
+
+			var recognition = new webkitSpeechRecognition;
+			recognition.lang = "ru-RU"; // chrome.i18n.getMessage('@@ui_locale')
+
+			recognition.onresult = function (evt) {
+				var spokenWords = [].map.call(evt.results, function (resultChunk) {
+					return resultChunk[0].transcript.trim();
+				}).join(SPOKEN_WORDS_SEPERATOR) + SPOKEN_WORDS_SEPERATOR;
+
+				var existingWords = replyAreaTextarea.val();
+				var newWords = existingWords.substr(0, replyAreaTextarea.selectionStart) + spokenWords + " " + existingWords.substr(replyAreaTextarea.selectionEnd);
+				replyAreaTextarea.val(newWords);
+
+				chrome.runtime.sendMessage({"action" : "speechChange"});
+
+				var evt = document.createEvent("KeyboardEvent");
+				evt.initKeyboardEvent("keypress", true, true, null, false, false, false, false, 9, 0);
+				replyAreaTextarea.dispatchEvent(evt);
+			};
+
+			// recognition.onerror = console.log.bind(console);
+			recognition.onend = function () {
+				startSpeech.removeAttr("disabled").html(chrome.i18n.getMessage("speechStart"));
+			};
+
+			recognition.start();
 		});
 
 		// click на кнопку генерируется перед общим submit у формы

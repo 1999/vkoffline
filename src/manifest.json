@@ -39,6 +39,7 @@
 	"minimum_chrome_version" : "35",
 	"permissions" : [
 		"alarms",
+		"audioCapture",
 		"unlimitedStorage",
 		"storage",
 		"notifications",

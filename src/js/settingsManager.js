@@ -55,6 +55,12 @@ var SettingsManager = (function () {
 			defaultValue: 0,
 			allowedValues: [0, 1],
 			valueType: "integer"
+		},
+		{
+			key: "SpeechRecognitionLanguage", // язык голосового ввода
+			defaultValue: "ru-RU",
+			allowedValues: ["ru-RU", "en-US"],
+			valueType: "string"
 		}
 	];
 

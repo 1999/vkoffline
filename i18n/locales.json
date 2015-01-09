@@ -869,6 +869,14 @@
 		}
 	},
 	{
+		"key": "settingsSpeechRecognitionLanguage",
+		"messages": {
+			"en": "Speech recognition language",
+			"ru": "Язык голосового ввода",
+			"uk": "Мова голосового введення"
+		}
+	},
+	{
 		"key": "showMoreInfoAboutContactOrMessage",
 		"messages": {
 			"en": "open",

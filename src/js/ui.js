@@ -1315,6 +1315,17 @@ var AppUI = {
 				]
 			});
 
+			// speech recognition language
+			optionsData.keysets.push({
+				header: chrome.i18n.getMessage("settingsSpeechRecognitionLanguage"),
+				name: "SpeechRecognitionLanguage",
+				radio: true,
+				items: [
+					{value: "ru-RU", active: (Settings.SpeechRecognitionLanguage === "ru-RU"), title: "Русский"},
+					{value: "en-US", active: (Settings.SpeechRecognitionLanguage === "en-US"), title: "English"}
+				]
+			});
+
 			// debug level
 			optionsData.keysets.push({
 				header: chrome.i18n.getMessage("settingsDebug"),
@@ -3373,7 +3384,7 @@ var AppUI = {
 			var SPOKEN_WORDS_SEPERATOR = ". ";
 
 			var recognition = new webkitSpeechRecognition;
-			recognition.lang = "ru-RU"; // chrome.i18n.getMessage('@@ui_locale')
+			recognition.lang = Settings.SpeechRecognitionLanguage;
 
 			recognition.onresult = function (evt) {
 				var spokenWords = [].map.call(evt.results, function (resultChunk) {

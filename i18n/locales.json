@@ -216,7 +216,7 @@
 		"key": "fileUploadFailed",
 		"messages": {
 			"en": "We couldn't host %filename% on VK server. Try to upload this file to another file hosting (dropbox.com, box.net, ...) and insert the link to it in your message.",
-			"ru": "Не удалось разместить файл %filename% на сервере ВКонтакте. Попробуйте загрузить этот файл на другой файл-хостинг (narod.yandex.ru, ifolder.ru, ...) и вставьте ссылку в отправляемое сообщение.",
+			"ru": "Не удалось разместить файл %filename% на сервере ВКонтакте. Попробуйте загрузить этот файл на другой файл-хостинг (disk.yandex.ru, ifolder.ru, ...) и вставьте ссылку в отправляемое сообщение.",
 			"uk": "Не вдалося розмістити файл %filename% на сервері ВКонтакті. Спробуйте завантажити цей файл на інший файл-хостинг (upload.com.ua, fileshare.in.ua, ...) та вставте ссилку у відправляюче повідомлення."
 		}
 	},

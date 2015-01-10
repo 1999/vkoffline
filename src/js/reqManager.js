@@ -151,6 +151,8 @@ var ReqManager = (function () {
 		}
 
 		if (res.error !== undefined) {
+			var shouldSendStat = true;
+
 			// вычленяем данные запроса
 			res.error.request_params.forEach(function(paramData) {
 				if (paramData.key === "access_token" || paramData.key === "oauth") {
@@ -164,12 +166,6 @@ var ReqManager = (function () {
 				errDataParams[paramData.key] = paramData.value;
 			});
 
-			// уведомляем в GA
-			CPA.sendEvent("Custom-Errors", "Request error", {
-				"method" : errMethod,
-				"code" : res.error.error_code
-			});
-
 			// @see http://vk.com/dev/errors
 			switch (res.error.error_code) {
 				// case 6:
@@ -177,6 +173,7 @@ var ReqManager = (function () {
 
 				case 5 :
 					LogManager.error("Access denied for request with params: " + JSON.stringify(errDataParams));
+					shouldSendStat = false;
 
 					isTokenExpired = true;
 					notifyTokenStatus();
@@ -185,6 +182,8 @@ var ReqManager = (function () {
 						callbacksOnFail[xhrId](this.ACCESS_DENIED);
 					}
 
+					// notify user about expired token
+					notifySelf({action: "tokenExpiredRequest"});
 					break;
 
 				case 14 :
@@ -216,6 +215,14 @@ var ReqManager = (function () {
 					}
 
 					break;
+			}
+
+			if (shouldSendStat) {
+				// уведомляем в GA
+				CPA.sendEvent("Custom-Errors", "Request error", {
+					"method" : errMethod,
+					"code" : res.error.error_code
+				});
 			}
 		} else {
 			isTokenExpired = false;

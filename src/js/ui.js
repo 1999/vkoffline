@@ -2239,6 +2239,10 @@ var AppUI = {
 
 			$("button.access").bind("click", authFn);
 			$("p.description a").bind("click", authFn);
+
+			if (Account.tokenExpired) {
+				Auth.requestFirstToken();
+			}
 		},
 
 		syncing: function() {
@@ -2421,6 +2425,10 @@ var AppUI = {
 				});
 
 				chrome.runtime.sendMessage({"action" : "userUIDrawn"});
+
+				if (Account.tokenExpired) {
+					Auth.updateExistingToken(Account.currentUserId);
+				}
 			});
 		}
 	},

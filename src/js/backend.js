@@ -95,13 +95,30 @@ window.onerror = function(msg, url, line) {
 	}
 
 	// notification click handlers
+	// FIXME refactor
 	var notificationHandlers = {};
 	chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
-		if (!notificationHandlers[notificationId])
+		var notificationCallback = notificationHandlers[notificationId];
+
+		if (notificationId === "tokenExpiredRequest") {
+			notificationCallback = function () {
+				CPA.sendEvent("App-Data", "tokenExpired notification click");
+
+				// close all app windows
+				var appWindows = chrome.app.window.getAll();
+				appWindows.forEach(function (win) {
+					win.close();
+				});
+
+				openAppWindow(null, true);
+			};
+		}
+
+		if (!notificationCallback)
 			return;
 
 		chrome.notifications.clear(notificationId, _.noop);
-		notificationHandlers[notificationId]();
+		notificationCallback();
 
 		delete notificationHandlers[notificationId];
 	});
@@ -228,7 +245,7 @@ window.onerror = function(msg, url, line) {
 		}
 	});
 
-	function openAppWindow(navigateState) {
+	function openAppWindow(evt, tokenExpired) {
 		chrome.app.window.create("main.html", {
 			id: uuid(),
 			innerBounds: {
@@ -242,7 +259,8 @@ window.onerror = function(msg, url, line) {
 			// pass current user data
 			win.contentWindow.Account = {
 				currentUserId: AccountsManager.currentUserId,
-				currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+				currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null,
+				tokenExpired: tokenExpired
 			};
 		});
 
@@ -1182,6 +1200,33 @@ window.onerror = function(msg, url, line) {
 					chrome.runtime.sendMessage({
 						action: "settingsChanged",
 						settings: getFlatSettings()
+					});
+
+					break;
+
+				case "tokenExpiredRequest":
+					var tokenExpiredAlarmName = "tokenExpiredNotifyThrottle";
+					chrome.alarms.get(tokenExpiredAlarmName, function (alarmInfo) {
+						// if alarm is set user has already seen notification about expired token
+						if (alarmInfo) {
+							return;
+						}
+
+						// create alarm to prevent notifying user too often
+						chrome.alarms.create(tokenExpiredAlarmName, {
+							delayInMinutes: 60 * 24
+						});
+
+						// show notification
+						showChromeNotification({
+							id: "tokenExpiredRequest",
+							title: chrome.i18n.getMessage("tokenExpiredNotificationTitle"),
+							message: chrome.i18n.getMessage("tokenExpiredNotificationMessage"),
+							icon: chrome.runtime.getURL("pic/icon48.png"),
+							sound: "error"
+						});
+
+						CPA.sendEvent("App-Data", "tokenExpired notification seen");
 					});
 
 					break;

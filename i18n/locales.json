@@ -1046,6 +1046,22 @@
 		}
 	},
 	{
+		"key": "tokenExpiredNotificationMessage",
+		"messages": {
+			"en": "Press to update token now",
+			"ru": "Нажмите, чтобы обновить доступ к вашим данным ВКонтакте",
+			"uk": "Натисніть, щоб відновити доступ до ваших даних ВКонтакте"
+		}
+	},
+	{
+		"key": "tokenExpiredNotificationTitle",
+		"messages": {
+			"en": "VK token expired",
+			"ru": "Ключ доступа устарел",
+			"uk": "Ключ доступу застарів"
+		}
+	},
+	{
 		"key": "tourAgainButtonTitle",
 		"messages": {
 			"en": "Watch tour slides again",

@@ -28,55 +28,13 @@ var App = {
 	GOOGLE_ANALYTICS_CPA_ID: "vkoffline_chrome_app",
 	GOOGLE_ANALYTICS_CPA_COUNTER: "UA-20919085-11",
 
-	get NAME() {
-		var name;
+	NAME: chrome.runtime.getManifest().name,
+	ID: chrome.runtime.id,
+	VERSION: chrome.runtime.getManifest().version,
 
-		try {
-			name = chrome.runtime.getManifest().name;
-		} catch (e) {
-			name = chrome.i18n.getMessage("appName");
-		}
-
-		delete this.NAME;
-		return this.NAME = name;
-	},
-
-	get ID() {
-		var id;
-
-		try {
-			id = chrome.runtime.id;
-		} catch (e) {
-			id = chrome.i18n.getMessage("@@extension_id");
-		}
-
-		delete this.ID;
-		return this.ID = id;
-	},
-
-	get VERSION() {
-		var version;
-
-		try {
-			version = chrome.runtime.getManifest().version;
-		} catch (e) {
-			version = chrome.app.getDetails().version;
-		}
-
-		delete this.VERSION;
-		return this.VERSION = version;
-	},
-
-	get DEBUG() {
-		return (this.CHROME_WEBSTORE_ID !== this.ID);
-	},
-
-	// [ID группы, ignorePostsBeforeId]
-	get VK_ADV_GROUP() {
-		return this.DEBUG ? [38283081, 27] : [29809053, 575];
-	},
-
+	VK_ADV_GROUP: [29809053, 575], // [ID группы, ignorePostsBeforeId]
 	VK_ID: 2438161, /* ID приложения ВКонтакте */
 	VK_APP_SCOPE: ['friends', 'messages', 'offline', 'photos', 'audio', 'video', 'docs', 'wall', 'groups'], // OAuth-scope для приложения ВКонтакте
+
 	FRIENDS_UPDATE_TIMEOUT: 86400 // промежуток между обновлениями списка друзей в секундах
 };

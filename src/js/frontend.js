@@ -217,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			case "newWallPosts" :
 				var newsIcon = $("aside > span.news");
-				AppUI.updateNewsIcon(newsIcon);
+				AppUI.updateNewsIcon(newsIcon, request.newPostsNum);
 
 				break;
 

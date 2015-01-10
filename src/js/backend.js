@@ -143,6 +143,35 @@ window.onerror = function(msg, url, line) {
 				StorageManager.remove("requests");
 				break;
 
+			case "fetchnews":
+				ReqManager.apiMethod("wall.get", {
+					access_token: null, // объявления получать обязательно, поэтому ходим без токенов
+					owner_id: (0 - App.VK_ADV_GROUP[0]),
+					count: 5,
+					filter: "owner"
+				}, function (data) {
+					var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+					var postsToStore = [];
+
+					data.response.slice(1).forEach(function (post) {
+						if (seenPosts.indexOf(post.id) !== -1 || App.VK_ADV_GROUP[1] >= post.id)
+							return;
+
+						postsToStore.push(post);
+					});
+
+					if (postsToStore.length) {
+						StorageManager.set("vkgroupwall_stored_posts", postsToStore);
+
+						chrome.runtime.sendMessage({
+							action: "newWallPosts",
+							newPostsNum: postsToStore.length
+						});
+					}
+				}, _.noop);
+
+				break;
+
 			case "actualizeChats":
 				DatabaseManager.actualizeChatDates();
 				break;
@@ -208,6 +237,15 @@ window.onerror = function(msg, url, line) {
 				chrome.alarms.create("dayuse", {
 					delayInMinutes: 24 * 60,
 					periodInMinutes: 24 * 60
+				});
+			}
+		});
+
+		chrome.alarms.get("fetchnews", function (alarmInfo) {
+			if (!alarmInfo) {
+				chrome.alarms.create("fetchnews", {
+					periodInMinutes: 24 * 60,
+					delayInMinutes: 1
 				});
 			}
 		});
@@ -1630,53 +1668,6 @@ window.onerror = function(msg, url, line) {
 
 					sendLikeRequest();
 					sendJoinGroupRequest();
-					break;
-
-				case "userUIDrawn" :
-					var milliSecondsTimeout = 86400*1000, // one request per day
-						groupWallSyncTime = parseInt(StorageManager.get("vkgroupwall_sync_time"), 10) || 0,
-						nextRequestTimeout, syncWallFn;
-
-					// проверяем, чтобы не было слишком частых запросов
-					nextRequestTimeout = Math.max((milliSecondsTimeout - Math.abs(Date.now() - groupWallSyncTime)), 0);
-
-					window.setTimeout(function () {
-						ReqManager.apiMethod("wall.get", {
-							access_token: null, // объявления получать обязательно, поэтому ходим без токенов
-							owner_id: (0 - App.VK_ADV_GROUP[0]),
-							count: 5,
-							filter: "owner" // перестраховка
-						}, function (data) {
-							var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true}),
-								postsToStore = [];
-
-							data.response.slice(1).forEach(function (post) {
-								if (seenPosts.indexOf(post.id) !== -1 || App.VK_ADV_GROUP[1] >= post.id)
-									return;
-
-								postsToStore.push(post);
-							});
-
-							if (postsToStore.length) {
-								StorageManager.set("vkgroupwall_stored_posts", postsToStore);
-								chrome.runtime.sendMessage({"action" : "newWallPosts"});
-							}
-
-							// обновляем счетчик следующего запроса к стенке
-							StorageManager.set("vkgroupwall_sync_time", Date.now());
-							window.setTimeout(syncWallFn, milliSecondsTimeout);
-						}, function(errCode, errData) {
-							switch (errCode) {
-								case ReqManager.NO_INTERNET :
-								case ReqManager.NOT_JSON :
-								case ReqManager.TIMEOUT :
-								case ReqManager.RESPONSE_ERROR :
-									window.setTimeout(syncWallFn, 5*60*1000);
-									break;
-							}
-						});
-					}, nextRequestTimeout);
-
 					break;
 
 				case "getDocById" :

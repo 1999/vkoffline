@@ -1436,199 +1436,202 @@ var AppUI = {
 			var newsIcon = $("aside > span.news").removeData().removeAttr("title").addClass("is-empty").empty();
 			var tipsyLayer = $("div.tipsy");
 
-			var storedPostsArray = StorageManager.get("vkgroupwall_stored_posts", {constructor: Array, strict: true, create: true});
-			var seenPostsArray = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+			// FIXME
+			StorageManager.load().then(function () {
+				var storedPostsArray = StorageManager.get("vkgroupwall_stored_posts", {constructor: Array, strict: true, create: true});
+				var seenPostsArray = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
 
-			// избавляемся от артефактов tipsy
-			if (tipsyLayer)
-				tipsyLayer.remove();
+				// избавляемся от артефактов tipsy
+				if (tipsyLayer)
+					tipsyLayer.remove();
 
-			if (!storedPostsArray.length) {
-				StorageManager.remove("vkgroupwall_stored_posts");
-				$("#header > section.acc-container").click();
+				if (!storedPostsArray.length) {
+					StorageManager.remove("vkgroupwall_stored_posts");
+					$("#header > section.acc-container").click();
 
-				return;
-			}
+					return;
+				}
 
-			// отрисовка новостей
-			var newsData = [];
-			var monthesi18nTerm = chrome.i18n.getMessage('monthesCut').split('|');
+				// отрисовка новостей
+				var newsData = [];
+				var monthesi18nTerm = chrome.i18n.getMessage('monthesCut').split('|');
 
-			storedPostsArray.forEach(function (postData) {
-				var postDate = new Date(postData.date * 1000);
+				storedPostsArray.forEach(function (postData) {
+					var postDate = new Date(postData.date * 1000);
 
-				var tplItem = {
-					date: postDate.getDate() + " " + monthesi18nTerm[postDate.getMonth()] + " " + postDate.getFullYear(),
-					id: postData.id,
-					text: postData.text,
-					attachments: []
-				};
+					var tplItem = {
+						date: postDate.getDate() + " " + monthesi18nTerm[postDate.getMonth()] + " " + postDate.getFullYear(),
+						id: postData.id,
+						text: postData.text,
+						attachments: []
+					};
 
-				(postData.attachments || []).forEach(function (attachmentData) {
-					var data = attachmentData[attachmentData.type];
-					var id;
+					(postData.attachments || []).forEach(function (attachmentData) {
+						var data = attachmentData[attachmentData.type];
+						var id;
 
-					switch (attachmentData.type) {
-						case "photo" : // фотография из альбома
-						case "posted_photo" : // фотография, загруженная напрямую с компьютера пользователя
-							var imgAspect = data.width / data.height;
-							var imgWidth = Math.min(data.width, oneSection.offsetWidth);
-							var imgHeight = Math.round(imgWidth / imgAspect);
+						switch (attachmentData.type) {
+							case "photo" : // фотография из альбома
+							case "posted_photo" : // фотография, загруженная напрямую с компьютера пользователя
+								var imgAspect = data.width / data.height;
+								var imgWidth = Math.min(data.width, oneSection.offsetWidth);
+								var imgHeight = Math.round(imgWidth / imgAspect);
 
-							tplItem.attachments.push({
-								photo: true,
-								width: imgWidth,
-								height: imgHeight,
-								src: Utils.misc.searchBiggestImage(data)
-							});
-
-							break;
-
-						case "video" : // видеозапись
-							id = "vid_" + data.owner_id + data.vid;
-
-							tplItem.attachments.push({
-								video: true,
-								id: id
-							});
-
-							chrome.runtime.sendMessage({
-								action: "getVideoById",
-								ownerId: data.owner_id,
-								id: data.vid
-							}, function (videoInfo) {
-								if (!videoInfo)
-									return;
-
-								var attachmentArea = $("#" + id).removeClass("hidden");
-								var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
-
-								$(attachmentArea, "webview").attr("src", videoInfo.player);
-								$(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
-							});
-
-							break;
-
-						case "audio": // аудиозапись
-							id = "aud_" + data.owner_id + data.aid;
-
-							tplItem.attachments.push({
-								audio: true,
-								id: id
-							});
-
-							chrome.runtime.sendMessage({
-								action: "getAudioById",
-								ownerId: data.owner_id,
-								id: data.aid
-							}, function (audioInfo) {
-								if (!audioInfo)
-									return;
-
-								var attachmentArea = self._drawAudioSection(id, audioInfo);
-								$(attachmentArea, "audio").bind("playing", function () {
-									chrome.runtime.sendMessage({
-										action: "newsAudioPlaying",
-										id: postData.id,
-										owner_id: data.owner_id,
-										aid: data.aid
-									});
+								tplItem.attachments.push({
+									photo: true,
+									width: imgWidth,
+									height: imgHeight,
+									src: Utils.misc.searchBiggestImage(data)
 								});
-							});
 
-							break;
+								break;
 
-						case "link": // ссылка на web-страницу
-							tplItem.attachments.push({
-								link: true,
-								url: data.url,
-								title: data.title,
-								description: Utils.string.replaceLinks(data.description)
-							});
+							case "video" : // видеозапись
+								id = "vid_" + data.owner_id + data.vid;
 
-							break;
+								tplItem.attachments.push({
+									video: true,
+									id: id
+								});
 
-						case "doc" : // документ
-							id = "doc_" + data.owner_id + data.did;
-
-							var tplData = {
-								doc: true,
-								id: id,
-								nolink: (data.url === undefined)
-							};
-
-							if (data.url) {
-								tplData.url = data.url;
-								tplData.fileName = (regex.test(data.title)) ? data.title : data.title + "." + data.ext;
-								tplData.title = data.title;
-								tplData.description = Utils.string.humanFileSize(data.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + data.ext.toUpperCase();
-							} else {
 								chrome.runtime.sendMessage({
-									action: "getDocById",
+									action: "getVideoById",
 									ownerId: data.owner_id,
-									id: data.did
-								}, function (fileInfo) {
-									if (!fileInfo)
+									id: data.vid
+								}, function (videoInfo) {
+									if (!videoInfo)
 										return;
 
-									var regex = new RegExp(fileInfo.ext + "$");
 									var attachmentArea = $("#" + id).removeClass("hidden");
-									var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
+									var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
 
-									$(attachmentArea, "a").attr({
-										href: fileInfo.url,
-										download: fileName
-									}).text(data.title);
-
-									var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-									$(attachmentArea, "span.description").text(descriptionText);
+									$(attachmentArea, "webview").attr("src", videoInfo.player);
+									$(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
 								});
-							}
 
-							tplItem.attachments.push(tplData);
-							break;
+								break;
 
-						default :
-							chrome.runtime.sendMessage({
-								action: "errorGot",
-								error: "Unsupported attachment type",
-								message: [attachmentData.type, postData.id]
-							});
-					}
-				});
+							case "audio": // аудиозапись
+								id = "aud_" + data.owner_id + data.aid;
 
-				newsData.push(tplItem);
+								tplItem.attachments.push({
+									audio: true,
+									id: id
+								});
 
-				seenPostsArray.push(postData.id);
-				chrome.runtime.sendMessage({"action" : "newsPostSeen", "id" : postData.id});
-			});
+								chrome.runtime.sendMessage({
+									action: "getAudioById",
+									ownerId: data.owner_id,
+									id: data.aid
+								}, function (audioInfo) {
+									if (!audioInfo)
+										return;
 
-			var newsHTML = Templates.render("news", {
-				news: newsData,
-				downloadPhotoText: chrome.i18n.getMessage("downloadPhoto")
-			});
+									var attachmentArea = self._drawAudioSection(id, audioInfo);
+									$(attachmentArea, "audio").bind("playing", function () {
+										chrome.runtime.sendMessage({
+											action: "newsAudioPlaying",
+											id: postData.id,
+											owner_id: data.owner_id,
+											aid: data.aid
+										});
+									});
+								});
 
-			oneSection.html(newsHTML);
+								break;
 
-			var link_ = $(oneSection, "a");
+							case "link": // ссылка на web-страницу
+								tplItem.attachments.push({
+									link: true,
+									url: data.url,
+									title: data.title,
+									description: Utils.string.replaceLinks(data.description)
+								});
 
-			if (link_) {
-				link_.bind("click", function () {
-					var id = this.closestParent("section[data-id]").data("id");
+								break;
 
-					chrome.runtime.sendMessage({
-						action: "newsLinkClicked",
-						id: id,
-						url: this.attr("href")
+							case "doc" : // документ
+								id = "doc_" + data.owner_id + data.did;
+
+								var tplData = {
+									doc: true,
+									id: id,
+									nolink: (data.url === undefined)
+								};
+
+								if (data.url) {
+									tplData.url = data.url;
+									tplData.fileName = (regex.test(data.title)) ? data.title : data.title + "." + data.ext;
+									tplData.title = data.title;
+									tplData.description = Utils.string.humanFileSize(data.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + data.ext.toUpperCase();
+								} else {
+									chrome.runtime.sendMessage({
+										action: "getDocById",
+										ownerId: data.owner_id,
+										id: data.did
+									}, function (fileInfo) {
+										if (!fileInfo)
+											return;
+
+										var regex = new RegExp(fileInfo.ext + "$");
+										var attachmentArea = $("#" + id).removeClass("hidden");
+										var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
+
+										$(attachmentArea, "a").attr({
+											href: fileInfo.url,
+											download: fileName
+										}).text(data.title);
+
+										var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
+										$(attachmentArea, "span.description").text(descriptionText);
+									});
+								}
+
+								tplItem.attachments.push(tplData);
+								break;
+
+							default :
+								chrome.runtime.sendMessage({
+									action: "errorGot",
+									error: "Unsupported attachment type",
+									message: [attachmentData.type, postData.id]
+								});
+						}
 					});
+
+					newsData.push(tplItem);
+
+					seenPostsArray.push(postData.id);
+					chrome.runtime.sendMessage({"action" : "newsPostSeen", "id" : postData.id});
 				});
-			}
 
-			// добавляем ID постов в список просмотренных
-			StorageManager.set("vkgroupwall_synced_posts", seenPostsArray);
+				var newsHTML = Templates.render("news", {
+					news: newsData,
+					downloadPhotoText: chrome.i18n.getMessage("downloadPhoto")
+				});
 
-			// очищаем сохраненные данные
-			StorageManager.remove("vkgroupwall_stored_posts");
+				oneSection.html(newsHTML);
+
+				var link_ = $(oneSection, "a");
+
+				if (link_) {
+					link_.bind("click", function () {
+						var id = this.closestParent("section[data-id]").data("id");
+
+						chrome.runtime.sendMessage({
+							action: "newsLinkClicked",
+							id: id,
+							url: this.attr("href")
+						});
+					});
+				}
+
+				// добавляем ID постов в список просмотренных
+				StorageManager.set("vkgroupwall_synced_posts", seenPostsArray);
+
+				// очищаем сохраненные данные
+				StorageManager.remove("vkgroupwall_stored_posts");
+			});
 		},
 
 		// чаты-диалоги
@@ -2181,8 +2184,10 @@ var AppUI = {
 		if (this._currentMainType === type && !force)
 			return;
 
-		this._currentMainType = type;
-		this._mainTypes[type].call(this);
+		StorageManager.load().then(function () {
+			this._currentMainType = type;
+			this._mainTypes[type].call(this);
+		}.bind(this));
 	},
 
 	_mainTypes: {
@@ -2386,7 +2391,8 @@ var AppUI = {
 
 				// сразу обновляем иконку оповещений
 				var newsIcon = $("span.news")
-				self.updateNewsIcon(newsIcon);
+				var storedPostsArray = StorageManager.get("vkgroupwall_stored_posts", {constructor: Array, strict: true, create: true});
+				self.updateNewsIcon(newsIcon, storedPostsArray.length);
 
 				newsIcon.bind("click", function() {
 					self.view("news", {
@@ -2424,8 +2430,6 @@ var AppUI = {
 					}
 				});
 
-				chrome.runtime.sendMessage({"action" : "userUIDrawn"});
-
 				if (Account.tokenExpired) {
 					Auth.updateExistingToken(Account.currentUserId);
 				}
@@ -2446,16 +2450,16 @@ var AppUI = {
 			: null;
 	},
 
-	updateNewsIcon: function (iconElem) {
+	updateNewsIcon: function (iconElem, newPostsNum) {
 		var i18nTitleTerms = chrome.i18n.getMessage("newsIconTitles").split("|");
-		var storedPostsArray = StorageManager.get("vkgroupwall_stored_posts", {constructor: Array, strict: true, create: true});
 
-		if (!storedPostsArray.length)
-			return StorageManager.remove("vkgroupwall_stored_posts");
+		if (!newPostsNum) {
+			return;
+		}
 
 		iconElem
-			.text(storedPostsArray.length)
-			.attr("title", storedPostsArray.length + " " + Utils.string.plural(storedPostsArray, i18nTitleTerms))
+			.text(newPostsNum)
+			.attr("title", newPostsNum + " " + Utils.string.plural(newPostsNum, i18nTitleTerms))
 			.removeClass("is-empty");
 	},
 

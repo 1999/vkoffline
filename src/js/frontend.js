@@ -264,6 +264,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
 			case "ui" : // user, guest, syncing, migrating, migrated
 				if (request.which !== undefined) {
+					if (request.which === "user") {
+						chrome.storage.local.set({
+							"dayuse.dau": true,
+							"weekuse.wau": true
+						});
+					}
+
 					Account.currentUserId = request.currentUserId;
 					Account.currentUserFio = request.currentUserFio;
 

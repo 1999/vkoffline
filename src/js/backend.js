@@ -141,6 +141,30 @@ window.onerror = function(msg, url, line) {
 				}
 
 				StorageManager.remove("requests");
+
+				chrome.storage.local.get("dayuse.dau", function (records) {
+					var isActiveUser = records["dayuse.dau"];
+					if (!isActiveUser) {
+						return;
+					}
+
+					CPA.sendEvent("Lifecycle", "DAU");
+					chrome.storage.local.remove("dayuse.dau", _.noop);
+				});
+
+				break;
+
+			case "weekuse":
+				chrome.storage.local.get("weekuse.wau", function (records) {
+					var isActiveUser = records["weekuse.wau"];
+					if (!isActiveUser) {
+						return;
+					}
+
+					CPA.sendEvent("Lifecycle", "WAU");
+					chrome.storage.local.remove("weekuse.wau", _.noop);
+				});
+
 				break;
 
 			case "fetchnews":
@@ -246,6 +270,15 @@ window.onerror = function(msg, url, line) {
 				chrome.alarms.create("fetchnews", {
 					periodInMinutes: 24 * 60,
 					delayInMinutes: 1
+				});
+			}
+		});
+
+		chrome.alarms.get("weekuse", function (alarmInfo) {
+			if (!alarmInfo) {
+				chrome.alarms.create("weekuse", {
+					delayInMinutes: 7 * 24 * 60,
+					periodInMinutes: 7 * 24 * 60
 				});
 			}
 		});
@@ -1296,6 +1329,12 @@ window.onerror = function(msg, url, line) {
 						case "user" :
 							CPA.sendAppView("Users");
 							CPA.sendEvent("UI-Draw", "Users", AccountsManager.currentUserId);
+
+							chrome.storage.local.set({
+								"dayuse.dau": true,
+								"weekuse.wau": true
+							});
+
 							break;
 
 						case "syncing" :

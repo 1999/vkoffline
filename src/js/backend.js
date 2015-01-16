@@ -1130,6 +1130,10 @@ window.onerror = function(msg, url, line) {
 				LogManager.error(errMsg);
 				CPA.sendEvent("Critical-Errors", "Database init user", errMsg);
 			});
+
+			// включаем статистику запросов ВК
+			// @see http://vk.com/dev/stats.trackVisitor
+			ReqManager.apiMethod("stats.trackVisitor", _.noop);
 		};
 
 		chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {

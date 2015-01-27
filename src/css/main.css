@@ -925,6 +925,7 @@ body:not(.grey) #content:after {
 	margin: 0 4px 4px 40px;
 	padding: 0 4px;
 	clear: right;
+	-webkit-user-select: text;
 }
 
 #content > section.chat-container > section.user-speech section.msg.new {
@@ -1196,6 +1197,7 @@ body.win #content > section.chat-container > section.user-speech section.msg sec
 	line-height: 32px;
 	margin-top: 12px;
 	word-wrap: break-word;
+	-webkit-user-select: text;
 }
 
 #content > section.thread-container > section.open section.data textarea.fake {

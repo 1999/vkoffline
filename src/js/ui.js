@@ -2290,6 +2290,10 @@ var AppUI = {
 			var tokenUpdatedForUser = (wallTokenUpdated[Account.currentUserId] === 1);
 			var appLikedByUser = (appLike.indexOf(Account.currentUserId) !== -1);
 
+			var appInstallTime = StorageManager.get("app_install_time") || Date.now();
+			var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
+			var isLoyalUser = (totalDaysLive >= 1);
+
 			var tplData = {
 				multipleAccountsMargin: 3,
 				accounts: [],
@@ -2298,7 +2302,7 @@ var AppUI = {
 				tokenExpired: false,
 				settingsTitle: chrome.i18n.getMessage("options"),
 				likeTitle: chrome.i18n.getMessage("likeIconTitle").replace("%appname%", App.NAME) + "!",
-				showLike: (tokenUpdatedForUser && appLikedByUser === false)
+				showLike: tokenUpdatedForUser && !appLikedByUser && isLoyalUser
 			};
 
 			chrome.runtime.sendMessage({action: "getAccountsList"}, function (accounts) {

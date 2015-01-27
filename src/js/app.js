@@ -32,7 +32,7 @@ var App = {
 	ID: chrome.runtime.id,
 	VERSION: chrome.runtime.getManifest().version,
 
-	VK_ADV_GROUP: [29809053, 636], // [ID группы, ignorePostsBeforeId]
+	VK_ADV_GROUP: [29809053, 672], // [ID группы, ignorePostsBeforeId]
 	VK_ID: 2438161, /* ID приложения ВКонтакте */
 	VK_APP_SCOPE: ['friends', 'messages', 'offline', 'photos', 'audio', 'video', 'docs', 'wall', 'groups'], // OAuth-scope для приложения ВКонтакте
 

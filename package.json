@@ -1,22 +1,24 @@
 {
   "name": "vkoffline",
-  "version": "1.0.0",
+  "chrome_app_name": "VK Offline",
+  "electron_app_name": "VK Backup",
+  "version": "5.6.0",
   "private": true,
   "main": "src_electron/core/index.js",
   "dependencies": {
     "electron-prebuilt": "1.3.5",
     "hogan.js": "2.0.x",
     "kinopromise": "0.3.2",
-    "lodash": "2.4.1",
-    "sklad": "git://github.com/1999/sklad.git#1.2.0"
+    "lodash": "4.15.0",
+    "sklad": "4.2.0"
   },
   "devDependencies": {
     "babel-core": "^6.14.0",
     "babel-loader": "^6.2.5",
+    "babel-plugin-transform-async-to-generator": "^6.8.0",
     "babel-plugin-transform-object-rest-spread": "^6.8.0",
     "eslint": "^3.4.0",
-    "grunt": "0.4.x",
-    "grunt-cli": "~0.1.13",
+    "json-loader": "^0.5.4",
     "pre-commit": "^1.1.3",
     "webpack": "^2.1.0-beta.22"
   },

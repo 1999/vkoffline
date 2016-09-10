@@ -57,7 +57,7 @@ var DatabaseManager = {
 		function getAllWebDatabaseData(table, uid) {
 			console.log("Collect data from %s_%s", table, uid);
 
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				webDatabaseLink.readTransaction(function (tx) {
 					tx.executeSql("SELECT rowid, * FROM " + table + "_" + uid + " ORDER BY rowid", [], function (tx, resultSet) {
 						var totalRecords = resultSet.rows.length;
@@ -422,7 +422,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function getChatsList(startFrom) {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("chats", {
 					index: "last_message",
 					offset: startFrom,
@@ -439,7 +439,7 @@ var DatabaseManager = {
 		}
 
 		function getTotalChats() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.count("chats", function (err, total) {
 					if (err) {
 						reject(err);
@@ -546,10 +546,10 @@ var DatabaseManager = {
 			});
 		}
 
-		vow.all({
-			chats: getChatsList(startFrom),
-			total: getTotalChats()
-		}).then(function (res) {
+		Promise.all([
+			getChatsList(startFrom),
+			getTotalChats()
+		]).then(([chats, total]) => {
 			var fillDataPromises = [];
 			var output = res.chats.map(function (record) {
 				var chatData = {
@@ -742,7 +742,7 @@ var DatabaseManager = {
 		function getContactById(id) {
 			id = Number(id);
 
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(id)
 				}, function (err, records) {
@@ -830,7 +830,7 @@ var DatabaseManager = {
 				}
 			});
 
-			vow.all(promises).then(function (res) {
+			KinoPromise.all(promises).then(function (res) {
 				var currentUserPhoto = res[userId] ? res[userId].photo : null;
 				output.forEach(function (message) {
 					if (!res[message.uid]) {
@@ -1393,7 +1393,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function countTagOccurrences(tag) {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "tag",
 					range: IDBKeyRange.only(tag)
@@ -1421,7 +1421,7 @@ var DatabaseManager = {
 				promises[record.key] = countTagOccurrences(record.key);
 			});
 
-			vow.all(promises).then(fnSuccess, function (err) {
+			KinoPromise.all(promises).then(fnSuccess, function (err) {
 				fnFail(err.name + ": " + err.message);
 			});
 		});
@@ -1472,7 +1472,7 @@ var DatabaseManager = {
 		var conn = this._conn[userId];
 
 		function countTagMessages() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "tag",
 					range: IDBKeyRange.only(tag)
@@ -1506,7 +1506,7 @@ var DatabaseManager = {
 		}
 
 		function getTagMessages() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "tag",
 					range: IDBKeyRange.only(tag),
@@ -1544,7 +1544,7 @@ var DatabaseManager = {
 			});
 		}
 
-		vow.all([
+		Promise.all([
 			getTagMessages(),
 			countTagMessages()
 		]).then(fnSuccess, function (err) {
@@ -1635,7 +1635,7 @@ var DatabaseManager = {
 		var range = IDBKeyRange.bound(q, to, false, true);
 
 		function countMessages() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.count("messages", {
 					index: "fulltext",
 					range: range
@@ -1650,7 +1650,7 @@ var DatabaseManager = {
 		}
 
 		function getMessages() {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("messages", {
 					index: "fulltext",
 					range: range,
@@ -1668,7 +1668,7 @@ var DatabaseManager = {
 		}
 
 		function getContactById(record) {
-			return new vow.Promise(function (resolve, reject) {
+			return new Promise(function (resolve, reject) {
 				conn.get("contacts", {
 					range: IDBKeyRange.only(record.uid)
 				}, function (err, records) {
@@ -1692,10 +1692,10 @@ var DatabaseManager = {
 			params.id -> WHERE dialogId = ?
 			params.tag -> WHERE tag &
 		 */
-		vow.all({
-			total: countMessages(),
-			messages: getMessages()
-		}).then(function (res) {
+		Promise.all([
+			countMessages(),
+			getMessages()
+		]).then(([total, messages]) => {
 			var total = res.total;
 			var promises = [];
 			var output = [];

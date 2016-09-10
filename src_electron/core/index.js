@@ -1,7 +1,7 @@
 'use strict';
 
 const {resolve} = require('path');
-const {app, BrowserWindow} = require('electron');
+const {app, BrowserWindow, ipcMain} = require('electron');
 const IS_DEBUG = (process.env.NODE_ENV === 'development');
 
 // Keep a global reference of the window objects, if you don't, the window will
@@ -59,4 +59,8 @@ app.on('activate', () => {
 	if (IS_DEBUG && !windows.has('ui')) {
 		createUiWindow();
 	}
+});
+
+ipcMain.on('rendererError', (evt, {type, err, file}) => {
+	console.log({type, err, file});
 });

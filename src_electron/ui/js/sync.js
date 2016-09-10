@@ -1,17 +1,13 @@
 'use strict';
 
-process.on('uncaughtException', err => {
-    // TODO log errors somewhere
-    // console.error(msgError);
-    // LogManager.error(msgError);
+import errorhandler from './errorhandler';
+import Storage from './storage';
+import DatabaseManager from './db';
 
-    process.exit(1);
-});
+const storageManager = new Storage;
 
-process.on('unhandledRejection', reason => {
-    // TODO log errors somewhere
-    // reason is mostly an Error instance
-});
+// enable error processing
+errorhandler(global.__filename);
 
 var forceSkipSync = false;
 
@@ -133,18 +129,18 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
             CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
             CPA.sendEvent("Lifecycle", "Dayuse", "Authorized users", AccountsManager.currentUserId ? 1 : 0);
 
-            var appInstallTime = StorageManager.get("app_install_time");
+            var appInstallTime = storageManager.get("app_install_time");
             if (appInstallTime) {
                 var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
                 CPA.sendEvent("Lifecycle", "Dayuse", "App life time", totalDaysLive);
             }
 
-            var requestsLog = StorageManager.get("requests", {constructor: Object, strict: true, create: true});
+            var requestsLog = storageManager.get("requests", {constructor: Object, strict: true, create: true});
             for (var url in requestsLog) {
                 CPA.sendEvent("Lifecycle", "Dayuse", "Requests: " + url, requestsLog[url]);
             }
 
-            StorageManager.remove("requests");
+            storageManager.remove("requests");
 
             chrome.storage.local.get("dayuse.dau", function (records) {
                 var isActiveUser = records["dayuse.dau"];
@@ -178,7 +174,7 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
                 count: 5,
                 filter: "owner"
             }, function (data) {
-                var seenPosts = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+                var seenPosts = storageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
                 var postsToStore = [];
 
                 data.response.slice(1).forEach(function (post) {
@@ -189,7 +185,7 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
                 });
 
                 if (postsToStore.length) {
-                    StorageManager.set("vkgroupwall_stored_posts", postsToStore);
+                    storageManager.set("vkgroupwall_stored_posts", postsToStore);
 
                     chrome.runtime.sendMessage({
                         action: "newWallPosts",
@@ -347,7 +343,7 @@ chrome.app.runtime.onLaunched.addListener(openAppWindow);
 chrome.app.runtime.onRestarted.addListener(openAppWindow);*/
 
 Promise.all([
-    StorageManager.load(),
+    storageManager.load(),
     DatabaseManager.initMeta()
 ]).then(function readyToGo(err) {
     SettingsManager.init();
@@ -700,7 +696,7 @@ Promise.all([
         // флаг, чтобы не вызывать метод одновременно несколько раз подряд
         friendsSync.running = true;
 
-        var friendsSyncTimes = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
+        var friendsSyncTimes = storageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
         var milliSecondsTimeout = App.FRIENDS_UPDATE_TIMEOUT * 1000;
         var nextRequestTimeout;
 
@@ -831,11 +827,11 @@ Promise.all([
                     });
                 });
 
-                var inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
-                var sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
+                var inboxSynced = (storageManager.get("perm_inbox_" + currentUserId) !== null);
+                var sentSynced = (storageManager.get("perm_outbox_" + currentUserId) !== null);
 
                 friendsSyncTimes[currentUserId] = Date.now();
-                StorageManager.set("friends_sync_time", friendsSyncTimes);
+                storageManager.set("friends_sync_time", friendsSyncTimes);
 
                 // следующая синхронизация должна начаться через FRIENDS_UPDATE_TIMEOUT
                 window.setTimeout(friendsSync, milliSecondsTimeout, currentUserId);
@@ -928,7 +924,7 @@ Promise.all([
         var userDataForRequest = AccountsManager.list[currentUserId],
             compatName = (mailType === "inbox") ? "inbox" : "outbox",
             permKey = "perm_" + compatName + "_" + currentUserId,
-            firstSync = (StorageManager.get(permKey) === null);
+            firstSync = (storageManager.get(permKey) === null);
 
         var latestMsg = offset
             ? Promise.resolve(latestMessageId)
@@ -967,11 +963,11 @@ Promise.all([
                 var inboxSynced, sentSynced, friendsSynced,
                     wallTokenUpdated;
 
-                StorageManager.set(permKey, 1);
+                storageManager.set(permKey, 1);
 
-                inboxSynced = (StorageManager.get("perm_inbox_" + currentUserId) !== null);
-                sentSynced = (StorageManager.get("perm_outbox_" + currentUserId) !== null);
-                friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[currentUserId] !== undefined);
+                inboxSynced = (storageManager.get("perm_inbox_" + currentUserId) !== null);
+                sentSynced = (storageManager.get("perm_outbox_" + currentUserId) !== null);
+                friendsSynced = (storageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[currentUserId] !== undefined);
 
                 if (AccountsManager.currentUserId === currentUserId) {
                     // если к этому моменту вся почта синхронизирована и друзья тоже, то перерисовываем фронт
@@ -982,7 +978,7 @@ Promise.all([
                         // маленькое замечение: после того как аккаунт мигрирован с 3 на 4 версию, стартует startUserSession()
                         // она запускает mailSync(), что в свою очередь породит перерисовку фронта на "ui" => "user"
                         // чтобы защититься от этого проверяем, был ли обновлен токен
-                        wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+                        wallTokenUpdated = (storageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
                         if (wallTokenUpdated) {
                             Promise.all([
                                 DatabaseManager.actualizeContacts(currentUserId),
@@ -1056,7 +1052,7 @@ Promise.all([
                 }
 
                 messages.push(msgData);
-                if (msgData.read_state === 0 && StorageManager.get(permKey) === null) {
+                if (msgData.read_state === 0 && storageManager.get(permKey) === null) {
                     // FIXME: calculate number of new messages
                     // show notification afterwards
                 }
@@ -1148,9 +1144,9 @@ Promise.all([
                 AccountsManager.setData(request.uid, request.token, "...");
                 AccountsManager.currentUserId = request.uid;
 
-                var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+                var wallTokenUpdated = storageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
                 wallTokenUpdated[AccountsManager.currentUserId] = 1;
-                StorageManager.set("wall_token_updated", wallTokenUpdated);
+                storageManager.set("wall_token_updated", wallTokenUpdated);
 
                 startUserSession(function () {
                     chrome.runtime.sendMessage({
@@ -1183,9 +1179,9 @@ Promise.all([
                 AccountsManager.setData(request.uid, request.token, "...");
                 AccountsManager.currentUserId = request.uid;
 
-                var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+                var wallTokenUpdated = storageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
                 wallTokenUpdated[AccountsManager.currentUserId] = 1;
-                StorageManager.set("wall_token_updated", wallTokenUpdated);
+                storageManager.set("wall_token_updated", wallTokenUpdated);
 
                 startUserSession(function () {
                     chrome.runtime.sendMessage({
@@ -1315,14 +1311,14 @@ Promise.all([
                 sendResponse(true);
 
                 var uiType;
-                var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
+                var changelogNotified = storageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
                 var inboxSynced, sentSynced, friendsSynced;
                 var wallTokenUpdated;
 
                 if (AccountsManager.currentUserId) {
-                    inboxSynced = (StorageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);
-                    sentSynced = (StorageManager.get("perm_outbox_" + AccountsManager.currentUserId) !== null);
-                    friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+                    inboxSynced = (storageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);
+                    sentSynced = (storageManager.get("perm_outbox_" + AccountsManager.currentUserId) !== null);
+                    friendsSynced = (storageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
 
                     if (inboxSynced && sentSynced && friendsSynced) {
                         uiType = "user";
@@ -1402,7 +1398,7 @@ Promise.all([
                 };
 
                 timeoutId = window.setTimeout(function() {
-                    var defaultSettingsUsed = (StorageManager.get("settings") === null);
+                    var defaultSettingsUsed = (storageManager.get("settings") === null);
                     if (defaultSettingsUsed === false) {
                         return;
                     }
@@ -2187,8 +2183,8 @@ Promise.all([
                 ReqManager.abortAll();
                 AccountsManager.currentUserId = request.uid;
 
-                var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
-                var wallTokenUpdated = (StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+                var changelogNotified = storageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
+                var wallTokenUpdated = (storageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
                 var startUser = true;
 
                 if (startUser) {
@@ -2204,16 +2200,16 @@ Promise.all([
                 AccountsManager.drop(request.uid);
                 DatabaseManager.dropUser(request.uid);
 
-                var friendsSyncTime = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
+                var friendsSyncTime = storageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
                 delete friendsSyncTime[request.uid];
-                StorageManager.set("friends_sync_time", friendsSyncTime);
+                storageManager.set("friends_sync_time", friendsSyncTime);
 
-                var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
+                var wallTokenUpdated = storageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
                 delete wallTokenUpdated[request.uid];
-                StorageManager.set("wall_token_updated", wallTokenUpdated);
+                storageManager.set("wall_token_updated", wallTokenUpdated);
 
-                StorageManager.remove("perm_inbox_" + request.uid);
-                StorageManager.remove("perm_outbox_" + request.uid);
+                storageManager.remove("perm_inbox_" + request.uid);
+                storageManager.remove("perm_outbox_" + request.uid);
 
                 if (request.next !== false) {
                     AccountsManager.currentUserId = request.next;

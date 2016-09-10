@@ -21,3 +21,6 @@ node_modules
 dist
 src/_locales
 src/js/precompiledTemplates.js
+
+src_electron/ui/js/entrypoint.sync.js
+src_electron/ui/js/entrypoint.ui.js

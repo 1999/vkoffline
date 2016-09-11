@@ -76,7 +76,7 @@ const initAlarmsFromScratch = async () => {
     }
 };
 
-export const create = async (name, alarmInfo) => {
+const create = async (name, alarmInfo) => {
     if (typeof name === 'object') {
         alarmInfo = name;
         name = '';
@@ -124,7 +124,7 @@ export const create = async (name, alarmInfo) => {
     await initAlarmsFromScratch();
 };
 
-export const get = (name, cb) => {
+const get = (name, cb) => {
     openMeta
         .then(conn => conn.get(OBJ_STORE_NAME, {
             range: IDBKeyRange.only(name)
@@ -135,29 +135,38 @@ export const get = (name, cb) => {
         });
 };
 
-export const getAll = (cb) => {
+const getAll = (cb) => {
     openMeta
         .then(conn => conn.get(OBJ_STORE_NAME))
         .then(records => cb(records));
 };
 
-export const clear = (name, cb) => {
+const clear = (name, cb) => {
     openMeta
         .then(conn => conn.delete(OBJ_STORE_NAME, name))
         .then(() => cb(true))
         .catch(() => cb(false));
 };
 
-export const clearAll = (cb) => {
+const clearAll = (cb) => {
     openMeta
         .then(conn => conn.clear(OBJ_STORE_NAME))
         .then(() => cb(true))
         .catch(() => cb(false));
 };
 
-export const onAlarm = {
+const onAlarm = {
     async addListener(cb) {
         onAlarmListeners.add(cb);
         await initAlarmsFromScratch();
     }
 };
+
+export default {
+    create,
+    get,
+    getAll,
+    clear,
+    clearAll,
+    onAlarm
+}

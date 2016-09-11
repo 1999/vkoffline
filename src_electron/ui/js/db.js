@@ -210,14 +210,6 @@ export default {
     },
 
     /**
-     * Create meta database with log object store
-     * @return {Promise}
-     */
-    initMeta: async function DatabaseManager_initMeta() {
-        this._meta = await openMeta();
-    },
-
-    /**
      * @param {Integer} userId
      * @param {Function} fnSuccess
      * @param {Function} fnFail принимает {String} текст ошибки
@@ -1672,12 +1664,14 @@ export default {
      * @param {String} data
      * @param {String} level
      */
-    log: function DatabaseManager_log(data, level) {
-        this._meta.insert("log", {
-            data: data,
-            ts: Date.now(),
-            level: level
-        }, _.noop);
+    log: async function DatabaseManager_log(data, level) {
+        const conn = await openMeta();
+
+        conn.insert('log', {
+            data,
+            level,
+            ts: Date.now()
+        });
     },
 
     /**
@@ -1686,28 +1680,24 @@ export default {
      * @param {Function} fnSuccess принимает {Array} массив записей из лога, готовых к отправке, отсортированных по дате
      * @param {Function} fnFail текст ошибки
      */
-    collectLogData: function DatabaseManager_collectLogData(fnSuccess, fnFail) {
-        this._meta.get("log", function (err, records) {
-            if (err) {
-                fnFail(err.name + ": " + err.message);
-                return;
-            }
+    collectLogData: async function DatabaseManager_collectLogData() {
+        const conn = await openMeta();
+        const records = await conn.get('log');
 
-            var timeLast = 0;
-            var logRecords = records.map(function (record, i) {
-                var item = record.value;
-                var date = new Date(item.ts);
+        let timeLast = 0;
+        const logRecords = records.map((record, i) => {
+            const item = record.value;
+            const date = new Date(item.ts);
 
-                var timeDiff = item.ts - timeLast;
-                timeLast = item.ts;
+            const timeDiff = item.ts - timeLast;
+            timeLast = item.ts;
 
-                return (i > 0)
-                    ? "[" + date + " +" + timeDiff + "ms] " + item.data
-                    : "[" + date + "] " + item.data;
-            });
-
-            fnSuccess(logRecords);
+            return (i > 0)
+                ? `[${date} +${timeDiff}ms] ${item.data}`
+                : `[${date}] ${item.data}`;
         });
+
+        return logRecords;
     },
 
     _dbLink: null,

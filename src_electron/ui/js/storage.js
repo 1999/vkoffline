@@ -5,31 +5,25 @@ import {openMeta} from './idb';
 
 const OBJ_STORE_NAME = 'keyvalues';
 
-class Storage {
+export default {
     // it's kinda like constructor but other modules need to know the moment
     // when storage is initialized
     async load() {
         const conn = await openMeta();
         const records = await conn.get(OBJ_STORE_NAME);
 
-        console.log(records);
+        this._initialized = true;
         this._data = records;
-    }
+    },
 
     set(key, value) {
         this._checkIsInitialized();
-
-
-
-        var storageData = {};
-        storageData[key] = value;
-        chrome.storage.local.set(storageData);
 
         this._data[key] = value;
 
         // this op should not block others so the function is still sync
         openConn().then(conn => conn.upsert(OBJ_STORE_NAME, {key, value}));
-    }
+    },
 
     get(key, params) {
         this._checkIsInitialized();
@@ -53,7 +47,7 @@ class Storage {
         }
 
         return value;
-    }
+    },
 
     remove(key) {
         this._checkIsInitialized();
@@ -62,11 +56,9 @@ class Storage {
 
         // this op should not block others so the function is still sync
         openConn().then(conn => conn.delete(OBJ_STORE_NAME, key));
-    }
+    },
 
     _checkIsInitialized() {
         assert(this._initialized, 'Storage hasn\'t yet been initialized');
     }
 }
-
-export default Storage;

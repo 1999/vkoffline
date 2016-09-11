@@ -5,8 +5,14 @@ const webpack = require('webpack');
 module.exports = {
     context: __dirname,
     entry: {
-        sync: './src_electron/ui/js/sync.js',
-        ui: './src_electron/ui/js/main.js'
+        sync: [
+            './src_electron/lib/broadcast-channel.js',
+            './src_electron/ui/js/sync.js'
+        ],
+        ui: [
+            './src_electron/lib/broadcast-channel.js',
+            './src_electron/ui/js/main.js'
+        ]
     },
     output: {
         filename: 'entrypoint.[name].js',

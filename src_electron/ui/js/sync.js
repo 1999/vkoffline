@@ -7,6 +7,9 @@ import errorhandler from './errorhandler';
 import StorageManager from './storage';
 import DatabaseManager from './db';
 import MigrationManager from './migrations';
+import SettingsManager from './settings';
+import LogManager from './logs';
+import AccountsManager from './accounts';
 import CPA from './cpa';
 
 // enable error processing
@@ -271,14 +274,9 @@ function openAppWindow(evt, tokenExpired) {
     });
 }
 
-// app lifecycle
-chrome.app.runtime.onLaunched.addListener(openAppWindow);
-chrome.app.runtime.onRestarted.addListener(openAppWindow);
+(async () => {
+    await StorageManager.load();
 
-Promise.all([
-    StorageManager.load(),
-    DatabaseManager.initMeta()
-]).then(function readyToGo(err) {
     SettingsManager.init();
     LogManager.config("App started");
 
@@ -1073,6 +1071,18 @@ Promise.all([
         var sendAsyncResponse = false;
 
         switch (request.action) {
+            case 'getInitialSettings':
+                sendResponse({
+                    flatSettings: getFlatSettings(),
+                    accountData: {
+                        currentUserId: AccountsManager.currentUserId,
+                        currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null,
+                        tokenExpired: tokenExpired
+                    }
+                });
+
+                break;
+
             case "addFirstAccount":
                 AccountsManager.setData(request.uid, request.token, "...");
                 AccountsManager.currentUserId = request.uid;
@@ -2200,4 +2210,4 @@ Promise.all([
     if (AccountsManager.currentUserId) {
         startUserSession();
     }
-});
+})();

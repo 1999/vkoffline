@@ -4,6 +4,19 @@ import chrome from './chrome';
 import StorageManager from './storage';
 import SoundManager from './sounds';
 
+let Settings;
+let Account;
+
+// initialize chrome.runtime
+chrome.runtime.init(true);
+
+chrome.runtime.sendMessage({action: 'getInitialSettings'}, ({flatSettings, accountData}) => {
+    console.log({flatSettings, accountData});
+
+    Settings = flatSettings;
+    Account = accountData;
+});
+
 document.addEventListener("click", function (e) {
     var matchesSelectorFn = (Element.prototype.webkitMatchesSelector || Element.prototype.matchesSelector);
     var routes = {

@@ -125,7 +125,7 @@ const create = async (name, alarmInfo) => {
 };
 
 const get = (name, cb) => {
-    openMeta
+    openMeta()
         .then(conn => conn.get(OBJ_STORE_NAME, {
             range: IDBKeyRange.only(name)
         }))
@@ -136,7 +136,7 @@ const get = (name, cb) => {
 };
 
 const getAll = (cb) => {
-    openMeta
+    openMeta()
         .then(conn => conn.get(OBJ_STORE_NAME))
         .then(records => cb(records));
 };
@@ -149,7 +149,7 @@ const clear = (name, cb) => {
 };
 
 const clearAll = (cb) => {
-    openMeta
+    openMeta()
         .then(conn => conn.clear(OBJ_STORE_NAME))
         .then(() => cb(true))
         .catch(() => cb(false));

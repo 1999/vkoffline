@@ -1,21 +1,16 @@
 'use strict';
 
+import {appName, appVersion} from './remote';
+import chrome from './chrome';
 import errorhandler from './errorhandler';
 import StorageManager from './storage';
 import DatabaseManager from './db';
-import {sendMessagesToUiTabs} from './chrome-runtime';
-
-import {
-    onAlarm,
-    clear as clearAlarm,
-    create as createAlarm,
-    get as getAlarm
-} from './chrome-alarms';
 
 // enable error processing
 errorhandler(global.__filename);
 
-throw new Error('foo')
+// initialize chrome.runtime
+chrome.runtime.init(false);
 
 var forceSkipSync = false;
 
@@ -240,8 +235,7 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
 
 // install & update handling
 chrome.runtime.onInstalled.addListener(function (details) {
-    var appName = chrome.runtime.getManifest().name;
-    var currentVersion = chrome.runtime.getManifest().version;
+    var currentVersion = app.getVersion();
 
     switch (details.reason) {
         case "install":
@@ -291,11 +285,6 @@ chrome.runtime.onInstalled.addListener(function (details) {
         }
     });
 
-    var uninstallUrl = App.GOODBYE_PAGE_URL + "?ver=" + currentVersion;
-    if (typeof chrome.runtime.setUninstallURL === "function") {
-        chrome.runtime.setUninstallURL(uninstallUrl);
-    }
-
     var installDateKey = "app_install_time";
     chrome.storage.local.get(installDateKey, function (records) {
         records[installDateKey] = records[installDateKey] || Date.now();
@@ -304,24 +293,6 @@ chrome.runtime.onInstalled.addListener(function (details) {
 
     // create sleeping awake alarm
     chrome.alarms.create("sleeping-awake", {periodInMinutes: 1});
-});
-
-// listen to messages from Listen! app
-chrome.runtime.onMessageExternal.addListener(function (msg, sender, sendResponse) {
-    if (sender.id === App.LISTENAPP_ID && msg.action === "importAuthToken") {
-        if (AccountsManager.currentUserId) {
-            sendResponse({
-                user_id: Number(AccountsManager.currentUserId),
-                token: AccountsManager.list[AccountsManager.currentUserId].token
-            });
-        } else {
-            sendResponse(null);
-        }
-    } else if (sender.id === App.LAUNCHER_EXTENSION_ID && msg.action === "launch") {
-        leaveOneAppWindowInstance(true);
-    } else {
-        sendResponse(false);
-    }
 });
 
 function openAppWindow(evt, tokenExpired) {
@@ -745,8 +716,8 @@ Promise.all([
                 return;
 
             showChromeNotification({
-                title: App.NAME,
-                message: chrome.i18n.getMessage("happyBirthday").replace("%appname%", App.NAME),
+                title: app.getName(),
+                message: chrome.i18n.getMessage("happyBirthday").replace("%appname%", app.getName()),
                 icon: chrome.runtime.getURL("pic/smile.png"),
                 sound: "message",
                 onclick: function () {
@@ -2077,7 +2048,7 @@ Promise.all([
             case "speechChange" :
                 CPA.sendEvent("App-Actions", "Speech change", {
                     "chrome" : process.versions.chrome,
-                    "app" : App.VERSION,
+                    "app" : app.getVersion(),
                     "uid" : AccountsManager.currentUserId
                 });
 

@@ -1,7 +1,7 @@
 'use strict';
 
 import assert from 'assert';
-import osLocale from 'os-locale';
+import {appLocale} from './remote';
 
 import i18nDataRU from '../../_locales/ru/messages.json';
 import i18nDataEN from '../../_locales/en/messages.json';
@@ -18,18 +18,13 @@ i18nData.set('uk', i18nDataUK);
 const EXISTING_LOCALES = ['ru', 'en', 'uk'];
 const DEFAULT_LOCALE = 'ru';
 
-let locale = DEFAULT_LOCALE;
-
-osLocale((err, actualLocale) => {
-    const simpleLocale = actualLocale.split('_')[0].toLowerCase();
-    locale = EXISTING_LOCALES.includes(simpleLocale) ? simpleLocale : DEFAULT_LOCALE;
-});
-
 const getMessage = (...args) => {
     assert(args.length === 1, `Unexpected chrome.i18n.getMessage() arguments number: ${args.length}`);
 
     const key = args[0];
-    const i18nForLocale = i18nData.get(locale);
+    const simpleLocale = appLocale.split('-')[0].toLowerCase();
+    const useLocale = EXISTING_LOCALES.includes(simpleLocale) ? simpleLocale : DEFAULT_LOCALE;
+    const i18nForLocale = i18nData.get(useLocale);
 
     return i18nForLocale.key
         ? i18nData[key].message

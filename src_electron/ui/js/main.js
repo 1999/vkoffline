@@ -1,12 +1,15 @@
 'use strict';
 
 import errorhandler from './errorhandler';
-import {electron_app_name as appName} from '../../../package.json';
+import {appName} from './remote';
 import AccountsManager from './accounts';
 import chrome from './chrome';
 
 // enable error processing
 errorhandler(global.__filename);
+
+// initialize chrome.runtime
+chrome.runtime.init(true);
 
 document.title = appName;
 

@@ -3,9 +3,11 @@
 import alarms from './chrome-alarms';
 import i18n from './chrome-i18n';
 import runtime from './chrome-runtime';
+import storage from './chrome-storage';
 
 export default {
     alarms,
     i18n,
-    runtime
+    runtime,
+    storage
 }

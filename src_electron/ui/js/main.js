@@ -3,6 +3,7 @@
 import errorhandler from './errorhandler';
 import {appName} from './remote';
 import AccountsManager from './accounts';
+import StorageManager from './storage';
 import chrome from './chrome';
 import AppUI from './ui';
 
@@ -246,9 +247,9 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         case "ui" : // user, guest, syncing, migrating, migrated
             if (request.which !== undefined) {
                 if (request.which === "user") {
-                    chrome.storage.local.set({
-                        "dayuse.dau": true,
-                        "weekuse.wau": true
+                    StorageManager.load().then(() => {
+                        StorageManager.set('dayuse.dau', true);
+                        StorageManager.set('weekuse.wau', true);
                     });
                 }
 

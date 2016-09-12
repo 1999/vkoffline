@@ -124,28 +124,20 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
 
             StorageManager.remove("requests");
 
-            chrome.storage.local.get("dayuse.dau", function (records) {
-                var isActiveUser = records["dayuse.dau"];
-                if (!isActiveUser) {
-                    return;
-                }
-
-                CPA.sendEvent("Lifecycle", "DAU");
-                chrome.storage.local.remove("dayuse.dau", _.noop);
-            });
+            const isActiveDailyUser = StorageManager.get('dayuse.dau');
+            if (isActiveDailyUser) {
+                CPA.sendEvent('Lifecycle', 'DAU');
+                StorageManager.remove('dayuse.dau');
+            }
 
             break;
 
         case "weekuse":
-            chrome.storage.local.get("weekuse.wau", function (records) {
-                var isActiveUser = records["weekuse.wau"];
-                if (!isActiveUser) {
-                    return;
-                }
-
-                CPA.sendEvent("Lifecycle", "WAU");
-                chrome.storage.local.remove("weekuse.wau", _.noop);
-            });
+            const isActiveWeekyUser = StorageManager.get('weekuse.wau');
+            if (isActiveWeekyUser) {
+                CPA.sendEvent('Lifecycle', 'WAU');
+                StorageManager.remove('weekuse.wau');
+            }
 
             break;
 
@@ -244,11 +236,9 @@ chrome.runtime.onInstalled.addListener(function (details) {
         }
     });
 
-    var installDateKey = "app_install_time";
-    chrome.storage.local.get(installDateKey, function (records) {
-        records[installDateKey] = records[installDateKey] || Date.now();
-        chrome.storage.local.set(records);
-    });
+    const installDateKey = 'app_install_time';
+    const storageDate = StorageManager.get(installDateKey);
+    StorageManager.set(installDateKey, storageDate || Date.now());
 
     // create sleeping awake alarm
     chrome.alarms.create("sleeping-awake", {periodInMinutes: 1});
@@ -1286,10 +1276,8 @@ function openAppWindow(evt, tokenExpired) {
                         CPA.sendAppView("Users");
                         CPA.sendEvent("UI-Draw", "Users", AccountsManager.currentUserId);
 
-                        chrome.storage.local.set({
-                            "dayuse.dau": true,
-                            "weekuse.wau": true
-                        });
+                        StorageManager.set('dayuse.dau', true);
+                        StorageManager.set('weekuse.wau', true);
 
                         break;
 

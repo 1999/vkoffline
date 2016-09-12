@@ -1,10 +1,13 @@
 'use strict';
 
+import {v4 as uuid} from 'uuid';
 import {appName, appVersion} from './remote';
 import chrome from './chrome';
 import errorhandler from './errorhandler';
 import StorageManager from './storage';
 import DatabaseManager from './db';
+import MigrationManager from './migrations';
+import CPA from './cpa';
 
 // enable error processing
 errorhandler(global.__filename);
@@ -12,7 +15,8 @@ errorhandler(global.__filename);
 // initialize chrome.runtime
 chrome.runtime.init(false);
 
-var forceSkipSync = false;
+const shownNotifications = new Map;
+let forceSkipSync = false;
 
 /**
  * Показать chrome.notification
@@ -28,11 +32,6 @@ var forceSkipSync = false;
  * @param {Function} [data.onclick]
  */
 function showChromeNotification(data) {
-    // Linux check
-    // @see https://developer.chrome.com/extensions/notifications
-    if (!chrome.notifications)
-        return;
-
     var promise = data.uid
         ? getAvatarImage(data.icon, data.uid)
         : Promise.resolve(data.icon);
@@ -40,27 +39,33 @@ function showChromeNotification(data) {
     var showChromeNotificationInner = function (uri) {
         uri = uri || data.icon;
 
-        chrome.notifications.create((data.id || Math.random()) + '', {
-            type: 'basic',
-            iconUrl: uri,
-            title: data.title,
-            message: data.message,
-            isClickable: true
-        }, function (notificationId) {
-            if (data.onclick) {
-                notificationHandlers[notificationId] = data.onclick;
-            }
-
-            if (data.sound) {
-                SoundManager.play(data.sound);
-            }
-
-            if (data.timeout) {
-                setTimeout(function () {
-                    chrome.notifications.clear(notificationId, _.noop);
-                }, data.timeout * 1000);
-            }
+        const notificationId = data.id || uuid();
+        const notification = new Notification(data.title, {
+            body: data.message,
+            icon: uri,
+            tag: notificationId
         });
+
+        const onClickHandler = () => {
+            data.onclick && data.onclick();
+            notification.close();
+        };
+
+        notification.onclick = onClickHandler;
+
+        if (data.id) {
+            shownNotifications.set(data.id, notification);
+        }
+
+        if (data.sound) {
+            SoundManager.play(data.sound);
+        }
+
+        if (data.timeout) {
+            setTimeout(function () {
+                notification.close();
+            }, data.timeout * 1000);
+        }
     }
 
     promise.then(showChromeNotificationInner, function () {
@@ -96,35 +101,6 @@ function leaveOneAppWindowInstance(openIfNoExist) {
         openAppWindow();
     }
 }
-
-// notification click handlers
-// FIXME refactor
-var notificationHandlers = {};
-chrome.notifications.onClicked.addListener(function notificationHandler(notificationId) {
-    var notificationCallback = notificationHandlers[notificationId];
-
-    if (notificationId === "tokenExpiredRequest") {
-        notificationCallback = function () {
-            CPA.sendEvent("App-Data", "tokenExpired notification click");
-
-            // close all app windows
-            var appWindows = chrome.app.window.getAll();
-            appWindows.forEach(function (win) {
-                win.close();
-            });
-
-            openAppWindow(null, true);
-        };
-    }
-
-    if (!notificationCallback)
-        return;
-
-    chrome.notifications.clear(notificationId, _.noop);
-    notificationCallback();
-
-    delete notificationHandlers[notificationId];
-});
 
 chrome.alarms.onAlarm.addListener(function (alarmInfo) {
     switch (alarmInfo.name) {
@@ -211,22 +187,6 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
 
             break;
 
-        case "propose-launcher":
-            // promote VK Offline launcher
-            chrome.notifications && chrome.notifications.create(Math.random() + "", {
-                type: "image",
-                imageUrl: chrome.runtime.getURL("pic/launcher.png"),
-                title: chrome.i18n.getMessage("launcherNotificationTitle"),
-                message: chrome.i18n.getMessage("launcherNotificationMessage"),
-                iconUrl: chrome.runtime.getURL("pic/icon48.png"),
-                isClickable: false
-            }, function (id) {
-                SoundManager.play("message");
-                CPA.sendEvent("Lifecycle", "Actions", "Install.NotifyLauncherPromote.Show");
-            });
-
-            break;
-
         case "sleeping-awake":
             // do nothing. this alarm is just for waking up an app
             break;
@@ -235,7 +195,7 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
 
 // install & update handling
 chrome.runtime.onInstalled.addListener(function (details) {
-    var currentVersion = app.getVersion();
+    var currentVersion = appVersion;
 
     switch (details.reason) {
         case "install":
@@ -243,10 +203,6 @@ chrome.runtime.onInstalled.addListener(function (details) {
             CPA.sendEvent("Lifecycle", "Dayuse", "Install", 1);
 
             MigrationManager.start(currentVersion);
-
-            // propose to install VK Offline launcher after 2 minutes on inactivity after install
-            // inactivity means not opening app window
-            chrome.alarms.create("propose-launcher", {delayInMinutes: 2});
             break;
 
         case "update":
@@ -313,8 +269,6 @@ function openAppWindow(evt, tokenExpired) {
             tokenExpired: tokenExpired
         };
     });
-
-    chrome.alarms.clear("propose-launcher", _.noop);
 }
 
 // app lifecycle
@@ -1277,7 +1231,16 @@ Promise.all([
                         title: chrome.i18n.getMessage("tokenExpiredNotificationTitle"),
                         message: chrome.i18n.getMessage("tokenExpiredNotificationMessage"),
                         icon: chrome.runtime.getURL("pic/icon48.png"),
-                        sound: "error"
+                        sound: "error",
+                        onclick: () => {
+                            CPA.sendEvent("App-Data", "tokenExpired notification click");
+
+                            // close all app windows
+                            var appWindows = chrome.app.window.getAll();
+                            appWindows.forEach(win => win.close());
+
+                            openAppWindow(null, true);
+                        }
                     });
 
                     CPA.sendEvent("App-Data", "tokenExpired notification seen");
@@ -1342,9 +1305,9 @@ Promise.all([
                 break;
 
             case "closeNotification":
-                if (notificationHandlers[request.mid]) {
-                    chrome.notifications.clear(request.mid, _.noop);
-                    delete notificationHandlers[request.mid];
+                if (shownNotifications.has(request.mid)) {
+                    shownNotifications.close();
+                    shownNotifications.delete(request.mid);
                 }
 
                 break;

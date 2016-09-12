@@ -9,10 +9,15 @@ const IS_DEBUG = (process.env.NODE_ENV === 'development');
 let windows = new Map;
 
 const createSyncWindow = () => {
-	const window = new BrowserWindow({show: false});
+	const window = new BrowserWindow({
+        show: IS_DEBUG,
+        x: 0,
+        y: 0
+    });
 
 	const url = resolve(`${__dirname}/../ui/sync.html`);
 	window.loadURL(`file://${url}`);
+    window.webContents.openDevTools();
 
 	windows.set('sync', window);
 };

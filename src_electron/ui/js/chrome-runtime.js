@@ -3,6 +3,8 @@
 import assert from 'assert';
 import {resolve} from 'path';
 import {v4 as uuid} from 'uuid';
+import {appVersion} from './remote';
+import {openMeta} from './idb';
 
 const onMessageListeners = new Set;
 const onInstalledListeners = new Set;
@@ -12,8 +14,12 @@ const syncToUiChannel = new BroadcastChannel('syncToUiChannel');
 
 let isUiWindow;
 
-const sendMessage = (msg, responseCallback, messageId = uuid()) => {
+const checkIsInitialized = () => {
     assert(isUiWindow !== undefined, 'chrome.runtime API has not yet been initialized');
+};
+
+const sendMessage = (msg, responseCallback, messageId = uuid()) => {
+    checkIsInitialized();
 
     const channelToSendDataTo = isUiWindow ? uiToSyncChannel : syncToUiChannel;
 
@@ -31,7 +37,7 @@ const currySendResponse = (messageId) => {
     return (msg) => sendMessage(msg, null, messageId);
 };
 
-const init = (_isUiWindow) => {
+const init = async (_isUiWindow) => {
     isUiWindow = _isUiWindow;
     const channelListenTo = _isUiWindow ? syncToUiChannel : uiToSyncChannel;
 
@@ -55,6 +61,32 @@ const init = (_isUiWindow) => {
             cb(data.body, {id: null}, currySendResponse(data.id));
         }
     };
+
+    // also update information about app version
+    if (!_isUiWindow) {
+        await updateAppVersionInfo();
+    }
+};
+
+const updateAppVersionInfo = async () => {
+    const conn = await openMeta();
+    const records = await conn.get('meta', {range: IDBKeyRange.only('app_version')});
+
+    const previousAppVersion = records.length ? records[0].value : null;
+    const currentAppVersion = appVersion;
+
+    await conn.upsert('meta', {key: 'app_version', value: currentAppVersion});
+
+    if (previousAppVersion !== currentAppVersion) {
+        for (let cb of onInstalledListeners) {
+            cb({
+                reason: previousAppVersion ? 'update' : 'install',
+                previousVersion: previousAppVersion
+            });
+        }
+    }
+
+    onInstalledListeners.clear();
 };
 
 const getURL = (relativePath) => {
@@ -74,13 +106,14 @@ const runtimeSendMessage = (msg, responseCallback) => sendMessage(msg, responseC
 
 const onMessage = {
     addListener(cb) {
+        checkIsInitialized();
         onMessageListeners.add(cb);
     }
 };
 
 const onInstalled = {
     addListener(cb) {
-        // interesting thing here is the fact that
+        checkIsInitialized();
         onInstalledListeners.add(cb);
     }
 };

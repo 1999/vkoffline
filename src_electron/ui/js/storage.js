@@ -22,7 +22,7 @@ export default {
         this._data[key] = value;
 
         // this op should not block others so the function is still sync
-        openConn().then(conn => conn.upsert(OBJ_STORE_NAME, {key, value}));
+        openMeta().then(conn => conn.upsert(OBJ_STORE_NAME, {key, value}));
     },
 
     get(key, params) {
@@ -55,7 +55,7 @@ export default {
         delete this._data[key];
 
         // this op should not block others so the function is still sync
-        openConn().then(conn => conn.delete(OBJ_STORE_NAME, key));
+        openMeta().then(conn => conn.delete(OBJ_STORE_NAME, key));
     },
 
     _checkIsInitialized() {

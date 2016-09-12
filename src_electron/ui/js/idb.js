@@ -13,6 +13,12 @@ export const openMeta = async () => {
                 // object store for simple localStorage-like data
                 // which was previously managed by StorageManager
                 database.createObjectStore('keyvalues', {keyPath: 'key'});
+
+                // object store for app specific meta information
+                database.createObjectStore('meta', {keyPath: 'key'});
+
+                // object store for chrome.alarms
+                database.createObjectStore('alarms', {keyPath: 'name'});
             }
         }
     });

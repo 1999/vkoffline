@@ -4,6 +4,7 @@ import errorhandler from './errorhandler';
 import {appName} from './remote';
 import AccountsManager from './accounts';
 import chrome from './chrome';
+import AppUI from './ui';
 
 // enable error processing
 errorhandler(global.__filename);

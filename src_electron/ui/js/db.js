@@ -4,6 +4,7 @@ import assert from 'assert';
 import {values, noop, compact} from 'lodash';
 import {ASC, DESC, ASC_UNIQUE} from 'sklad';
 import {openUser, openMeta, dropUser} from './idb';
+import CPA from './cpa';
 
 const validateJSONString = (data, constr) => {
     let someData;

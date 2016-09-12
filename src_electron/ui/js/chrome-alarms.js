@@ -60,7 +60,7 @@ const initAlarmsFromScratch = async () => {
     clearExistingScheduledAlarms();
 
     const conn = await openMeta();
-    const alarms = conn.get(OBJ_STORE_NAME);
+    const alarms = await conn.get(OBJ_STORE_NAME);
     const now = new Date;
 
     for (let alarm of alarms) {

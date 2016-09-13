@@ -1,5 +1,6 @@
 'use strict';
 
+import assert from 'assert';
 import StorageManager from './storage';
 
 // @requires StorageManager
@@ -8,7 +9,9 @@ export default (function () {
     var activeUserId = null;
 
     // разбор данных в StorageManager
-    var parseTokens = function () {
+    var parseTokens = async function () {
+        await StorageManager.load();
+
         var index = 0;
         var activeProfile = StorageManager.get("profile_act");
         var lsTokens = StorageManager.get("token", {constructor: Array, strict: true, create: true});
@@ -53,6 +56,9 @@ export default (function () {
         }
     };
 
+    // parse tokens asap
+    // TODO: this may happen too late
+    parseTokens();
 
     return {
         setData: function (userId, token, fio) {
@@ -86,8 +92,7 @@ export default (function () {
             if (tokens === null)
                 parseTokens();
 
-            if (!tokens[userId])
-                throw new RangeError("Token for user #" + userId + " doesn't exist");
+            assert(tokens[userId], "Token for user #" + userId + " doesn't exist");
 
             tokens[userId].fio = value;
             writeData();

@@ -68,11 +68,15 @@ export default (function () {
 
     return {
         init: async function SettingsManager_init() {
+            if (this._initialized) {
+                return;
+            }
+
             await StorageManager.load();
             const internalSettings = StorageManager.get('settings', {constructor: Object, strict: true, create: true});
 
             // устанавливаем геттеры и сеттеры для данных
-            availableSettings.forEach(function (settingElem) {
+            for (let settingElem of availableSettings) {
                 Object.defineProperty(this, settingElem.key, {
                     get: function () {
                         var outputValue;
@@ -124,7 +128,9 @@ export default (function () {
                         StorageManager.set('settings', internalSettings);
                     }
                 });
-            }, this);
+            }
+
+            this._initialized = true;
         },
 
         getAvailable: function SettingsManager_getAvailable() {

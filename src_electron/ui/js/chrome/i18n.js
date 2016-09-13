@@ -1,11 +1,11 @@
 'use strict';
 
 import assert from 'assert';
-import {appLocale} from './remote';
+import {appLocale} from '../remote';
 
-import i18nDataRU from '../../_locales/ru/messages.json';
-import i18nDataEN from '../../_locales/en/messages.json';
-import i18nDataUK from '../../_locales/uk/messages.json';
+import i18nDataRU from '../../../_locales/ru/messages.json';
+import i18nDataEN from '../../../_locales/en/messages.json';
+import i18nDataUK from '../../../_locales/uk/messages.json';
 
 // osLocale is async, so there's a small chance that getMessage() will return
 // values for wrong locale. Otherwise all chrome.i18n.getMessage() calls

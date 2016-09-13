@@ -13,7 +13,7 @@
  *
  */
 import assert from 'assert';
-import {openMeta} from './idb';
+import {openMeta} from '../idb';
 
 const OBJ_STORE_NAME = 'alarms';
 const onAlarmListeners = new Set;
@@ -42,7 +42,7 @@ const fireAlarm = async (alarm) => {
         alarm.lastFired = now;
         await conn.upsert(OBJ_STORE_NAME, alarm);
 
-        setTimeout(fireAlarm, alarm, alarm.periodInMinutes * 60 * 1000);
+        setTimeout(fireAlarm, alarm.periodInMinutes * 60 * 1000, alarm);
     } else {
         await conn.delete(OBJ_STORE_NAME, alarm.name);
     }
@@ -63,7 +63,7 @@ const initAlarmsFromScratch = async () => {
     const alarms = await conn.get(OBJ_STORE_NAME);
     const now = new Date;
 
-    for (let alarm of alarms) {
+    for (let {value: alarm} of alarms) {
         // fire event for outdated alarms
         const scheduledTime = alarm.lastFired;
         scheduledTime.setMinutes(scheduledTime.getMinutes() + alarm.periodInMinutes);
@@ -92,6 +92,7 @@ const create = async (name, alarmInfo) => {
 
     if (alarmInfo.periodInMinutes) {
         alarmObj.periodic = true;
+        alarmObj.periodInMinutes = alarmInfo.periodInMinutes;
     }
 
     // calc lastFired field value from `when` and `delayInMinutes`
@@ -129,9 +130,8 @@ const get = (name, cb) => {
         .then(conn => conn.get(OBJ_STORE_NAME, {
             range: IDBKeyRange.only(name)
         }))
-        .then(record => {
-            // TODO record or records?
-            cb(record || null);
+        .then(records => {
+            cb(records.length ? records[0].value : null);
         });
 };
 

@@ -9,6 +9,10 @@ export default {
     // it's kinda like constructor but other modules need to know the moment
     // when storage is initialized
     async load() {
+        if (this._initialized) {
+            return;
+        }
+
         const conn = await openMeta();
         const records = await conn.get(OBJ_STORE_NAME);
 

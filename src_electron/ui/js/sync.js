@@ -181,15 +181,11 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
             });
 
             break;
-
-        case "sleeping-awake":
-            // do nothing. this alarm is just for waking up an app
-            break;
     }
 });
 
 // install & update handling
-chrome.runtime.onInstalled.addListener(function (details) {
+chrome.runtime.onInstalled.addListener(async function (details) {
     var currentVersion = appVersion;
 
     switch (details.reason) {
@@ -236,12 +232,10 @@ chrome.runtime.onInstalled.addListener(function (details) {
         }
     });
 
+    await StorageManager.load();
     const installDateKey = 'app_install_time';
     const storageDate = StorageManager.get(installDateKey);
     StorageManager.set(installDateKey, storageDate || Date.now());
-
-    // create sleeping awake alarm
-    chrome.alarms.create("sleeping-awake", {periodInMinutes: 1});
 });
 
 function openAppWindow(evt, tokenExpired) {
@@ -266,8 +260,8 @@ function openAppWindow(evt, tokenExpired) {
 
 (async () => {
     await StorageManager.load();
+    await SettingsManager.init();
 
-    SettingsManager.init();
     LogManager.config("App started");
 
     var syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
@@ -1057,7 +1051,7 @@ function openAppWindow(evt, tokenExpired) {
         ReqManager.apiMethod("stats.trackVisitor", _.noop);
     };
 
-    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+    chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
         var sendAsyncResponse = false;
 
         switch (request.action) {
@@ -1276,6 +1270,7 @@ function openAppWindow(evt, tokenExpired) {
                         CPA.sendAppView("Users");
                         CPA.sendEvent("UI-Draw", "Users", AccountsManager.currentUserId);
 
+                        await StorageManager.load();
                         StorageManager.set('dayuse.dau', true);
                         StorageManager.set('weekuse.wau', true);
 

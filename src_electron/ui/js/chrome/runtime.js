@@ -3,8 +3,8 @@
 import assert from 'assert';
 import {resolve} from 'path';
 import {v4 as uuid} from 'uuid';
-import {appVersion} from './remote';
-import {openMeta} from './idb';
+import {appVersion} from '../remote';
+import {openMeta} from '../idb';
 
 const onMessageListeners = new Set;
 const onInstalledListeners = new Set;
@@ -90,7 +90,8 @@ const updateAppVersionInfo = async () => {
 };
 
 const getURL = (relativePath) => {
-    return resolve(`${__dirname}/../../assets/${relativePath}`);
+    // TODO: is there a better way not to use global?
+    return resolve(`${global.__dirname}/../assets/${relativePath}`);
 };
 
 /**

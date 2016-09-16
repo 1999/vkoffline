@@ -1,0 +1,1777 @@
+/* custom fonts */
+@font-face {
+	font-family: "Modern Pictograms";
+	src: url(../Modern-Pictograms.otf); /* http://thedesignoffice.org/project/modern-pictograms/ */
+}
+
+
+html, body {
+    overflow: visible;
+}
+
+html {
+	height: 100%;
+}
+
+body {
+	background: url(../../assets/pic/loading.gif) 50% 50% no-repeat, url(../../assets/pic/guest-bg.jpg) 0 0 repeat;
+	height: auto;
+	padding: 5% 0;
+	font: 16px/24px "Helvetica Neue", Arial, Helvetica, sans-serif;
+	color: #333;
+	min-width: 900px;
+	min-height: 600px;
+	box-sizing: border-box;
+	-webkit-font-smoothing: antialiased;
+}
+
+body.authview {
+	padding: 0;
+	margin: 0;
+}
+
+body.white {
+	background: #fafafa;
+	height: 100%;
+}
+
+input, select, textarea, button {
+	font: 16px/24px "Helvetica Neue", Arial, Helvetica, sans-serif;
+	resize: none;
+}
+
+button {
+	border: 1px solid #ddd;
+	cursor: pointer;
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+	text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75);
+	color: #333;
+}
+
+button[disabled] {
+	background: #ddd;
+	color: #888;
+}
+
+button:not([disabled]):hover {
+	background: #fafafa;
+}
+
+textarea, input:not([type="file"]) {
+	border: 1px solid #ddd;
+}
+
+textarea:focus:not([type="file"]), input:focus:not([type="file"]) {
+	border: 1px solid #bbb;
+}
+
+/* стили приложения */
+webview.oauth {
+	left: 0;
+	position: absolute;
+	top: 0;
+	z-index: 999;
+}
+
+#header {
+	height: 10%;
+	min-height: 88px; /* 50 + 3*2 + 32 */
+	position: relative;
+	box-sizing: border-box;
+	border-bottom: 32px solid transparent;
+}
+
+#header > div.hide-avatars {
+	position: absolute;
+	z-index: 2;
+	bottom: -3px;
+	left: 0;
+	width: 5%;
+	background: #fafafa;
+	height: 56px;
+}
+
+#header > section.acc-container {
+	margin: 0 5%;
+	position: absolute;
+	left: 3px;
+	bottom: 0;
+	cursor: pointer;
+	-webkit-transition: left .25s ease-in-out;
+}
+
+#header > section.acc-container.loaded:hover {
+	left: 3px !important;
+}
+
+#header > section.acc-container section.avatars-container {
+	display: inline-block;
+	vertical-align: top;
+}
+
+#header > section.acc-container section.avatars-container img {
+	vertical-align: top;
+	border-radius: 3px;
+	margin-right: 6px;
+	box-shadow: 0 0 3px #888;
+}
+
+#header > section.acc-container span.fio {
+	font-size: 32px;
+	line-height: 50px;
+	text-shadow: 1px 1px 1px rgba(255,255,255, .5);
+}
+
+#header > section.acc-container span.network-status {
+	display: inline-block;
+	margin-left: 12px;
+	height: 24px;
+	font-size: 14px;
+	line-height: 24px;
+	padding: 0 4px;
+	border-radius: 2px;
+}
+
+#header > section.acc-container span.network-status.online {
+	background-color: #DFF0D8;
+	color: #468847;
+}
+
+#header > section.acc-container span.network-status.offline {
+	background-color: #F2DEDE;
+	color: #B94A48;
+}
+
+#header > section.acc-container span.network-status.tokenexpired {
+	background-color: #FCF8E3 !important;
+	color: #C09853 !important;
+}
+
+#header > section.acc-container span.network-status.online:before {
+	content: "__MSG_onlineStatus__";
+}
+
+#header > section.acc-container span.network-status.offline:before {
+	content: "__MSG_offlineStatus__";
+}
+
+#header > section.acc-container span.network-status.tokenexpired:before {
+	content: "__MSG_tokenExpired__" !important;
+}
+
+aside {
+	position: fixed;
+	top: 0;
+	right: 0;
+	padding: 8px;
+	background: #fafafa;
+	border-bottom-left-radius: 3px;
+}
+
+aside > span {
+	line-height: 28px;
+	width: 28px;
+	height: 28px;
+	display: inline-block;
+	vertical-align: top;
+	text-align: center;
+	cursor: pointer;
+	margin-left: 4px;
+	border-radius: 14px;
+	background: #ddd;
+}
+
+aside > span.icon {
+	font-size: 28px;
+	font-family: "Modern Pictograms";
+	color: white;
+}
+
+body.win > aside > span.icon {
+	line-height: 16px !important;
+}
+
+aside > span:hover {
+	color: #333;
+	background: #bbb;
+}
+
+aside > span.icon.github:before { content: "L"; }
+aside > span.icon.like:before { content: "j"; }
+aside > span.icon.alert:before { content: "!"; }
+aside > span.icon.settings:before { content: "7"; }
+
+@-webkit-keyframes "newsblink" {
+	0% {
+		background: #ddd;
+	}
+
+	50% {
+		background: #888;
+	}
+
+	100% {
+		background: #ddd;
+	}
+}
+
+aside > span.news {
+	font-size: 18px;
+	font-weight: bold;
+	-webkit-animation: newsblink 1.2s ease-in infinite;
+}
+
+aside > span.news:hover {
+	-webkit-animation: none;
+}
+
+aside > span.news.is-empty {
+	display: none;
+}
+
+#content {
+	height: 90%;
+	min-height: 460px;
+	position: relative;
+	overflow: hidden;
+	margin: 0 5%;
+}
+
+#content a {
+	color: #2b587a;
+}
+
+#content.offline a[href^="http"] {
+	color: #ccc;
+}
+
+#content.offline input[x-webkit-speech] {
+	display: none !important;
+}
+
+#content > section {
+	/*padding: 1px 0px 16px;*/
+	box-sizing: border-box;
+}
+
+body:not(.grey) #content > section:before {
+	position: fixed;
+	background: -webkit-linear-gradient(top, rgba(250, 250, 250, 1), rgba(250, 250, 250, 0));
+	content: "";
+	width: 100%;
+    height: 4px;
+}
+
+body:not(.grey) #content:after {
+	background: -webkit-linear-gradient(top, rgba(250, 250, 250, 0), rgba(250, 250, 250, 1));
+	position: absolute;
+	content: "";
+	width: 100%;
+	bottom: 0;
+	left: 0;
+    height: 4px;
+}
+
+#content > section.is-empty:not(.loading) {
+	display: none;
+}
+
+#content > section.loading:empty {
+	background: url(../../assets/pic/loading.gif) 50% 60px no-repeat;
+}
+
+#content > header {
+	min-height: 56px;
+	line-height: 56px;
+	position: absolute;
+	height: 10%;
+	overflow: auto;
+	top: 0;
+}
+
+#content > header.is-empty {
+	display: none;
+}
+
+#content > header > span.text {
+	font-size: 24px;
+	line-height: 32px;
+	margin-right: 12px;
+	padding: 0 4px;
+}
+
+#content > header > span.text[view]:hover {
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+	cursor: pointer;
+	border-radius: 2px;
+}
+
+#content > header > span.icon {
+	border-radius: 2px;
+	color: #c2c2c2;
+	cursor: pointer;
+	line-height: 32px;
+	display: inline-block;
+	margin-right: 2px;
+}
+
+#content > header > span.icon:hover {
+	color: #333;
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+}
+
+#content > header > span.icon:before {
+	font-size: 28px;
+	font-family: "Modern Pictograms";
+	padding: 0 4px;
+	line-height: 32px;
+}
+
+#content > header > span.icon.search:before { content: "s"; }
+#content > header > span.icon.write:before { content: "m"; }
+#content > header > span.icon.list:before { content: "Z"; }
+#content > header > span.icon.drop:before { content: "X"; }
+#content > header > span.icon.plus:before { content: "+"; }
+#content > header > span.icon.writevideo:before { content: "h"; }
+#content > header > span.icon.writeaudio:before { content: "Y"; }
+#content > header > span.icon.print:before { content: "d"; }
+#content > header > span.icon.back:before { content: "<"; }
+
+
+#content > header.left {
+	left: 0;
+	right: 70%;
+}
+
+#content > header.right {
+	left: 35%;
+	right: 0;
+}
+
+#content > header.one {
+	left: 0;
+	right: 0;
+}
+
+
+#content > section.left {
+	position: absolute;
+	left: 0;
+	top: 10%;
+	right: 70%;
+	height: 90%;
+	overflow: auto;
+}
+
+#content > section.right {
+	position: absolute;
+	right: 0;
+	top: 10%;
+	left: 35%;
+	height: 90%;
+	overflow: auto;
+}
+
+#content > section.one {
+	position: absolute;
+	top: 10%;
+	height: 90%;
+	width: 100%;
+	overflow: auto;
+}
+
+#content section.more {
+	text-align: center;
+	font-size: 80%;
+	padding: 8px 0;
+	cursor: pointer;
+}
+
+#content section.more.loading {
+	background: url(../../assets/pic/loading.gif) 50% 50% no-repeat;
+}
+
+/* настройки */
+#content > section.settings-container {}
+
+#content > section.settings-container > form {
+	padding: 4px;
+}
+
+#content > section.settings-container > form > section.keyset {
+	margin-bottom: 16px;
+}
+
+#content > section.settings-container > form > section.keyset header {
+	font-size: 20px;
+	color: gray;
+	line-height: 32px;
+}
+
+#content > section.settings-container > form > section.keyset label {
+	display: block;
+}
+
+#content > section.settings-container > form > section.keyset label input {
+	margin-right: 12px;
+}
+
+#content > section.settings-container > form > section.keyset input[type="range"] {
+	vertical-align: middle;
+}
+
+#content > section.settings-container > form > section.keyset output.range-info {
+	color: gray;
+	margin-left: 10px;
+	font-size: 14px;
+}
+
+/* все диалоги */
+#content > section.dialogs-container {}
+
+#content > section.dialogs-container > section:not(.more) {
+	height: 30px;
+	line-height: 30px;
+	font-size: 15px;
+
+	padding: 3px 5px;
+	border: 1px solid #ddd;
+	border-left: none;
+	border-right: none;
+	margin-top: -1px;
+	background: whiteSmoke;
+	cursor: pointer;
+
+	overflow: hidden;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	text-overflow: ellipsis;
+}
+
+#content > section.dialogs-container > section div.prtc {
+	float: left;
+	width: 25%;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	margin-right: 8px;
+}
+
+#content > section.dialogs-container > section div.prtc span.user:not(:last-of-type):after {
+	content: ", ";
+}
+
+#content > section.dialogs-container > section div.prtc div.counter {
+	display: inline-block;
+	margin-left: 3px;
+}
+
+#content > section.dialogs-container > section div.prtc div.counter:before {
+	content: "(";
+}
+
+#content > section.dialogs-container > section div.prtc div.counter:after {
+	content: ")";
+}
+
+#content > section.dialogs-container > section span.text {
+	margin-left: 6px;
+}
+
+#content > section.dialogs-container > section span.text span.subj {
+	font-weight: bold;
+	margin-right: 12px;
+}
+
+#content > section.dialogs-container > section span.text span.msg {
+	color: #888;
+}
+
+#content > section.dialogs-container > section div.date {
+	line-height: 30px;
+	font-size: 15px;
+	margin-left: 8px;
+	float: right;
+}
+
+/* все контакты */
+#content > section.contacts-container {}
+
+#content > section.contacts-container > section.hidden {
+	display: none;
+}
+
+#content > section.contacts-container > section:not(.more) {
+	margin: 8px 0;
+	-webkit-user-select: none;
+	cursor: pointer;
+}
+
+#content > section.contacts-container > section img {
+	box-shadow: 0 0 3px #888;
+	border-radius: 3px;
+	margin: 0 5px 0 3px;
+	float: left;
+}
+
+#content > section.contacts-container > section img.online {
+	border-bottom: 3px solid #5eb75f;
+}
+
+#content > section.contacts-container > section img.offline {
+	border-bottom: 3px solid #B94A48;
+}
+
+#content > section.contacts-container > section section.open {
+	float: right;
+	-webkit-transition: color .4s ease-in-out;
+}
+
+#content > section.contacts-container > section:not(.more):hover section.open:before {
+	font-size: 24px;
+	font-family: "Modern Pictograms";
+	color: #c2c2c2;
+	padding: 0 4px;
+	line-height: 24px;
+	content: "o";
+}
+
+#content > section.contacts-container > section:not(.more):hover section.open:hover:before {
+	color: #333;
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+}
+
+#content > section.contacts-container > section section.data {
+	min-height: 46px;
+	margin-left: 48px;
+}
+
+#content > section.contacts-container > section section.data section.fio {
+	font-size: 20px;
+	line-height: 24px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+
+#content > section.contacts-container > section section.data section.phone {
+	font-size: 14px;
+	line-height: 16px;
+	color: gray;
+}
+
+/* аккаунты */
+/* TODO почему-то верх срезается */
+#content > section.accounts-list {
+	padding: 8px 0;
+}
+
+#content > section.accounts-list section.result {
+	margin-bottom: 12px;
+	border-radius: 4px;
+	padding: 8px 8px 8px 14px;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+	border-style: solid;
+	border-width: 1px;
+}
+
+#content > section.accounts-list section.result.warn {
+	background-color: #FCF8E3;
+	border-color: #FBEED5;
+	color: #C09853;
+}
+
+#content > section.accounts-list section.result.info {
+	background-color: #DFF0D8;
+	border-color: #D6E9C6;
+	color: #468847;
+}
+
+#content > section.accounts-list section.result span.close {
+	display: inline-block;
+	float: right;
+	font-size: 20px;
+	font-family: "Modern Pictograms";
+	line-height: 24px;
+	padding: 0 4px 4px 16px;
+	color: rgba(0, 0, 0, .25);
+	cursor: pointer;
+}
+
+#content > section.accounts-list section.result span.close:before {
+	content: "X";
+}
+
+#content > section.accounts-list section.result span.close:hover {
+	color: rgba(0, 0, 0, .75);
+}
+
+#content > section.accounts-list section.result button {
+	display: block;
+	margin-top: 8px;
+}
+
+#content > section.accounts-list > section:not(.result) {
+	margin: 8px 0;
+	-webkit-user-select: none;
+	cursor: pointer;
+}
+
+#content > section.accounts-list > section span.icon {
+	float: right;
+	display: inline-block;
+	margin-left: 4px;
+	-webkit-transition: color .4s ease-in-out;
+}
+
+#content > section.accounts-list > section span.icon:before {
+	font-size: 24px;
+	font-family: "Modern Pictograms";
+	color: #c2c2c2;
+	padding: 0 4px;
+	line-height: 24px;
+}
+
+#content > section.accounts-list > section span.icon:not(.active):hover:before {
+	color: #333;
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+}
+
+#content > section.accounts-list > section span.icon.switch.active:before {
+	content: "%";
+	color: #51a351;
+
+}
+
+#content > section.accounts-list > section:hover span.icon.switch:not(.active):before {
+	content: "%";
+}
+
+#content > section.accounts-list > section span.icon.update:before {
+	content: "R";
+}
+
+#content > section.accounts-list > section span.icon.delete:before {
+	content: "X";
+}
+
+#content > section.accounts-list > section img {
+	box-shadow: 0 0 3px #888;
+	border-radius: 3px;
+	margin: 0 5px 0 3px;
+	float: left;
+}
+
+#content > section.accounts-list > section section.data {
+	min-height: 46px;
+	margin-left: 48px;
+}
+
+#content > section.accounts-list > section section.data section.fio {
+	font-size: 20px;
+	line-height: 24px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+
+#content > section.accounts-list > section section.data section.id {
+	font-size: 14px;
+	line-height: 16px;
+	color: gray;
+}
+
+/* новости */
+#content > section.news-container {}
+
+#content > section.news-container > section {
+	margin: 0 4px 24px 4px;
+}
+
+#content > section.news-container > section span {
+	font-size: 18px;
+	line-height: 32px;
+}
+
+#content > section.news-container > section span.date {
+	font-weight: bold;
+	margin-right: 8px;
+}
+
+#content > section.news-container > section img {
+	border-radius: 3px;
+}
+
+#content > section.news-container > section audio {
+	width: 420px;
+	display: block;
+}
+
+#content > section.news-container > section webview.video {
+	width: 520px;
+	height: 395px;
+	display: block;
+	border-radius: 3px;
+	border: none;
+}
+
+#content > section.news-container > section .attachment {
+	display: block;
+	margin-top: 4px;
+}
+
+#content > section.news-container > section .attachment.hidden {
+	display: none;
+}
+
+#content > section.news-container > section .attachment.link a {
+	display: block;
+}
+
+#content > section.news-container > section .attachment span.description {
+	color: gray;
+	font-size: 14px;
+	line-height: 20px;
+}
+
+/* управление перепиской */
+#content > section.manage-mail {}
+
+#content > section.manage-mail > ul {
+	margin: 4px;
+}
+
+#content > section.manage-mail li {
+	display: block;
+}
+
+#content > section.manage-mail li[data-tag] {
+	line-height: 32px;
+	text-indent: 8px;
+	border-top-right-radius: 3px;
+	border-bottom-right-radius: 3px;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	white-space: nowrap;
+	cursor: pointer;
+	border-left: 3px solid transparent;
+}
+
+#content > section.manage-mail li[data-tag]:hover {
+	background: #eee;
+}
+
+#content > section.manage-mail li.active[data-tag] {
+	border-color: #3f658f;
+}
+
+#content > section.manage-mail li[data-tag] span.total {
+	margin-left: 4px;
+}
+
+#content > section.manage-mail li[data-tag] span.total:before { content: "("; }
+#content > section.manage-mail li[data-tag] span.total:after { content: ")"; }
+
+#content > section.manage-mail li[data-tag].custom:before {
+	font-size: 22px;
+	font-family: "Modern Pictograms";
+	padding-right: 8px;
+	line-height: 36px;
+	color: #bbb;
+}
+
+#content > section.manage-mail li[data-tag].custom:before { content: "J"; }
+#content > section.manage-mail li[data-tag].custom.attachments:before { content: "D"; }
+#content > section.manage-mail li[data-tag].custom.important:before { content: "*"; }
+#content > section.manage-mail li[data-tag].custom.trash:before { content: "I"; }
+
+/* сообщение об ошибке */
+#content > section.error-container {}
+
+#content > section.error-container section.result {
+	margin-bottom: 12px;
+	border-radius: 4px;
+	padding: 8px 8px 8px 14px;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+	border-width: 1px;
+	border-style: solid;
+}
+
+#content > section.error-container section.result.error {
+	background-color: #F2DEDE;
+	border-color: #EED3D7;
+	color: #B94A48;
+}
+
+#content > section.error-container section.result.warn {
+	background-color: #FCF8E3;
+	border-color: #FBEED5;
+	color: #C09853;
+}
+
+#content > section.error-container section.result.info {
+	background-color: #DFF0D8;
+	border-color: #D6E9C6;
+	color: #468847;
+}
+
+#content > section.error-container section.result span.close {
+	display: inline-block;
+	float: right;
+	font-size: 20px;
+	font-family: "Modern Pictograms";
+	line-height: 24px;
+	padding: 0 4px;
+	color: rgba(0, 0, 0, .25);
+	cursor: pointer;
+}
+
+#content > section.error-container section.result span.close:before {
+	content: "X";
+}
+
+#content > section.error-container section.result span.close:hover {
+	color: rgba(0, 0, 0, .75);
+}
+
+#content > section.error-container > form {
+	margin: 4px;
+}
+
+#content > section.error-container > form section.description {
+	color: gray;
+	font-size: 14px;
+}
+
+#content > section.error-container > form textarea {
+	width: 100%;
+	padding: 4px;
+	box-sizing: border-box;
+	display: block;
+	height: 100px;
+	margin-bottom: 12px;
+}
+
+#content > section.error-container > form button {
+	margin: 0;
+}
+
+#content > section.error-container > form progress {
+	margin-left: 12px;
+}
+
+#content > section.error-container > form progress:not([max]) {
+	display: none;
+}
+
+#content > section.error-container > form section.captcha:not(:empty) {
+	margin-bottom: 12px;
+}
+
+#content > section.error-container > form section.captcha img, #content > section.error-container > form section.captcha input {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+#content > section.error-container > form section.captcha img {
+	border-radius: 3px;
+}
+
+#content > section.error-container > form section.captcha input {
+	height: 50px;
+	width: 200px;
+	margin-left: 8px;
+	padding: 0 8px;
+	font-size: 20px;
+	box-sizing: border-box;
+	border: 1px solid #ddd;
+}
+
+/* данные о контакте */
+#content > section.contact-data {
+	padding: 8px 4px;
+}
+
+#content > section.contact-data img {
+	float: right;
+	border-radius: 3px;
+	box-shadow: 0 0 3px #888;
+	margin-right: 3px;
+}
+
+#content > section.contact-data img.online {
+	border-bottom: 3px solid #5eb75f;
+}
+
+#content > section.contact-data img.offline {
+	border-bottom: 3px solid #B94A48;
+}
+
+/* чат */
+#content > section.chat-container {}
+
+#content > section.chat-container > section.user-speech {
+	clear: both;
+	padding: 8px;
+}
+
+#content > section.chat-container > section.user-speech > img {
+	border-radius: 2px;
+	box-shadow: 0 0 2px #888;
+	float: left;
+}
+
+#content > section.chat-container > section.user-speech section.msg {
+	margin: 0 4px 4px 40px;
+	padding: 0 4px;
+	clear: right;
+	-webkit-user-select: text;
+}
+
+#content > section.chat-container > section.user-speech section.msg.new {
+	background: #eee;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.date {
+	float: right;
+	margin: 0 0 4px 8px;
+	-webkit-user-select: none;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.date a {
+	color: #888;
+	font-size: 90%;
+	text-decoration: none;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.date a:hover {
+	text-decoration: underline;
+}
+
+/* важные надо сруз показывать */
+#content > section.chat-container > section.user-speech section.msg section.date span.important {
+	display: inline-block;
+	vertical-align: top;
+	margin-left: 12px;
+	font-size: 24px;
+	font-family: "Modern Pictograms";
+	line-height: 24px;
+	color: #d8d8d8;
+	cursor: pointer;
+}
+
+#content > section.chat-container > section.user-speech section.msg img.emoji {
+	vertical-align: middle;
+}
+
+body.win #content > section.chat-container > section.user-speech section.msg section.date span.important {
+	line-height: 16px !important;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.date span.important.active {
+	color: #dbac60;
+	text-shadow: 0 0 2px #c09853;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.date span.important:before {
+	content: "*";
+}
+
+#content > section.chat-container > section.user-speech section.msg section.date span.important:not(.active) {
+	-webkit-transition: color .05s linear;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.date span.important:not(.active):hover {
+	color: #aaa;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden {
+	display: inline-block;
+	vertical-align: top;
+	text-align: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 3px;
+	margin: 8px 4px;
+
+	font-size: 28px;
+	font-family: "Modern Pictograms";
+	line-height: 36px;
+	cursor: pointer;
+
+	color: #333;
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+	box-shadow: 0 0 3px #888;
+}
+
+body.win #content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden {
+	line-height: 28px !important;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden:hover {
+	background: none;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden.loading {
+	background: url(../../assets/pic/loading.gif) 50% 50% no-repeat !important;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment:not(.hidden) {
+	display: block;
+	margin-top: 4px;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden * {
+	display: none !important;
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden.photo:not(.loading):before {
+	content: "A";
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden.audio:not(.loading):before {
+	content: "Y";
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden.video:not(.loading):before {
+	content: "h";
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden.doc:not(.loading):before {
+	content: "K";
+}
+
+#content > section.chat-container > section.user-speech section.msg section.attach > section.attachment.hidden.geopoint:not(.loading):before {
+	content: "w";
+}
+
+
+/* тред-диалог */
+#content > section.thread-container {}
+
+#content > section.thread-container > section {
+	border: 1px solid #ddd;
+	border-left: none;
+	border-right: none;
+	margin-top: -1px;
+}
+
+#content > section.thread-container > section.half, #content > section.thread-container > section.open {
+	padding: 8px;
+}
+
+#content > section.thread-container > section.half, #content > section.thread-container > section.thread-fold {
+	background: whiteSmoke;
+	cursor: pointer;
+}
+
+#content > section.thread-container > section.half {
+	background: whiteSmoke;
+}
+
+#content > section.thread-container > section.half.new {
+	background: #eee;
+}
+
+#content > section.thread-container > section.open, #content > section.thread-container > section.half-loading {
+	background: white;
+}
+
+#content > section.thread-container > section.thread-fold {
+	height: 7px;
+}
+
+#fold {
+	position: absolute;
+	height: 23px;
+	width: 100%;
+	line-height: 23px;
+	text-align: center;
+	cursor: pointer;
+	-webkit-user-select: none;
+}
+
+#fold span {
+	background: whiteSmoke;
+	color: #888;
+	padding: 0 8px;
+	font-size: 90%;
+}
+
+#content > section.thread-container > section img[data-uid] {
+	border-radius: 2px;
+	box-shadow: 0 0 2px #888;
+	float: left;
+}
+
+#content > section.thread-container > section section.data {
+	margin-left: 44px;
+	min-height: 44px;
+}
+
+#content > section.thread-container > section.half section.data section.date {
+	float: right;
+}
+
+#content > section.thread-container > section section.data section.from {
+	font-weight: bold;
+}
+
+#content > section.thread-container > section.half section.data section.text {
+	color: #888;
+	height: 20px;
+	line-height: 20px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+#content > section.thread-container > section.open section.manage {
+	float: right;
+	-webkit-user-select: none;
+}
+
+#content > section.thread-container > section.open section.manage span {
+	font-size: 24px;
+	font-family: "Modern Pictograms";
+	line-height: 28px;
+	padding: 0 4px;
+	border-radius: 2px;
+	color: #c2c2c2;
+	cursor: pointer;
+	display: inline-block;
+	margin-left: 2px;
+}
+
+#content > section.thread-container > section.open section.manage span:hover {
+	color: #333;
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+}
+
+#content > section.thread-container > section.open section.manage span.print:before { content: "d"; }
+#content > section.thread-container > section.open section.manage span.reply:before { content: "R"; }
+#content > section.thread-container > section.open section.manage span.restore:before { content: "%"; }
+#content > section.thread-container > section.open section.manage span.delete:before { content: "X"; }
+
+
+#content > section.thread-container > section.open section.data section.from {
+	display: inline-block;
+	float: none;
+}
+
+#content > section.thread-container > section.open section.data section.date {
+	display: inline-block;
+	margin-left: 8px;
+	color: #888;
+}
+
+#content > section.thread-container > section.open section.data span.important {
+	display: inline-block;
+	margin-left: 12px;
+	font-size: 24px;
+	font-family: "Modern Pictograms";
+	line-height: 24px;
+	color: #d8d8d8;
+	cursor: pointer;
+}
+
+#content > section.thread-container > section.open section.data span.important.active {
+	color: #dbac60;
+	text-shadow: 0 0 2px #c09853;
+}
+
+#content > section.thread-container > section.open section.data span.important:before {
+	content: "*";
+}
+
+#content > section.thread-container > section.open section.data span.important:not(.active) {
+	-webkit-transition: color .05s linear;
+}
+
+#content > section.thread-container > section.open section.data span.important:not(.active):hover {
+	color: #aaa;
+}
+
+#content > section.thread-container > section.open section.data section.text {
+	font-size: 22px;
+	line-height: 32px;
+	margin-top: 12px;
+	word-wrap: break-word;
+	-webkit-user-select: text;
+}
+
+#content > section.thread-container > section.open section.data textarea.fake {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 2px;
+	margin-top: 16px;
+	height: 48px;
+}
+
+#content > section.thread-container > section.open section.data .attachment {
+	display: block;
+	margin-top: 4px;
+}
+
+#content > section.thread-container > section.open section.data .attachment img {
+	border-radius: 3px;
+}
+
+
+section.attachment audio {
+	width: 420px;
+	display: block;
+}
+
+section.attachment webview.video {
+	width: 520px;
+	height: 390px;
+	display: block;
+	border-radius: 3px;
+	border: none;
+}
+
+section.attachment.link a {
+	display: block;
+}
+
+section.attachment span.description {
+	color: gray;
+	font-size: 14px;
+	line-height: 20px;
+}
+
+/* поиск контакта */
+#content > section.search-contacts-container {}
+
+#content > section.search-contacts-container.loading {
+	background: url(../../assets/pic/loading.gif) 50% 100px no-repeat;
+}
+
+#content > section.search-contacts-container form {
+	margin: 4px 4px 12px;
+}
+
+#content > section.search-contacts-container form input[type="search"] {
+	-webkit-appearance: textfield;
+	width: 100%;
+	padding: 2px;
+	box-sizing: border-box;
+}
+
+/* поиск письма в общей переписке */
+#content > section.search-mail-container {}
+
+#content > section.search-mail-container.loading {
+	background: url(../../assets/pic/loading.gif) 50% 100px no-repeat;
+}
+
+#content > section.search-mail-container form {
+	margin: 4px 4px 12px;
+}
+
+#content > section.search-mail-container form input[type="search"] {
+	-webkit-appearance: textfield;
+	width: 100%;
+	padding: 2px;
+	box-sizing: border-box;
+}
+
+/* форма простого ответа */
+#content > section.right > form.reply {
+	padding: 8px;
+	background: whiteSmoke;
+}
+
+#content > section.right > form.reply section.result {
+	margin-bottom: 8px;
+	border-radius: 4px;
+	padding: 8px 8px 8px 14px;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+	border-width: 1px;
+	border-style: solid;
+}
+
+#content > section.right > form.reply section.result.error {
+	background-color: #F2DEDE;
+	border-color: #EED3D7;
+	color: #B94A48;
+}
+
+#content > section.right > form.reply section.result.warn {
+	background-color: #FCF8E3;
+	border-color: #FBEED5;
+	color: #C09853;
+}
+
+#content > section.right > form.reply section.result.info {
+	background-color: #DFF0D8;
+	border-color: #D6E9C6;
+	color: #468847;
+}
+
+#content > section.right > form.reply section.result span.close {
+	display: inline-block;
+	float: right;
+	font-size: 20px;
+	font-family: "Modern Pictograms";
+	line-height: 24px;
+	padding: 0 4px;
+	color: rgba(0, 0, 0, .25);
+	cursor: pointer;
+}
+
+#content > section.right > form.reply section.result span.close:before {
+	content: "X";
+}
+
+#content > section.right > form.reply section.result span.close:hover {
+	color: rgba(0, 0, 0, .75);
+}
+
+#content > section.right > form.reply input[name="subject"] {
+	padding: 2px;
+	display: block;
+	margin-bottom: 8px;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+#content > section.right > form.reply > ul {
+	display: block;
+}
+
+#content > section.right > form.reply > ul li {
+	display: inline-block;
+	vertical-align: bottom;
+	background: white;
+	border: 1px solid #ddd;
+	border-bottom: none;
+	padding: 2px 8px;
+	cursor: pointer;
+	margin-right: -1px;
+	background: whiteSmoke;
+	font-size: 22px;
+	line-height: 22px;
+	color: #666;
+}
+
+#content > section.right > form.reply > ul li.inactive {
+	color: #ccc;
+}
+
+#content > section.right > form.reply > ul li.active {
+	line-height: 26px;
+	background: white;
+	color: #333;
+	position: relative;
+	top: 1px;
+	z-index: 2;
+}
+
+#content > section.right > form.reply > ul li span {
+	display: inline-block;
+}
+
+#content > section.right > form.reply > ul li span:before {
+	font-family: "Modern Pictograms";
+}
+
+#content > section.right > form.reply > ul li span:not(:empty):before {
+	margin-right: 6px;
+}
+
+#content > section.right > form.reply > ul li.text span:before { content: "e"; }
+#content > section.right > form.reply > ul li.video span:before { content: "h"; }
+#content > section.right > form.reply > ul li.audio span:before { content: "Y"; }
+#content > section.right > form.reply > ul li.attachments span:before { content: "D"; }
+
+#content > section.right > form.reply section.manage {
+	border: 1px solid #ddd;
+	box-sizing: border-box;
+	padding: 4px;
+	min-height: 60px;
+	background: white;
+	position: relative;
+}
+
+#content > section.right > form.reply section.manage.hidden {
+	display: none;
+}
+
+#content > section.right > form.reply section.manage.text textarea {
+	width: 100%;
+	height: 200px;
+	display: block;
+	background: white;
+	border: none;
+}
+
+#content > section.right > form.reply section.manage.waiting {
+	font-size: 14px;
+	line-height: 20px;
+}
+
+#content > section.right > form.reply section.manage.waiting ul {
+	margin: 6px 0 6px 20px;
+}
+
+#content > section.right.chat-container > form.reply section.manage.text textarea {
+	height: 80px;
+}
+
+#content > section.right > form.reply section.manage.text input[x-webkit-speech] {
+	width: 100%;
+	display: block;
+	box-sizing: border-box;
+	background: white;
+	border: none;
+}
+
+#content > section.right > form.reply section.manage.attachments:not(.drag-over) {
+	line-height: normal !important;
+}
+
+#content > section.right > form.reply section.manage.attachments.drag-over {
+	line-height: 60px;
+}
+
+#content > section.right > form.reply section.manage.attachments.drag-over:before {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	box-shadow: inset 0 0 12px rgba(128, 128, 128, .6);
+	content: "__MSG_dropFilesHere__";
+	background: white;
+	text-align: center;
+	line-height: inherit;
+	font-size: 24px;
+	color: gray;
+}
+
+#content > section.right > form.reply section.manage.attachments section.file {
+	margin-bottom: 4px;
+}
+
+#content > section.right > form.reply section.manage.attachments section.file section {
+	color: #888;
+	font-size: 13px;
+	line-height: 18px;
+}
+
+#content > section.right > form.reply section.manage.attachments section.file section.error {
+	border-radius: 4px;
+	padding: 4px 4px 4px 10px;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+	border: 1px solid #eed3d7;
+	background-color: #f2dede;
+	color: #b94a48;
+}
+
+#content > section.right > form.reply section.manage.attachments section.file section.error span.close {
+	display: inline-block;
+	float: right;
+	font-size: 20px;
+	font-family: "Modern Pictograms";
+	line-height: 24px;
+	padding: 0 4px;
+	color: rgba(0, 0, 0, .25);
+	cursor: pointer;
+}
+
+#content > section.right > form.reply section.manage.attachments section.file section.error span.close:before {
+	content: "X";
+}
+
+#content > section.right > form.reply section.manage.attachments section.file section.error span.close:hover {
+	color: rgba(0, 0, 0, .75);
+}
+
+#content > section.right > form.reply section.manage.attachments section.file progress {
+	width: 30%;
+	display: block;
+}
+
+#content > section.right > form.reply section.manage.attachments section.file span.remove {
+	font-size: 24px;
+	font-family: "Modern Pictograms";
+	line-height: 28px;
+	padding: 0 4px;
+	border-radius: 2px;
+	color: #c2c2c2;
+	cursor: pointer;
+	display: inline-block;
+	margin-left: 8px;
+}
+
+#content > section.right > form.reply section.manage.attachments section.file span.remove:hover {
+	color: #333;
+	background: -webkit-linear-gradient(top, #fafafa, #ddd);
+}
+
+#content > section.right > form.reply section.manage.attachments section.file span.remove:before {
+	content: "X";
+}
+
+#content > section.right > form.reply section.captcha:not(:empty) {
+	margin: 6px 0 0;
+}
+
+#content > section.right > form.reply section.captcha img, #content > section.right > form.reply section.captcha input {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+#content > section.right > form.reply section.captcha img {
+	border-radius: 3px;
+}
+
+#content > section.right > form.reply section.captcha input {
+	height: 50px;
+	width: 200px;
+	margin-left: 8px;
+	padding: 0 8px;
+	font-size: 20px;
+	box-sizing: border-box;
+	border: 1px solid #ddd;
+}
+
+#content > section.right > form.reply section.captcha input.empty {
+	background-color: #f2dede;
+	border-color: #eed3d7;
+}
+
+#content > section.right > form.reply section.captcha input.empty::-webkit-input-placeholder {
+	color: rgba(185, 74, 72, .2);
+}
+
+#content > section.right > form.reply button {
+	margin: 4px 8px 0 0;
+}
+
+/* гости, синхронизация, миграция, ... */
+body.grey {
+	background: url(../../assets/pic/guest-bg.jpg);
+}
+
+body.grey p.description {
+	font-size: 24px;
+	line-height: 32px;
+	text-shadow: 0 2px 0 rgba(255, 255, 255, 0.5);
+	width: 900px;
+	margin: 0 auto;
+	text-align: center;
+}
+
+body.grey p.description a {
+	color: #448646;
+	-webkit-transition: color .1s linear;
+}
+
+body.grey p.description a:hover {
+	color: #51a351;
+}
+
+body.grey section.buttons {
+	clear: both;
+	text-align: center;
+	margin: 24px auto 36px;
+	width: 900px;
+}
+
+body.grey section.buttons.in-tour {
+	margin-top: 48px;
+}
+
+body.grey section.buttons button {
+	border-color: rgba(0, 0, 0, 0.1);
+	border-radius: 2px;
+	box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.125), inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05), 0 0 8px rgba(0, 0, 0, .15);
+	vertical-align: middle;
+	cursor: pointer;
+	margin: 0 8px;
+}
+
+body.grey section.buttons button.green {
+	background-image: -webkit-linear-gradient(top, #62c462, #51a351);
+	color: white;
+	text-shadow: 0 -1px 0 rgba(0, 0, 0, .25);
+}
+
+body.grey section.buttons button.green:hover {
+	background: #51a351;
+}
+
+body.grey section.buttons button.white {
+	background-image: -webkit-linear-gradient(top, white, #e6e6e6);
+	color: #333;
+	text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75);
+}
+
+body.grey section.buttons button.white:hover {
+	background: #e6e6e6;
+}
+
+body.grey section.buttons p {
+	margin-top: 16px;
+	font-size: 16px;
+	line-height: 22px;
+	color: #555;
+}
+
+body.grey img {
+	-webkit-box-reflect: below 12px -webkit-linear-gradient(top, rgba(0, 0, 0, 0), rgba(0, 0, 0, .5));
+	opacity: .8;
+	box-shadow: 0 0 16px rgba(0, 0, 0, .5);
+	margin: 24px auto;
+	border-radius: 16px;
+	text-align: center;
+	display: block;
+}
+
+body.grey img.loading {
+	background: url(../../assets/pic/loading2.gif) 50% 50% no-repeat;
+}
+
+body.grey h1 {
+	margin: 0 auto;
+	width: 900px;
+	font-size: 32px;
+	line-height: 50px;
+	margin-bottom: 32px;
+	text-shadow: 0 2px 0 rgba(255, 255, 255, 0.5);
+	font-weight: bold;
+}
+
+body.grey h1:not(:first-of-type) {
+	margin-top: 48px;
+}
+
+body.grey h1 img {
+	vertical-align: top;
+	display: inline-block;
+	border-radius: 3px;
+	margin: 0 6px 0 0;
+	box-shadow: 0 0 3px #888;
+	opacity: 1;
+	-webkit-box-reflect: none;
+}
+
+body.grey section.data {
+	margin: 0 auto;
+	width: 900px;
+}
+
+body.grey section.data img, body.grey section.data webview {
+	float: right;
+	margin: 0 0 24px 36px;
+	-webkit-box-reflect: none;
+	box-shadow: 0 0 16px rgba(0, 0, 0, .5);
+	background: url(../../assets/pic/loading.gif) 50% 50% no-repeat;
+}
+
+body.grey section.data p {
+	font-size: 22px;
+	line-height: 32px;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+	margin-bottom: 16px;
+}
+
+body.grey section.data p.small {
+	font-size: 16px;
+	line-height: 22px;
+	color: #555;
+}
+
+body.grey section.data p.small ul {
+	margin: 12px 0 0 24px;
+}
+
+body.grey section.data p a {
+	color: inherit;
+}
+
+
+body.grey section.syncing {
+	width: 900px;
+	margin: 28px auto;
+}
+
+body.grey section.syncing:last-of-type {
+	margin-bottom: 48px;
+}
+
+body.grey section.syncing section.synctype {
+	margin: 28px 0;
+}
+
+body.grey section.syncing section.synctype p {
+	line-height: 20px;
+	text-indent: 2px;
+}
+
+body.grey section.syncing section.synctype progress {
+	width: 900px;
+}
+
+
+section.pre {
+	font-family: monospace;
+	padding: 12px;
+	background-color: #eaeaea;
+	margin-top: 8px;
+}
+
+.skip-sync {
+	background: #ddd;
+    border: 1px solid #aaa;
+    box-shadow: 0 0 4px #aaa;
+	float: right;
+    margin: 10px 0;
+    opacity: .4;
+    transition: opacity .1s ease;
+    will-change: opacity;
+}
+
+.skip-sync:hover {
+	opacity: 1;
+}
+
+
+#info div {
+	border-radius: 4px;
+	padding: 8px 8px 8px 14px;
+	text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+	margin: 0 12px 12px;
+	-webkit-user-select: none;
+	border-width: 1px;
+	border-style: solid;
+}
+
+#info div.error {
+	background-color: #F2DEDE;
+	border-color: #EED3D7;
+	color: #B94A48;
+}
+
+#info div.warn {
+	background-color: #FCF8E3;
+	border-color: #FBEED5;
+	color: #C09853;
+}
+
+#info div.info {
+	background-color: #DFF0D8;
+	border-color: #D6E9C6;
+	color: #468847;
+}
+
+.listenapp-open:not(.active), .listenapp-install:not(.active) {
+	display: none;
+}
+
+/* http://twitter.github.com/bootstrap/components.html#alerts */
+/* https://github.com/FortAwesome/Font-Awesome */
+/* http://glyphicons.com/ */

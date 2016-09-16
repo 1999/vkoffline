@@ -18,14 +18,22 @@ i18nData.set('uk', i18nDataUK);
 const EXISTING_LOCALES = ['ru', 'en', 'uk'];
 const DEFAULT_LOCALE = 'ru';
 
+const getLocaleForMessage = () => {
+    const simpleLocale = appLocale.split('-')[0].toLowerCase();
+    return EXISTING_LOCALES.includes(simpleLocale) ? simpleLocale : DEFAULT_LOCALE;
+};
+
 const getMessage = (...args) => {
     assert(args.length === 1, `Unexpected chrome.i18n.getMessage() arguments number: ${args.length}`);
 
     const key = args[0];
-    const simpleLocale = appLocale.split('-')[0].toLowerCase();
-    const useLocale = EXISTING_LOCALES.includes(simpleLocale) ? simpleLocale : DEFAULT_LOCALE;
-    const i18nForLocale = i18nData.get(useLocale);
+    const useLocale = getLocaleForMessage();
 
+    if (key === '@@ui_locale') {
+        return useLocale;
+    }
+
+    const i18nForLocale = i18nData.get(useLocale);
     return i18nForLocale.key
         ? i18nData[key].message
         : null;
@@ -33,4 +41,4 @@ const getMessage = (...args) => {
 
 export default {
     getMessage
-}
+};

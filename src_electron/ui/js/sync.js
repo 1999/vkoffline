@@ -1,16 +1,20 @@
 'use strict';
 
 import {v4 as uuid} from 'uuid';
+
 import {appName, appVersion} from './remote';
 import chrome from './chrome';
-import errorhandler from './errorhandler';
-import StorageManager from './storage';
-import DatabaseManager from './db';
-import MigrationManager from './migrations';
-import SettingsManager from './settings';
-import LogManager from './logs';
-import AccountsManager from './accounts';
+import config from '../../lib/config';
 import CPA from './cpa';
+import errorhandler from './errorhandler';
+
+import AccountsManager from './accounts';
+import DatabaseManager from './db';
+import LogManager from './logs';
+import MigrationManager from './migrations';
+import ReqManager from './requests';
+import SettingsManager from './settings';
+import StorageManager from './storage';
 
 // enable error processing
 errorhandler(global.__filename);
@@ -144,7 +148,7 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
         case "fetchnews":
             ReqManager.apiMethod("wall.get", {
                 access_token: null, // объявления получать обязательно, поэтому ходим без токенов
-                owner_id: (0 - App.VK_ADV_GROUP[0]),
+                owner_id: (0 - config.VK_ADV_GROUP[0]),
                 count: 5,
                 filter: "owner"
             }, function (data) {
@@ -152,7 +156,7 @@ chrome.alarms.onAlarm.addListener(function (alarmInfo) {
                 var postsToStore = [];
 
                 data.response.slice(1).forEach(function (post) {
-                    if (seenPosts.indexOf(post.id) !== -1 || App.VK_ADV_GROUP[1] >= post.id)
+                    if (seenPosts.indexOf(post.id) !== -1 || config.VK_ADV_GROUP[1] >= post.id)
                         return;
 
                     postsToStore.push(post);
@@ -612,7 +616,7 @@ function openAppWindow(evt, tokenExpired) {
         friendsSync.running = true;
 
         var friendsSyncTimes = StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true});
-        var milliSecondsTimeout = App.FRIENDS_UPDATE_TIMEOUT * 1000;
+        var milliSecondsTimeout = config.FRIENDS_UPDATE_TIMEOUT * 1000;
         var nextRequestTimeout;
 
         // проверяем, чтобы запросы на синхронизацию шли только от текущего активного пользователя
@@ -1052,7 +1056,7 @@ function openAppWindow(evt, tokenExpired) {
     };
 
     chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-        var sendAsyncResponse = false;
+        console.log(request);
 
         switch (request.action) {
             case 'getInitialSettings':
@@ -1162,8 +1166,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getAccountsList":
-                sendAsyncResponse = true;
-
                 var accounts = {};
                 var promises = [];
 
@@ -1243,7 +1245,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "uiDraw" :
-                sendAsyncResponse = true;
                 sendResponse(true);
 
                 var uiType;
@@ -1314,7 +1315,6 @@ function openAppWindow(evt, tokenExpired) {
                     timeoutId,
                     onContactsListReady;
 
-                sendAsyncResponse = true;
                 onContactsListReady = function(contactsList) {
                     if (contactsList.length === 0) {
                         return;
@@ -1378,7 +1378,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "fetchConversations" :
-                sendAsyncResponse = true;
                 DatabaseManager.getConversations(request.totalShown, sendResponse, function (errMsg) {
                     sendResponse([[], 0]);
                     LogManager.error(errMsg);
@@ -1387,8 +1386,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getDialogThread" :
-                sendAsyncResponse = true;
-
                 DatabaseManager.getDialogThread(request.id, {
                     from: (request.from !== undefined) ? request.from : 0,
                     everything: Boolean(request.print)
@@ -1400,7 +1397,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getMessageInfo" :
-                sendAsyncResponse = true;
                 DatabaseManager.getMessageById(Number(request.mid), sendResponse, function (isDatabaseError, errMsg) {
                     sendResponse(undefined);
 
@@ -1413,7 +1409,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getConversationThreadsWithContact" :
-                sendAsyncResponse = true;
                 DatabaseManager.getConversationThreadsWithContact(request.uid, sendResponse, function (errMsg) {
                     sendResponse([]);
                     LogManager.error(errMsg);
@@ -1422,7 +1417,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getContactData" :
-                sendAsyncResponse = true;
                 DatabaseManager.getContactById(AccountsManager.currentUserId, request.uid, sendResponse, function (err) {
                     sendResponse(null);
                 });
@@ -1445,7 +1439,6 @@ function openAppWindow(evt, tokenExpired) {
 
             case "sendMessage" :
                 var msgParams = {};
-                sendAsyncResponse = true;
 
                 if (request.body !== undefined) {
                     msgParams.message = request.body;
@@ -1523,7 +1516,6 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendRequest();
-                sendAsyncResponse = true;
                 break;
 
             case "getDocsUploadServer" :
@@ -1544,7 +1536,6 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendRequest();
-                sendAsyncResponse = true;
                 break;
 
             case "saveMessagesPhoto" :
@@ -1569,7 +1560,6 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendRequest(request);
-                sendAsyncResponse = true;
                 break;
 
             case "saveMessagesDoc" :
@@ -1592,12 +1582,10 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendRequest(request);
-                sendAsyncResponse = true;
                 break;
 
             case "addLike" :
                 CPA.sendEvent("App-Actions", "Like and repost");
-                sendAsyncResponse = true;
 
                 var sendLikeRequest = function() {
                     ReqManager.apiMethod("wall.addLike", {
@@ -1652,8 +1640,6 @@ function openAppWindow(evt, tokenExpired) {
                 // vk bug: метод docs.getById возвращает response: []
                 // http://vkontakte.ru/topic-1_21972169?post=36014
                 var sendRequest;
-
-                sendAsyncResponse = true;
 
                 if (request.mid !== undefined) {
                     sendRequest = function(requestData) {
@@ -1721,8 +1707,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getGeopointById" :
-                sendAsyncResponse = true;
-
                 var sendRequest = function(msgId) {
                     ReqManager.apiMethod("messages.getById", {"mid" : msgId}, function(data) {
                         if ((data.response instanceof Array) === false || data.response.length !== 2 || data.response[1].geo === undefined) {
@@ -1777,7 +1761,6 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendRequest(request);
-                sendAsyncResponse = true;
                 break;
 
             case "getVideoById" :
@@ -1805,7 +1788,6 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendRequest(request);
-                sendAsyncResponse = true;
                 break;
 
             case "getPhotoById" :
@@ -1874,7 +1856,6 @@ function openAppWindow(evt, tokenExpired) {
                 }
 
                 sendRequest(request);
-                sendAsyncResponse = true;
                 break;
 
             case "markMessageTag" :
@@ -1889,7 +1870,6 @@ function openAppWindow(evt, tokenExpired) {
                     sendResponse(false);
                 });
 
-                sendAsyncResponse = true;
                 break;
 
             case "migrateIntrested":
@@ -1908,7 +1888,6 @@ function openAppWindow(evt, tokenExpired) {
                     sendResponse(false);
                 });
 
-                sendAsyncResponse = true;
                 break;
 
             case "serverDeleteMessage" :
@@ -1931,7 +1910,6 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendDropMessageRequest(request.mid);
-                sendAsyncResponse = true;
                 break;
 
             case "serverRestoreMessage" :
@@ -1955,7 +1933,6 @@ function openAppWindow(evt, tokenExpired) {
                 };
 
                 sendRestoreMessageRequest(request.mid);
-                sendAsyncResponse = true;
                 break;
 
             case "deleteMessageForever" :
@@ -1963,8 +1940,6 @@ function openAppWindow(evt, tokenExpired) {
                     sendDropMessageRequest,
                     actionsToGo = (request.serverToo) ? 2 : 1,
                     actionsMade = 0;
-
-                sendAsyncResponse = true;
 
                 onDrop = function() {
                     actionsMade += 1;
@@ -2031,7 +2006,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getTagsFrequency" :
-                sendAsyncResponse = true;
                 DatabaseManager.getTagsCount(sendResponse, function (errMsg) {
                     LogManager.error(errMsg);
                     CPA.sendEvent("Custom-Errors", "Database error", errMsg);
@@ -2042,7 +2016,6 @@ function openAppWindow(evt, tokenExpired) {
                 break;
 
             case "getMessagesByTagName" :
-                sendAsyncResponse = true;
                 DatabaseManager.getMessagesByType(request.tag, request.totalShown || 0, sendResponse, function(errMsg) {
                     LogManager.error(errMsg);
                     CPA.sendEvent("Custom-Errors", "Database error", errMsg);
@@ -2075,12 +2048,9 @@ function openAppWindow(evt, tokenExpired) {
                     sendResponse([[], 0, request.value]);
                 });
 
-                sendAsyncResponse = true;
                 break;
 
             case "searchMail" :
-                sendAsyncResponse = true;
-
                 DatabaseManager.searchMail(request.params, request.value, request.totalShown, function (correspondence, total) {
                     sendResponse([correspondence, total, request.value]);
                 }, function(errMsg) {
@@ -2099,7 +2069,6 @@ function openAppWindow(evt, tokenExpired) {
 
             case "currentSyncValues" :
                 var output = syncingData[AccountsManager.currentUserId];
-                sendAsyncResponse = true;
 
                 DatabaseManager.getContactById(AccountsManager.currentUserId, AccountsManager.currentUserId, function (userData) {
                     sendResponse({
@@ -2182,10 +2151,6 @@ function openAppWindow(evt, tokenExpired) {
             case "DNDhappened" :
                 CPA.sendEvent("App-Actions", "DND", request.num);
                 break;
-        }
-
-        if (sendAsyncResponse) {
-            return true;
         }
     });
 

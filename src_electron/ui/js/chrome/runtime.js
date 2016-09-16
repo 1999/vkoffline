@@ -41,7 +41,9 @@ const init = async (_isUiWindow) => {
     isUiWindow = _isUiWindow;
     const channelListenTo = _isUiWindow ? syncToUiChannel : uiToSyncChannel;
 
+    console.log(channelListenTo);
     channelListenTo.onmessage = ({data}) => {
+        console.log(data)
         // first check whether this is a response to send message
         if (waitingCallbacks.has(data.id)) {
             const responseCallback = waitingCallbacks.get(data.id);

@@ -15,9 +15,8 @@ chrome.runtime.init(true);
 
 document.title = appName;
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-    var sendAsyncResponse = false;
-
+chrome.runtime.onMessage.addListener(request => {
+    console.log(request);
     switch (request.action) {
         case "tokenExpired":
             var networkStatusElem = $(".network-status.online");
@@ -380,10 +379,6 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
             break;
     }
-
-    if (sendAsyncResponse) {
-        return true;
-    }
 });
 
 // при загрузке страницы спрашиваем бэкенд, что нужно отрисовывать
@@ -396,11 +391,7 @@ chrome.runtime.sendMessage({"action" : "uiDraw"}, function (backendWindowLoaded)
 
 
 // <script src="bower_components/lodash/dist/lodash.min.js"></script>
-//  <script src="js/app.js"></script>
 //  <script src="js/utils.js"></script>
-
-//  <script src="js/soundManager.js"></script>
-//  <script src="js/storageManager.js"></script>
 
 //  <script src="js/tipsy.js"></script>
 //  <script src="js/dom.js"></script>

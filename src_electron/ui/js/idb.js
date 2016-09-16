@@ -1,9 +1,9 @@
 'use strict';
 
-import sklad from 'sklad';
+import sklad from 'sklad/es2015';
 
 export const openMeta = async () => {
-    return await sklad.open('meta', {
+    return await sklad.open('metadata', {
         version: 1,
         migration: {
             '1': (database) => {

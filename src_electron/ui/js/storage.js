@@ -20,13 +20,14 @@ export default {
         this._data = records;
     },
 
-    set(key, value) {
+    async set(key, value) {
         this._checkIsInitialized();
-
         this._data[key] = value;
 
         // this op should not block others so the function is still sync
-        openMeta().then(conn => conn.upsert(OBJ_STORE_NAME, {key, value}));
+        const conn = await openMeta();
+        await conn.upsert(OBJ_STORE_NAME, {key, value});
+        conn.close();
     },
 
     get(key, params) {
@@ -53,13 +54,15 @@ export default {
         return value;
     },
 
-    remove(key) {
+    async remove(key) {
         this._checkIsInitialized();
 
         delete this._data[key];
 
         // this op should not block others so the function is still sync
-        openMeta().then(conn => conn.delete(OBJ_STORE_NAME, key));
+        const conn = await openMeta();
+        await conn.delete(OBJ_STORE_NAME, key);
+        conn.close();
     },
 
     _checkIsInitialized() {

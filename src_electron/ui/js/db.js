@@ -2,9 +2,11 @@
 
 import assert from 'assert';
 import {values, noop, compact} from 'lodash';
-import {ASC, DESC, ASC_UNIQUE} from 'sklad';
+import sklad from 'sklad/es2015';
 import {openUser, openMeta, dropUser} from './idb';
 import CPA from './cpa';
+
+// ASC, DESC, ASC_UNIQUE
 
 const validateJSONString = (data, constr) => {
     let someData;

@@ -1,235 +1,58 @@
 'use strict';
 
-import assert from 'assert';
 import {values, noop, compact} from 'lodash';
 import sklad from 'sklad/es2015';
+
+import config from '../../lib/config';
 import {openUser, openMeta, dropUser} from './idb';
 import CPA from './cpa';
 
-// ASC, DESC, ASC_UNIQUE
-
-const validateJSONString = (data, constr) => {
-    let someData;
-
+function validateJSONString(data, constr) {
+    var someData;
     try {
         someData = JSON.parse(data);
-        assert(someData instanceof constr);
+        if (!(someData instanceof constr)) {
+            throw new Error('Invalid');
+        }
     } catch (ex) {
         someData = new constr;
     }
 
     return someData;
-};
+}
 
-const getMessageFulltext = (msgBody) => {
-    return msgBody.replace(/<br\s?\/?\s?>/g, ' ').toLowerCase().split(' ').filter(word => word.length >= 3);
-};
+function getMessageFulltext(msgBody) {
+    return msgBody
+        .replace(/<br\s?\/?\s?>/g, ' ')
+        .toLowerCase()
+        .split(' ')
+        .filter(word => (word.length >= 3));
+}
 
 export default {
     /**
-     * Migrate all WebDatabases into IndexedDB
+     * Create meta database with log object store
+     * @return {Promise}
      */
-    migrateWebDatabase: function DatabaseManager_migrateWebDatabase(uids, callback) {
-        console.log("Migrate WebDatabase into IndexedDB");
-        console.log("UIDS", uids);
-
-        var that = this;
-        var webDatabaseLink = window.openDatabase("vkoffline", "1.0.1", null, 0);
-
-        function getAllWebDatabaseData(table, uid) {
-            console.log("Collect data from %s_%s", table, uid);
-
-            return new Promise(function (resolve, reject) {
-                webDatabaseLink.readTransaction(function (tx) {
-                    tx.executeSql("SELECT rowid, * FROM " + table + "_" + uid + " ORDER BY rowid", [], function (tx, resultSet) {
-                        var totalRecords = resultSet.rows.length;
-                        var output = [];
-
-                        console.log("%s records found in %s", totalRecords, table);
-
-                        for (var i = 0; i < totalRecords; i++) {
-                            output.push(resultSet.rows.item(i));
-                        }
-
-                        resolve(output);
-                    }, function (tx, err) {
-                        CPA.sendEvent("Migrate1", "WebDatabase warn", err.message);
-
-                        // let it be
-                        if (err.message.indexOf("no such table") !== -1) {
-                            resolve([]);
-                            return;
-                        }
-
-                        reject(err.message);
-                    });
-                });
-            });
+    initMeta: async function DatabaseManager_initMeta() {
+        try {
+            this._meta = await openMeta();
+        } catch (err) {
+            throw new Error(err.name + ': ' + err.message);
         }
-
-        function migrateUserData(uid) {
-            var that = this;
-            var currentUserId = Number(uid);
-
-            return new Promise(function (resolve, reject) {
-                that.initUser(uid, function () {
-                    console.log("User initialized");
-
-                    Promise.all([
-                        getAllWebDatabaseData("contacts", uid),
-                        getAllWebDatabaseData("pm", uid)
-                    ]).then(function (res) {
-                        var fetchedContacts = res[0];
-                        var fetchedMessages = res[1];
-
-                        var contacts = {};
-                        var messages = {};
-                        var chats = {};
-
-                        fetchedContacts.forEach(function (record) {
-                            var otherData = validateJSONString(record.other_data, Object);
-                            var uid = Number(record.uid);
-
-                            contacts[record.uid] = {
-                                uid: uid,
-                                first_name: record.first_name,
-                                last_name: record.last_name,
-                                notes: record.notes,
-                                last_message_ts: 0,
-                                messages_num: 0,
-                                fulltext: [
-                                    record.first_name.toLowerCase(),
-                                    record.last_name.toLowerCase(),
-                                    uid
-                                ]
-                            };
-
-                            if (otherData.domain) {
-                                contacts[record.uid].fulltext.push(otherData.domain.toLowerCase());
-                            }
-
-                            ["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
-                                if (otherData[field]) {
-                                    contacts[record.uid][field] = otherData[field];
-                                }
-                            });
-
-                            if (otherData.sex) {
-                                contacts[record.uid].sex = Number(otherData.sex) || 0;
-                            }
-                        });
-
-                        fetchedMessages.forEach(function (record) {
-                            var isMultiChat = Boolean(record.chatid);
-                            var chatId = isMultiChat ? String(record.chatid) : "0_" + record.uid;
-                            var userId = Number(record.uid);
-                            var lastChatMessageDate = chats[chatId] ? chats[chatId].last_message_ts : 0;
-
-                            chats[chatId] = chats[chatId] || {};
-                            chats[chatId].id = chatId;
-                            chats[chatId].title = record.title;
-                            chats[chatId].last_message_ts = Math.max(record.date, lastChatMessageDate);
-
-                            var attachments = validateJSONString(record.attachments, Array);
-                            var tags = [];
-
-                            App.INIT_TAGS.forEach(function (tag, i) {
-                                if (record.tags & Math.pow(2, i)) {
-                                    tags.push(tag);
-                                }
-                            });
-
-                            var otherData = validateJSONString(record.other_data, Object);
-                            var hasEmoji = Boolean(otherData.emoji);
-
-                            messages[record.mid] = {
-                                mid: Number(record.mid),
-                                uid: userId,
-                                title: record.title,
-                                body: record.body,
-                                date: record.date,
-                                read: Boolean(record.status),
-                                attachments: attachments,
-                                tags: tags,
-                                has_emoji: hasEmoji,
-                                chat: chatId,
-                                fulltext: getMessageFulltext(record.body)
-                            };
-
-                            if (!contacts[userId]) {
-                                console.warn("No contact with such id: %s", userId);
-                                return;
-                            }
-
-                            contacts[userId].messages_num += 1;
-                            contacts[userId].last_message_ts = Math.max(contacts[userId].last_message_ts, record.date);
-                        });
-
-                        console.log("Start inserting data with uid %s", uid);
-
-                        // insert data
-                        that._conn[uid].insert({
-                            "chats": _.values(chats),
-                            "contacts": _.values(contacts),
-                            "messages": _.values(messages)
-                        }, function (err, insertedKeys) {
-                            if (err) {
-                                var errMsg = err.name + ": " + err.message;
-
-                                try {
-                                    that._conn[uid].close();
-                                } catch (ex) {}
-
-                                CPA.sendEvent("Migrate1", "IDB insert fail", errMsg);
-                                reject(errMsg);
-
-                                return;
-                            }
-
-                            console.log("Contacts and PMs inserted");
-
-                            that._conn[uid].close();
-                            resolve();
-                        });
-                    }, function (errMsg) {
-                        CPA.sendEvent("Migrate1", "getAllWebDatabase fail", errMsg);
-                        reject(errMsg);
-                    });
-                }, function (errMsg) {
-                    CPA.sendEvent("Migrate1", "initUser fail", errMsg);
-                    reject(errMsg);
-                });
-            });
-        }
-
-        var promises = uids.map(function (uid) {
-            console.log("UID found: %s", uid);
-            return migrateUserData.call(that, uid);
-        });
-
-        Promise.all(promises).then(function () {
-            callback();
-        }, callback);
     },
 
     /**
      * @param {Integer} userId
-     * @param {Function} fnSuccess
-     * @param {Function} fnFail принимает {String} текст ошибки
-     * @return {Void}
      */
-    initUser: async function DatabaseManager_initUser(userId, fnSuccess, fnFail) {
+    initUser: async function DatabaseManager_initUser(userId) {
         this._userId = userId;
 
         try {
             this._conn[userId] = await openUser(userId);
-            this._userId = userId;
         } catch (err) {
-            fnFail(err.name + ': ' + err.message);
-            return;
+            throw new Error(err.name + ': ' + err.message);
         }
-
-        fnSuccess();
     },
 
     /**
@@ -237,7 +60,7 @@ export default {
      */
     dropUser: async function DatabaseManager_dropUser(userId) {
         this._conn[userId].close();
-        return dropUser(userId);
+        await dropUser(userId);
     },
 
     /**
@@ -255,7 +78,7 @@ export default {
 
         function countContacts() {
             return new Promise(function (resolve, reject) {
-                conn.count("contacts", function (err, total) {
+                conn.count('contacts', function (err, total) {
                     if (err) {
                         reject(err);
                     } else {
@@ -270,24 +93,24 @@ export default {
             var direction;
 
             switch (outputType) {
-                case "alpha":
-                    indexName = "name";
-                    direction = ASC;
+                case 'alpha':
+                    indexName = 'name';
+                    direction = sklad.ASC;
                     break;
 
-                case "lastdate":
-                    indexName = "last_message";
-                    direction = DESC;
+                case 'lastdate':
+                    indexName = 'last_message';
+                    direction = sklad.DESC;
                     break;
 
-                case "messagesnum":
-                    indexName = "messages_num";
-                    direction = DESC;
+                case 'messagesnum':
+                    indexName = 'messages_num';
+                    direction = sklad.DESC;
                     break;
             }
 
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
+                conn.get('contacts', {
                     index: indexName,
                     limit: 30,
                     offset: startFrom,
@@ -308,7 +131,7 @@ export default {
             getContacts(),
             countContacts()
         ]).then(fnSuccess, function (err) {
-            fnFail(err.name + ": " + err.message);
+            fnFail(err.name + ': ' + err.message);
         });
     },
 
@@ -321,14 +144,14 @@ export default {
         var userId = currentUserId;
         var searchUserId = Number(uid);
 
-        fnSuccess = fnSuccess || _.noop;
-        fnFail = fnFail || _.noop;
+        fnSuccess = fnSuccess || noop;
+        fnFail = fnFail || noop;
 
-        this._conn[userId].get("contacts", {
+        this._conn[userId].get('contacts', {
             range: IDBKeyRange.only(searchUserId)
         }, function (err, records) {
             if (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
                 return;
             }
 
@@ -355,10 +178,10 @@ export default {
 
         function getChatsList(startFrom) {
             return new Promise(function (resolve, reject) {
-                conn.get("chats", {
-                    index: "last_message",
+                conn.get('chats', {
+                    index: 'last_message',
                     offset: startFrom,
-                    direction: DESC,
+                    direction: sklad.DESC,
                     limit: 30
                 }, function (err, records) {
                     if (err) {
@@ -372,7 +195,7 @@ export default {
 
         function getTotalChats() {
             return new Promise(function (resolve, reject) {
-                conn.count("chats", function (err, total) {
+                conn.count('chats', function (err, total) {
                     if (err) {
                         reject(err);
                     } else {
@@ -384,13 +207,13 @@ export default {
 
         function getContactById(id) {
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
+                conn.get('contacts', {
                     range: IDBKeyRange.only(id)
                 }, function (err, records) {
                     if (err) {
-                        reject(err.name + ": " + err.message);
+                        reject(err.name + ': ' + err.message);
                     } else if (!records.length) {
-                        console.warn("No such contact: " + id);
+                        console.warn('No such contact: ' + id);
                         resolve(null);
                     } else {
                         resolve({
@@ -405,9 +228,9 @@ export default {
 
         function getChatParticipants(record) {
             return new Promise(function (resolve, reject) {
-                conn.get("messages", {
-                    index: "chat_participants",
-                    direction: ASC_UNIQUE,
+                conn.get('messages', {
+                    index: 'chat_participants',
+                    direction: sklad.ASC_UNIQUE,
                     range: IDBKeyRange.bound([record.id], [record.id, Date.now()]),
                 }, function (err, data) {
                     if (err) {
@@ -426,7 +249,7 @@ export default {
                         });
 
                         Promise.all(promises).then(function (res) {
-                            record.participants = _.compact(res);
+                            record.participants = compact(res);
 
                             if (currentUserIsParticipant) {
                                 record.participants.push({uid: userId});
@@ -444,10 +267,10 @@ export default {
 
         function getChatLastMessage(record) {
             return new Promise(function (resolve, reject) {
-                conn.get("messages", {
-                    index: "chat_messages",
+                conn.get('messages', {
+                    index: 'chat_messages',
                     range: IDBKeyRange.only(record.id),
-                    direction: DESC,
+                    direction: sklad.DESC,
                     limit: 1
                 }, function (err, records) {
                     if (err) {
@@ -464,8 +287,8 @@ export default {
 
         function getChatTotalMessages(record) {
             return new Promise(function (resolve, reject) {
-                conn.count("messages", {
-                    index: "chat_messages",
+                conn.count('messages', {
+                    index: 'chat_messages',
                     range: IDBKeyRange.only(record.id),
                 }, function (err, total) {
                     if (err) {
@@ -503,10 +326,10 @@ export default {
                     res.total
                 ]);
             }, function (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
             });
         }, function (err) {
-            fnFail(err.name + ": " + err.message);
+            fnFail(err.name + ': ' + err.message);
         });
     },
 
@@ -523,7 +346,7 @@ export default {
 
         function getContactById(id) {
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
+                conn.get('contacts', {
                     range: IDBKeyRange.only(id)
                 }, function (err, records) {
                     if (err) {
@@ -547,10 +370,10 @@ export default {
                 var to = chatId.substr(0, chatId.length - 1) + String.fromCharCode(chatId.charCodeAt(chatId.length - 1) + 1);
                 var range = IDBKeyRange.bound([chatId], [to], true, true);
 
-                conn.get("messages", {
-                    index: "chat_participants",
+                conn.get('messages', {
+                    index: 'chat_participants',
                     range: range,
-                    direction: ASC_UNIQUE
+                    direction: sklad.ASC_UNIQUE
                 }, function (err, records) {
                     if (err) {
                         reject(err);
@@ -561,7 +384,7 @@ export default {
                         });
 
                         Promise.all(promises).then(function (res) {
-                            record.participants = _.compact(res);
+                            record.participants = compact(res);
                             resolve();
                         }, reject);
                     }
@@ -571,10 +394,10 @@ export default {
 
         function getChatLastMessage(record) {
             return new Promise(function (resolve, reject) {
-                conn.get("messages", {
-                    index: "chat_messages",
+                conn.get('messages', {
+                    index: 'chat_messages',
                     range: IDBKeyRange.only(record.id),
-                    direction: DESC
+                    direction: sklad.DESC
                 }, function (err, records) {
                     if (err) {
                         reject(err);
@@ -584,7 +407,7 @@ export default {
                         var date = records.length ? records[0].value.date : 0;
                         var uid = records.length ? records[0].value.uid : userId;
 
-                        Object.assign(record, {
+                        _.assign(record, {
                             title: title,
                             body: body,
                             date: date,
@@ -599,8 +422,8 @@ export default {
 
         function countChatMessages(record) {
             return new Promise(function (resolve, reject) {
-                conn.count("messages", {
-                    index: "chat_messages",
+                conn.count('messages', {
+                    index: 'chat_messages',
                     range: IDBKeyRange.only(record.id)
                 }, function (err, total) {
                     if (err) {
@@ -613,13 +436,13 @@ export default {
             });
         }
 
-        conn.get("messages", {
-            index: "user_chats",
+        conn.get('messages', {
+            index: 'user_chats',
             range: IDBKeyRange.bound([uid], [uid + 1], true, true),
-            direction: ASC_UNIQUE
+            direction: sklad.ASC_UNIQUE
         }, function (err, records) {
             if (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
                 return;
             }
 
@@ -646,7 +469,7 @@ export default {
 
                 fnSuccess(output);
             }, function (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
             });
         });
     },
@@ -675,7 +498,7 @@ export default {
             id = Number(id);
 
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
+                conn.get('contacts', {
                     range: IDBKeyRange.only(id)
                 }, function (err, records) {
                     if (err) {
@@ -696,8 +519,8 @@ export default {
 
         function countChatMessages() {
             return new Promise(function (resolve, reject) {
-                conn.count("messages", {
-                    index: "chat_messages",
+                conn.count('messages', {
+                    index: 'chat_messages',
                     range: IDBKeyRange.only(dialogId)
                 }, function (err, total) {
                     if (err) {
@@ -712,9 +535,9 @@ export default {
         function getChatMessages() {
             return new Promise(function (resolve, reject) {
                 var getOpts = {
-                    index: "chat_messages",
+                    index: 'chat_messages',
                     range: IDBKeyRange.only(dialogId),
-                    direction: DESC,
+                    direction: sklad.DESC,
                     offset: opts.from
                 };
 
@@ -722,7 +545,7 @@ export default {
                     getOpts.limit = 30;
                 }
 
-                conn.get("messages", getOpts, function (err, records) {
+                conn.get('messages', getOpts, function (err, records) {
                     if (err) {
                         reject(err);
                     } else {
@@ -771,7 +594,7 @@ export default {
 
                     message.first_name = res[message.uid].first_name;
                     message.last_name = res[message.uid].last_name;
-                    message.photo = (message.tags.indexOf("sent") === -1) ? res[message.uid].photo : currentUserPhoto;
+                    message.photo = (message.tags.indexOf('sent') === -1) ? res[message.uid].photo : currentUserPhoto;
                 });
 
                 fnSuccess([
@@ -779,10 +602,10 @@ export default {
                     total
                 ]);
             }, function (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
             });
         }, function (err) {
-            fnFail(err.name + ": " + err.message);
+            fnFail(err.name + ': ' + err.message);
         });
     },
 
@@ -797,7 +620,7 @@ export default {
 
         function getContactPhoto(uid) {
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
+                conn.get('contacts', {
                     range: IDBKeyRange.only(uid)
                 }, function (err, records) {
                     if (err) {
@@ -811,16 +634,16 @@ export default {
             });
         }
 
-        conn.get("messages", {
+        conn.get('messages', {
             range: IDBKeyRange.only(mid)
         }, function (err, records) {
             if (err) {
-                fnFail(true, err.name + ": " + err.message);
+                fnFail(true, err.name + ': ' + err.message);
                 return;
             }
 
             if (!records.length) {
-                fnFail(false, "No message with ID #" + mid);
+                fnFail(false, 'No message with ID #' + mid);
                 return;
             }
 
@@ -829,7 +652,7 @@ export default {
                 msg.avatar = photo;
                 fnSuccess(msg);
             }, function (err) {
-                fnFail(true, err.name + ": " + err.message);
+                fnFail(true, err.name + ': ' + err.message);
             });
         });
     },
@@ -851,13 +674,13 @@ export default {
             });
 
             if (uids.length > 1) {
-                searchOpts.index = "messages_num";
+                searchOpts.index = 'messages_num';
                 searchOpts.range = IDBKeyRange.lowerBound(1);
             } else {
                 searchOpts.range = IDBKeyRange.only(uids[0]);
             }
 
-            conn.get("contacts", searchOpts, function (err, records) {
+            conn.get('contacts', searchOpts, function (err, records) {
                 if (err) {
                     reject(err);
                 } else {
@@ -876,7 +699,7 @@ export default {
                             uid: uid,
                             first_name: userData[1],
                             last_name: userData[2],
-                            notes: "",
+                            notes: '',
                             fulltext: [
                                 userData[1].toLowerCase(),
                                 userData[2].toLowerCase(),
@@ -888,7 +711,7 @@ export default {
                             contact.fulltext.push(otherData.domain.toLowerCase());
                         }
 
-                        ["photo", "bdate", "domain", "home_phone", "mobile_phone"].forEach(function (field) {
+                        ['photo', 'bdate', 'domain', 'home_phone', 'mobile_phone'].forEach(function (field) {
                             if (otherData[field]) {
                                 contact[field] = otherData[field];
                             }
@@ -932,7 +755,7 @@ export default {
         var messagesToInsert = [];
 
         messages.forEach(function (message) {
-            var chatId = message.chat_id ? String(message.chat_id) : "0_" + message.uid;
+            var chatId = message.chat_id ? String(message.chat_id) : '0_' + message.uid;
 
             // chat should be inserted only once
             if (!chats[chatId]) {
@@ -958,22 +781,22 @@ export default {
             };
 
             if (message.important) {
-                msgData.tags.push("important");
+                msgData.tags.push('important');
             }
 
             if (message.deleted) {
-                msgData.tags.push("trash");
+                msgData.tags.push('trash');
             }
 
             messagesToInsert.push(msgData);
         });
 
         this._conn[currentUserId].upsert({
-            chats: _.values(chats),
+            chats: values(chats),
             messages: messagesToInsert
         }, function (err) {
             if (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
                 return;
             }
 
@@ -982,7 +805,7 @@ export default {
     },
 
     /**
-     * @param {String} mailType - one of "inbox", "sent"
+     * @param {String} mailType - one of 'inbox', 'sent'
      * @return {Promise}
      */
     getLatestTagMessageId: function DatabaseManager_getLatestTagMessageId(mailType) {
@@ -990,10 +813,10 @@ export default {
         var conn = this._conn[userId];
 
         return new Promise(function (resolve, reject) {
-            conn.get("messages", {
-                index: "tag",
+            conn.get('messages', {
+                index: 'tag',
                 range: IDBKeyRange.only(mailType),
-                direction: DESC,
+                direction: sklad.DESC,
                 limit: 1
             }, function (err, records) {
                 if (err) {
@@ -1016,10 +839,10 @@ export default {
 
         function getChatLastDate(id) {
             return new Promise(function (resolve, reject) {
-                conn.get("messages", {
-                    index: "chat_messages",
+                conn.get('messages', {
+                    index: 'chat_messages',
                     range: IDBKeyRange.only(id),
-                    direction: DESC,
+                    direction: sklad.DESC,
                     limit: 1
                 }, function (err, records) {
                     if (err) {
@@ -1035,16 +858,16 @@ export default {
             });
         }
 
-        // NB: can't search with {index: "chat_messages", direction: DESC_UNIQUE} here
+        // NB: can't search with {index: 'chat_messages', direction: sklad.DESC_UNIQUE} here
         // because first record is not the last sorted by mid unfortunately :(
         return new Promise(function (resolve, reject) {
             // get all chats grouped by id
-            conn.get("messages", {
-                index: "chat_messages",
-                direction: DESC_UNIQUE
+            conn.get('messages', {
+                index: 'chat_messages',
+                direction: sklad.DESC_UNIQUE
             }, function (err, records) {
                 if (err) {
-                    reject(err.name + ": " + err.message);
+                    reject(err.name + ': ' + err.message);
                     return;
                 }
 
@@ -1057,14 +880,14 @@ export default {
                         chats: upsertData
                     }, function (err) {
                         if (err) {
-                            reject(err.name + ": " + err.message);
+                            reject(err.name + ': ' + err.message);
                             return;
                         }
 
                         resolve();
                     });
                 }, function (err) {
-                    reject(err.name + ": " + err.message);
+                    reject(err.name + ': ' + err.message);
                 });
             });
         });
@@ -1076,10 +899,10 @@ export default {
 
         function getLastUserMessage(contact) {
             return new Promise(function (resolve, reject) {
-                conn.get("messages", {
-                    index: "user_messages",
+                conn.get('messages', {
+                    index: 'user_messages',
                     range: IDBKeyRange.only(contact.uid),
-                    direction: DESC,
+                    direction: sklad.DESC,
                     limit: 1
                 }, function (err, records) {
                     if (err) {
@@ -1094,8 +917,8 @@ export default {
 
         function countUserMessages(contact) {
             return new Promise(function (resolve, reject) {
-                conn.count("messages", {
-                    index: "user_messages",
+                conn.count('messages', {
+                    index: 'user_messages',
                     range: IDBKeyRange.only(contact.uid),
                 }, function (err, total) {
                     if (err) {
@@ -1109,9 +932,9 @@ export default {
         }
 
         return new Promise(function (resolve, reject) {
-            conn.get("contacts", function (err, records) {
+            conn.get('contacts', function (err, records) {
                 if (err) {
-                    reject(err.name + ": " + err.message);
+                    reject(err.name + ': ' + err.message);
                     return;
                 }
 
@@ -1132,14 +955,14 @@ export default {
                         contacts: contacts
                     }, function (err) {
                         if (err) {
-                            reject(err.name + ": " + err.message);
+                            reject(err.name + ': ' + err.message);
                             return;
                         }
 
                         resolve();
                     });
                 }, function (err) {
-                    reject(err.name + ": " + err.message);
+                    reject(err.name + ': ' + err.message);
                 });
             });
         });
@@ -1154,11 +977,11 @@ export default {
         var userId = this._userId;
         var conn = this._conn[userId];
 
-        conn.get("messages", {
+        conn.get('messages', {
             range: IDBKeyRange.only(Number(msgId))
         }, function (err, records) {
             if (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
                 return;
             }
 
@@ -1170,9 +993,9 @@ export default {
             var message = records[0].value;
             message.read = true;
 
-            conn.upsert("messages", message, function (err) {
+            conn.upsert('messages', message, function (err) {
                 if (err) {
-                    fnFail(err.name + ": " + err.message);
+                    fnFail(err.name + ': ' + err.message);
                     return;
                 }
 
@@ -1190,11 +1013,11 @@ export default {
         var userId = this._userId;
         var conn = this._conn[userId];
 
-        conn.get("messages", {
+        conn.get('messages', {
             range: IDBKeyRange.only(Number(msgId))
         }, function (err, records) {
             if (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
                 return;
             }
 
@@ -1206,9 +1029,9 @@ export default {
             var message = records[0].value;
             message.read = false;
 
-            conn.upsert("messages", message, function (err) {
+            conn.upsert('messages', message, function (err) {
                 if (err) {
-                    fnFail(err.name + ": " + err.message);
+                    fnFail(err.name + ': ' + err.message);
                     return;
                 }
 
@@ -1228,29 +1051,29 @@ export default {
         var userId = this._userId;
         var conn = this._conn[userId];
 
-        conn.get("messages", {
+        conn.get('messages', {
             range: IDBKeyRange.only(Number(msgId))
         }, function (err, records) {
             if (err) {
-                fnFail(true, err.name + ": " + err.message);
+                fnFail(true, err.name + ': ' + err.message);
                 return;
             }
 
             if (!records.length) {
-                fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+                fnFail(false, 'No rows were affected when updating tags column (mid: ' + msgId + ', tag: ' + tag + ')');
                 return;
             }
 
             var message = records[0].value;
             if (message.tags.indexOf(tag) !== -1) {
-                fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+                fnFail(false, 'No rows were affected when updating tags column (mid: ' + msgId + ', tag: ' + tag + ')');
                 return;
             }
 
             message.tags.push(tag);
-            conn.upsert("messages", message, function (err) {
+            conn.upsert('messages', message, function (err) {
                 if (err) {
-                    fnFail(true, err.name + ": " + err.message);
+                    fnFail(true, err.name + ': ' + err.message);
                     return;
                 }
 
@@ -1270,16 +1093,16 @@ export default {
         var userId = this._userId;
         var conn = this._conn[userId];
 
-        conn.get("messages", {
+        conn.get('messages', {
             range: IDBKeyRange.only(Number(msgId))
         }, function (err, records) {
             if (err) {
-                fnFail(true, err.name + ": " + err.message);
+                fnFail(true, err.name + ': ' + err.message);
                 return;
             }
 
             if (!records.length) {
-                fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+                fnFail(false, 'No rows were affected when updating tags column (mid: ' + msgId + ', tag: ' + tag + ')');
                 return;
             }
 
@@ -1287,14 +1110,14 @@ export default {
             var tagIndex = message.tags.indexOf(tag);
 
             if (tagIndex === -1) {
-                fnFail(false, "No rows were affected when updating tags column (mid: " + msgId + ", tag: " + tag + ")");
+                fnFail(false, 'No rows were affected when updating tags column (mid: ' + msgId + ', tag: ' + tag + ')');
                 return;
             }
 
             message.tags.splice(tagIndex, 1);
-            conn.upsert("messages", message, function (err) {
+            conn.upsert('messages', message, function (err) {
                 if (err) {
-                    fnFail(true, err.name + ": " + err.message);
+                    fnFail(true, err.name + ': ' + err.message);
                     return;
                 }
 
@@ -1312,7 +1135,7 @@ export default {
         var userId = this._userId;
 
         // проблема здесь - рассинхронизация messages и chats.last_message_ts
-        this._conn[userId].delete("messages", Number(msgId), fn);
+        this._conn[userId].delete('messages', Number(msgId), fn);
     },
 
     /**
@@ -1326,8 +1149,8 @@ export default {
 
         function countTagOccurrences(tag) {
             return new Promise(function (resolve, reject) {
-                conn.count("messages", {
-                    index: "tag",
+                conn.count('messages', {
+                    index: 'tag',
                     range: IDBKeyRange.only(tag)
                 }, function (err, total) {
                     if (err) {
@@ -1339,12 +1162,12 @@ export default {
             });
         }
 
-        conn.get("messages", {
-            index: "tag",
-            direction: ASC_UNIQUE
+        conn.get('messages', {
+            index: 'tag',
+            direction: sklad.ASC_UNIQUE
         }, function (err, records) {
             if (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
                 return;
             }
 
@@ -1354,39 +1177,7 @@ export default {
             });
 
             KinoPromise.all(promises).then(fnSuccess, function (err) {
-                fnFail(err.name + ": " + err.message);
-            });
-        });
-    },
-
-    /**
-     * Получение всех сообщений с вложениями, полученных с ошибками в версии 4.11
-     * @return {Promise}
-     */
-    getMessagesWithFalsyAttachments: function DatabaseManager_getMessagesWithFalsyAttachments() {
-        var userId = this._userId;
-        var conn = this._conn[userId];
-
-        return new Promise(function (resolve, reject) {
-            conn.get("messages", {
-                index: "tag",
-                range: IDBKeyRange.only("attachments")
-            }, function (err, records) {
-                if (err) {
-                    reject(err.name + ": " + err.message);
-                } else {
-                    var output = [];
-
-                    records.forEach(function (record) {
-                        if (record.value.attachments.length) {
-                            return;
-                        }
-
-                        output.push(record.value.mid);
-                    });
-
-                    resolve(output);
-                }
+                fnFail(err.name + ': ' + err.message);
             });
         });
     },
@@ -1405,8 +1196,8 @@ export default {
 
         function countTagMessages() {
             return new Promise(function (resolve, reject) {
-                conn.count("messages", {
-                    index: "tag",
+                conn.count('messages', {
+                    index: 'tag',
                     range: IDBKeyRange.only(tag)
                 }, function (err, total) {
                     if (err) {
@@ -1420,15 +1211,15 @@ export default {
 
         function getContactData(message) {
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
+                conn.get('contacts', {
                     range: IDBKeyRange.only(message.uid)
                 }, function (err, records) {
                     if (err) {
                         reject(err);
                     } else {
                         // FIXME: WTF
-                        message.first_name = records.length ? records[0].value.first_name : "Not";
-                        message.last_name = records.length ? records[0].value.last_name : "Found";
+                        message.first_name = records.length ? records[0].value.first_name : 'Not';
+                        message.last_name = records.length ? records[0].value.last_name : 'Found';
                         message.avatar = records.length ? records[0].value.photo : null;
 
                         resolve();
@@ -1439,10 +1230,10 @@ export default {
 
         function getTagMessages() {
             return new Promise(function (resolve, reject) {
-                conn.get("messages", {
-                    index: "tag",
+                conn.get('messages', {
+                    index: 'tag',
                     range: IDBKeyRange.only(tag),
-                    direction: DESC,
+                    direction: sklad.DESC,
                     offset: startFrom,
                     limit: 20
                 }, function (err, records) {
@@ -1480,7 +1271,7 @@ export default {
             getTagMessages(),
             countTagMessages()
         ]).then(fnSuccess, function (err) {
-            fnFail(err.name + ": " + err.message);
+            fnFail(err.name + ': ' + err.message);
         });
     },
 
@@ -1505,8 +1296,8 @@ export default {
 
         function countContacts() {
             return new Promise(function (resolve, reject) {
-                conn.count("contacts", {
-                    index: "fulltext",
+                conn.count('contacts', {
+                    index: 'fulltext',
                     range: range
                 }, function (err, total) {
                     if (err) {
@@ -1520,8 +1311,8 @@ export default {
 
         function searchContacts() {
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
-                    index: "fulltext",
+                conn.get('contacts', {
+                    index: 'fulltext',
                     range: range,
                     offset: startFrom,
                     limi: 20
@@ -1543,7 +1334,7 @@ export default {
         ]).then(function (res) {
             fnSuccess.apply(null, res);
         }, function (err) {
-            fnFail(err.name + ": " + err.message);
+            fnFail(err.name + ': ' + err.message);
         });
     },
 
@@ -1568,8 +1359,8 @@ export default {
 
         function countMessages() {
             return new Promise(function (resolve, reject) {
-                conn.count("messages", {
-                    index: "fulltext",
+                conn.count('messages', {
+                    index: 'fulltext',
                     range: range
                 }, function (err, total) {
                     if (err) {
@@ -1583,12 +1374,12 @@ export default {
 
         function getMessages() {
             return new Promise(function (resolve, reject) {
-                conn.get("messages", {
-                    index: "fulltext",
+                conn.get('messages', {
+                    index: 'fulltext',
                     range: range,
                     offset: startFrom,
                     limit: 20,
-                    direction: DESC
+                    direction: sklad.DESC
                 }, function (err, records) {
                     if (err) {
                         reject(err);
@@ -1601,7 +1392,7 @@ export default {
 
         function getContactById(record) {
             return new Promise(function (resolve, reject) {
-                conn.get("contacts", {
+                conn.get('contacts', {
                     range: IDBKeyRange.only(record.uid)
                 }, function (err, records) {
                     if (err) {
@@ -1654,10 +1445,10 @@ export default {
             Promise.all(promises).then(function () {
                 fnSuccess(output, total);
             }, function (err) {
-                fnFail(err.name + ": " + err.message);
+                fnFail(err.name + ': ' + err.message);
             });
         }, function (err) {
-            fnFail(err.name + ": " + err.message);
+            fnFail(err.name + ': ' + err.message);
         });
     },
 
@@ -1667,40 +1458,12 @@ export default {
      * @param {String} data
      * @param {String} level
      */
-    log: async function DatabaseManager_log(data, level) {
-        const conn = await openMeta();
-
-        conn.insert('log', {
-            data,
-            level,
-            ts: Date.now()
-        });
-    },
-
-    /**
-     * Выборка всех записей из лога
-     *
-     * @param {Function} fnSuccess принимает {Array} массив записей из лога, готовых к отправке, отсортированных по дате
-     * @param {Function} fnFail текст ошибки
-     */
-    collectLogData: async function DatabaseManager_collectLogData() {
-        const conn = await openMeta();
-        const records = await conn.get('log');
-
-        let timeLast = 0;
-        const logRecords = records.map((record, i) => {
-            const item = record.value;
-            const date = new Date(item.ts);
-
-            const timeDiff = item.ts - timeLast;
-            timeLast = item.ts;
-
-            return (i > 0)
-                ? `[${date} +${timeDiff}ms] ${item.data}`
-                : `[${date}] ${item.data}`;
-        });
-
-        return logRecords;
+    log: function DatabaseManager_log(data, level) {
+        this._meta.insert('log', {
+            data: data,
+            ts: Date.now(),
+            level: level
+        }, noop);
     },
 
     _dbLink: null,

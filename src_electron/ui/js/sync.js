@@ -263,8 +263,11 @@ function openAppWindow(evt, tokenExpired) {
 }
 
 (async () => {
-    await StorageManager.load();
-    await SettingsManager.init();
+    await Promise.all([
+        StorageManager.load(),
+        SettingsManager.init(),
+        DatabaseManager.initMeta()
+    ]);
 
     LogManager.config("App started");
 
@@ -292,12 +295,12 @@ function openAppWindow(evt, tokenExpired) {
 
 
     // устанавливаем обработчики offline-событий
-    window.addEventListener("online", function (e) {
+    window.addEventListener("online", async function (e) {
         chrome.runtime.sendMessage({"action" : "onlineStatusChanged", "status" : "online"});
 
         // на самом деле сеть может быть, а связи с интернетом - нет
         if (AccountsManager.currentUserId) {
-            startUserSession();
+            await startUserSession();
         }
     }, false);
 
@@ -1020,39 +1023,39 @@ function openAppWindow(evt, tokenExpired) {
      * Отличие же friendsSync/eventsRegistrar/mailSync в том, что первые два независимы и работают только для текущего пользователя,
      * а mailSync должен уметь работать не зная кто является текущим
      */
-    var startUserSession = function(callback) {
+    var startUserSession = async function() {
         var currentUserId = AccountsManager.currentUserId;
 
         // сбрасываем все XHR-запросы
         ReqManager.abortAll();
 
-        // инициализируем БД
-        DatabaseManager.initUser(currentUserId, function () {
-            if (AccountsManager.currentUserId !== currentUserId)
-                return;
-
-            // сбрасываем счетчики синхронизации
-            clearSyncingDataCounters(AccountsManager.currentUserId);
-
-            if (navigator.onLine) {
-                friendsSync(AccountsManager.currentUserId);
-                longPollEventsRegistrar.init(AccountsManager.currentUserId);
-
-                mailSync(AccountsManager.currentUserId, "inbox");
-                mailSync(AccountsManager.currentUserId, "sent");
-            }
-
-            if (typeof callback === "function") {
-                callback();
-            }
-        }, function (errMsg) {
-            LogManager.error(errMsg);
-            CPA.sendEvent("Critical-Errors", "Database init user", errMsg);
-        });
-
         // включаем статистику запросов ВК
         // @see http://vk.com/dev/stats.trackVisitor
         ReqManager.apiMethod("stats.trackVisitor", _.noop);
+
+        // инициализируем БД
+        try {
+            await DatabaseManager.initUser(currentUserId);
+        } catch (err) {
+            LogManager.error(err.message);
+            CPA.sendEvent("Critical-Errors", "Database init user", err.message);
+
+            return;
+        }
+
+        if (AccountsManager.currentUserId !== currentUserId)
+            return;
+
+        // сбрасываем счетчики синхронизации
+        clearSyncingDataCounters(AccountsManager.currentUserId);
+
+        if (navigator.onLine) {
+            friendsSync(AccountsManager.currentUserId);
+            longPollEventsRegistrar.init(AccountsManager.currentUserId);
+
+            mailSync(AccountsManager.currentUserId, "inbox");
+            mailSync(AccountsManager.currentUserId, "sent");
+        }
     };
 
     chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
@@ -1079,13 +1082,13 @@ function openAppWindow(evt, tokenExpired) {
                 wallTokenUpdated[AccountsManager.currentUserId] = 1;
                 StorageManager.set("wall_token_updated", wallTokenUpdated);
 
-                startUserSession(function () {
-                    chrome.runtime.sendMessage({
-                        action: "ui",
-                        which: "syncing",
-                        currentUserId: AccountsManager.currentUserId,
-                        currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
-                    });
+                await startUserSession();
+
+                chrome.runtime.sendMessage({
+                    action: "ui",
+                    which: "syncing",
+                    currentUserId: AccountsManager.currentUserId,
+                    currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
                 });
 
                 break;
@@ -1114,11 +1117,11 @@ function openAppWindow(evt, tokenExpired) {
                 wallTokenUpdated[AccountsManager.currentUserId] = 1;
                 StorageManager.set("wall_token_updated", wallTokenUpdated);
 
-                startUserSession(function () {
-                    chrome.runtime.sendMessage({
-                        action: "ui",
-                        which: "syncing"
-                    });
+                await startUserSession();
+
+                chrome.runtime.sendMessage({
+                    action: "ui",
+                    which: "syncing"
                 });
 
                 break;
@@ -2092,7 +2095,8 @@ function openAppWindow(evt, tokenExpired) {
                 var startUser = true;
 
                 if (startUser) {
-                    startUserSession(leaveOneAppWindowInstance);
+                    await startUserSession();
+                    leaveOneAppWindowInstance();
                 } else {
                     leaveOneAppWindowInstance();
                 }
@@ -2117,7 +2121,7 @@ function openAppWindow(evt, tokenExpired) {
 
                 if (request.next !== false) {
                     AccountsManager.currentUserId = request.next;
-                    startUserSession();
+                    await startUserSession();
                 }
 
                 // закрываем все табы приложения кроме одного
@@ -2156,6 +2160,6 @@ function openAppWindow(evt, tokenExpired) {
 
     // при загрузке приложения...
     if (AccountsManager.currentUserId) {
-        startUserSession();
+        await startUserSession();
     }
 })();

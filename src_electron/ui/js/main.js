@@ -15,8 +15,9 @@ chrome.runtime.init(true);
 
 document.title = appName;
 
+AppUI.main('backendLoading');
+
 chrome.runtime.onMessage.addListener(request => {
-    console.log(request);
     switch (request.action) {
         case "tokenExpired":
             var networkStatusElem = $(".network-status.online");
@@ -380,32 +381,3 @@ chrome.runtime.onMessage.addListener(request => {
             break;
     }
 });
-
-// при загрузке страницы спрашиваем бэкенд, что нужно отрисовывать
-chrome.runtime.sendMessage({"action" : "uiDraw"}, function (backendWindowLoaded) {
-    if (!backendWindowLoaded) {
-        AppUI.main("backendLoading");
-    }
-});
-
-
-
-// <script src="bower_components/lodash/dist/lodash.min.js"></script>
-//  <script src="js/utils.js"></script>
-
-//  <script src="js/tipsy.js"></script>
-//  <script src="js/dom.js"></script>
-
-//  <script src="js/hogan.js"></script>
-//  <script src="js/precompiledTemplates.js"></script>
-//  <script src="js/templates.js"></script>
-
-//  <script src="ui/auth.js"></script>
-
-//  <script src="js/ui.js"></script>
-//  <script src="js/frontend.js"></script>
-
-//  <link rel="stylesheet" href="css/reset.css" media="all">
-//  <link rel="stylesheet" href="css/tipsy.css" media="all">
-//  <link rel="stylesheet" href="css/main.css" media="all">
-//  <link rel="stylesheet" href="css/small.css" media="screen and (max-height: 600px)">

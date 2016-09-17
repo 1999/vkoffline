@@ -119,6 +119,8 @@ const create = async (name, alarmInfo) => {
     }
 
     const conn = await openMeta();
+    console.log(conn)
+    console.log(conn.database)
     await conn.upsert(OBJ_STORE_NAME, alarmObj);
 
     // re-initialize alarms listening process

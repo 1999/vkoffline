@@ -28,6 +28,7 @@
   },
   "scripts": {
     "lint": "eslint src_electron/",
+    "postinstall": "cp node_modules/hogan.js/web/builds/2.0.0/template-2.0.0.js src_electron/ui/js/hogan.js",
     "start": "WATCH=1 NODE_ENV=development ./node_modules/.bin/electron .",
     "test": "npm run lint"
   },

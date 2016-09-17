@@ -27,7 +27,6 @@ export default {
         // this op should not block others so the function is still sync
         const conn = await openMeta();
         await conn.upsert(OBJ_STORE_NAME, {key, value});
-        conn.close();
     },
 
     get(key, params) {
@@ -62,7 +61,6 @@ export default {
         // this op should not block others so the function is still sync
         const conn = await openMeta();
         await conn.delete(OBJ_STORE_NAME, key);
-        conn.close();
     },
 
     _checkIsInitialized() {

@@ -38,7 +38,7 @@ module.exports = {
     },
     modules: false,
     target: 'electron',
-    devtool: 'inline-source-map',
+    devtool: (process.env.WATCH === '1') ? 'eval' : 'inline-source-map',
     watch: (process.env.WATCH === '1'),
     watchOptions: {
         aggregateTimeout: 100

@@ -23,6 +23,7 @@ const getLocaleForMessage = () => {
     return EXISTING_LOCALES.includes(simpleLocale) ? simpleLocale : DEFAULT_LOCALE;
 };
 
+// TODO use original i18n/locales.json
 const getMessage = (...args) => {
     assert(args.length === 1, `Unexpected chrome.i18n.getMessage() arguments number: ${args.length}`);
 
@@ -34,9 +35,10 @@ const getMessage = (...args) => {
     }
 
     const i18nForLocale = i18nData.get(useLocale);
-    return i18nForLocale.key
-        ? i18nData[key].message
-        : null;
+
+    return i18nForLocale[key]
+        ? i18nForLocale[key].message
+        : '';
 };
 
 export default {

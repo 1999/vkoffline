@@ -3,18 +3,14 @@
 import chrome from './chrome';
 import StorageManager from './storage';
 import SoundManager from './sounds';
-
-let Settings;
-let Account;
+import Templates from './templates';
 
 // initialize chrome.runtime
 chrome.runtime.init(true);
 
 chrome.runtime.sendMessage({action: 'getInitialSettings'}, ({flatSettings, accountData}) => {
-    console.log({flatSettings, accountData});
-
-    Settings = flatSettings;
-    Account = accountData;
+    window.Settings = flatSettings;
+    window.Account = accountData;
 });
 
 document.addEventListener("click", function (e) {

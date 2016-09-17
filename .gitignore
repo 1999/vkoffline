@@ -24,3 +24,5 @@ src/js/precompiledTemplates.js
 
 src_electron/ui/js/entrypoint.sync.js
 src_electron/ui/js/entrypoint.ui.js
+src_electron/ui/js/hogan.js
+src_electron/ui/js/precompiledTemplates.js

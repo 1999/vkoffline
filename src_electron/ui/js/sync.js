@@ -109,7 +109,9 @@ function leaveOneAppWindowInstance(openIfNoExist) {
     }
 }
 
-chrome.alarms.onAlarm.addListener(function (alarmInfo) {
+chrome.alarms.onAlarm.addListener(async function (alarmInfo) {
+    await StorageManager.load();
+
     switch (alarmInfo.name) {
         case "dayuse":
             CPA.sendEvent("Lifecycle", "Dayuse", "Total users", 1);
@@ -265,9 +267,9 @@ function openAppWindow(evt, tokenExpired) {
 (async () => {
     await Promise.all([
         StorageManager.load(),
-        SettingsManager.init(),
-        DatabaseManager.initMeta()
-    ]);
+		DatabaseManager.initMeta(),
+        SettingsManager.init()
+	]);
 
     LogManager.config("App started");
 
@@ -292,7 +294,6 @@ function openAppWindow(evt, tokenExpired) {
             };
         }
     };
-
 
     // устанавливаем обработчики offline-событий
     window.addEventListener("online", async function (e) {
@@ -1058,9 +1059,9 @@ function openAppWindow(evt, tokenExpired) {
         }
     };
 
+    console.log('listening to messages now!', Date.now())
     chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-        console.log(request);
-
+        console.log('got message', request, Date.now())
         switch (request.action) {
             case 'getInitialSettings':
                 sendResponse({
@@ -1068,7 +1069,7 @@ function openAppWindow(evt, tokenExpired) {
                     accountData: {
                         currentUserId: AccountsManager.currentUserId,
                         currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null,
-                        tokenExpired: tokenExpired
+                        tokenExpired: false
                     }
                 });
 
@@ -1238,6 +1239,7 @@ function openAppWindow(evt, tokenExpired) {
                             var appWindows = chrome.app.window.getAll();
                             appWindows.forEach(win => win.close());
 
+                            // TOKEN EXPIRED!!! TODO
                             openAppWindow(null, true);
                         }
                     });

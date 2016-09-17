@@ -258,7 +258,9 @@ export default (function () {
 
 
     return {
-        apiMethod: function(method, params, fnSuccess, fnFail) {
+        async apiMethod(method, params, fnSuccess, fnFail) {
+            await StorageManager.load();
+
             var performParams = {
                 method: 'POST',
                 url: 'https://api.vk.com/method/' + method

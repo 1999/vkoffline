@@ -1,5 +1,6 @@
 'use strict';
 
+import KinoPromise from 'kinopromise';
 import {values, noop, compact} from 'lodash';
 import sklad from 'sklad/es2015';
 

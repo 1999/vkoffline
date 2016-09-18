@@ -885,6 +885,8 @@ function openAppWindow(evt, tokenExpired) {
      * функция должна отработать до конца, то есть или скачать все сообщения до нуля in descending order, или
      * дойти до момента, когда внутреннняя функция записи сообщений в БД вернет ошибку DUPLICATE ID. mailSync не должна
      * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
+     *
+     * TODO: use last_message_id: https://vk.com/dev/messages.get
      */
     var mailSync = function(currentUserId, mailType, latestMessageId) {
         var offset = syncingData[currentUserId][mailType][1];

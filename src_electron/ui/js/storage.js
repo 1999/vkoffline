@@ -17,7 +17,11 @@ export default {
         const records = await conn.get(OBJ_STORE_NAME);
 
         this._initialized = true;
-        this._data = records;
+        this._data = {};
+
+        for (let {key, value} of records) {
+            this._data[key] = value.value;
+        }
     },
 
     async set(key, value) {

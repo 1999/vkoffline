@@ -159,7 +159,7 @@ class AvatarImage extends HTMLImageElement {
     }
 }
 
-export default {
+const Utils = {
     async: {
         /**
          * Параллельное выполнение задач
@@ -505,3 +505,5 @@ export default {
         AvatarImage
     }
 };
+
+export default Utils;

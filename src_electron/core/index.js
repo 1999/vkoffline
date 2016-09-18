@@ -24,14 +24,14 @@ const createSyncWindow = () => {
     windows.set('sync', window);
 };
 
-const createUiWindow = () => {
+const createUiWindow = (isTokenExpired) => {
     const window = new BrowserWindow({
         width: 1000,
         height: 700,
         title: 'Loading...'
     });
 
-    const url = resolve(`${__dirname}/../ui/main.html`);
+    const url = resolve(`${__dirname}/../ui/main.html?tokenExpired=${isTokenExpired}`);
     window.loadURL(`file://${url}`);
 
     window.on('closed', () => {
@@ -80,4 +80,22 @@ ipcMain
         };
 
         vkAuth(type).then(onPromiseFulfilled).catch(onPromiseFulfilled);
+    })
+    .on('chromeAppWindow:leaveOneAppWindowInstance', (evt, openIfNoExist) => {
+        app.focus();
+
+        if (!windows.size && openIfNoExist) {
+            createUiWindow(false);
+        }
+    })
+    .on('chromeAppWindow:openWindow', (evt, tokenExpired) => {
+        createUiWindow(tokenExpired);
+    })
+    .on('chromeAppWindow:closeAllOpenOne', () => {
+        // close all app windows
+        if (windows.has('ui')) {
+            windows.get('ui').close();
+        }
+
+        createUiWindow(true);
     });

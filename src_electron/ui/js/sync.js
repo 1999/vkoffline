@@ -1,6 +1,7 @@
 'use strict';
 
 import {v4 as uuid} from 'uuid';
+import {ipcRenderer} from 'electron';
 
 import {appName, appVersion} from './remote';
 import chrome from './chrome';
@@ -156,19 +157,7 @@ function getFlatSettings() {
 }
 
 function leaveOneAppWindowInstance(openIfNoExist) {
-    var appWindows = chrome.app.window.getAll();
-    appWindows.forEach(function (win, isNotFirst) {
-        if (isNotFirst) {
-            win.close();
-        } else {
-            win.focus();
-            win.show();
-        }
-    });
-
-    if (!appWindows.length && openIfNoExist) {
-        openAppWindow();
-    }
+    ipcRenderer.send('chromeAppWindow:leaveOneAppWindowInstance', openIfNoExist);
 }
 
 chrome.alarms.onAlarm.addListener(async function (alarmInfo) {
@@ -307,23 +296,7 @@ chrome.runtime.onInstalled.addListener(async function (details) {
 });
 
 function openAppWindow(evt, tokenExpired) {
-    chrome.app.window.create("main.html", {
-        id: uuid(),
-        innerBounds: {
-            minWidth: 1000,
-            minHeight: 700
-        }
-    }, function (win) {
-        // flatten settings by getting their values in this moment
-        win.contentWindow.Settings = getFlatSettings();
-
-        // pass current user data
-        win.contentWindow.Account = {
-            currentUserId: AccountsManager.currentUserId,
-            currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null,
-            tokenExpired: tokenExpired
-        };
-    });
+    ipcRenderer.send('chromeAppWindow:openWindow', tokenExpired);
 }
 
 (async () => {
@@ -1298,13 +1271,7 @@ function openAppWindow(evt, tokenExpired) {
                         sound: "error",
                         onclick: () => {
                             CPA.sendEvent("App-Data", "tokenExpired notification click");
-
-                            // close all app windows
-                            var appWindows = chrome.app.window.getAll();
-                            appWindows.forEach(win => win.close());
-
-                            // TOKEN EXPIRED!!! TODO
-                            openAppWindow(null, true);
+                            ipcRenderer.send('chromeAppWindow:closeAllOpenOne');
                         }
                     });
 

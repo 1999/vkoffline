@@ -1,8 +1,8 @@
 'use strict';
 
-import {appName, appVersion} from '../ui/js/remote';
-
-export default {
+// CJS is used here because this file is used inside both
+// main process and renderer processes
+module.exports = {
     CHROME_WEBSTORE_ID: 'jinklgkideaicpdgmomlckebafjfibjk', /* ID приложения в CWS */
     ERROR_EMAIL: 'vkoffline@staypositive.ru',
     INIT_TAGS: ['inbox', 'sent', 'attachments', 'important', 'trash', 'outbox', 'drafts'], // изначальные тэги для сообщений
@@ -13,9 +13,7 @@ export default {
     GOOGLE_ANALYTICS_CPA_ID: 'vkoffline_chrome_app',
     GOOGLE_ANALYTICS_CPA_COUNTER: 'UA-20919085-11',
 
-    NAME: appName,
     ID: 'jinklgkideaicpdgmomlckebafjfibjk', // TODO remove
-    VERSION: appVersion,
 
     VK_ADV_GROUP: [29809053, 672], // [ID группы, ignorePostsBeforeId]
     VK_ID: 2438161, /* ID приложения ВКонтакте */

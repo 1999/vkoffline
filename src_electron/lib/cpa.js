@@ -1,5 +1,5 @@
 CPA = (function () {
-    "use strict";
+    'use strict';
 
     var service = analytics.getService(App.GOOGLE_ANALYTICS_CPA_ID);
     var tracker = service.getTracker(App.GOOGLE_ANALYTICS_CPA_COUNTER);
@@ -23,15 +23,15 @@ CPA = (function () {
 
             for (var i = 0, len = Math.min(arguments.length, 4); i < len; i++) {
                 if (i === 3) {
-                    if (typeof valueCount === "boolean") {
+                    if (typeof valueCount === 'boolean') {
                         valueCount = Number(valueCount);
-                    } else if (typeof valueCount !== "number") {
+                    } else if (typeof valueCount !== 'number') {
                         valueCount = parseInt(valueCount, 10) || 0;
                     }
 
                     args.push(valueCount);
                 } else {
-                    if (typeof arguments[i] !== "string") {
+                    if (typeof arguments[i] !== 'string') {
                         args.push(JSON.stringify(arguments[i]));
                     } else {
                         args.push(arguments[i]);

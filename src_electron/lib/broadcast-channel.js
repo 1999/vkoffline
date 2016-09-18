@@ -24,13 +24,13 @@
      * @private
      */
     function getRandomString( length ) {
-        var text = "",
-            possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var text = '',
+            possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         for( var i=0; i < (length || 5); i++ ) {
             text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
         return text;
-    };
+    }
 
     /**
      * Check if an object is empty.
@@ -46,7 +46,7 @@
         // Also this is good.
         // returns 0 if empty or an integer > 0 if non-empty
         //return Object.keys(obj).length;
-    };
+    }
 
     /**
      * Gets the current timestamp
@@ -54,7 +54,7 @@
      */
     function getTimestamp() {
         return (new Date().getTime());
-    };
+    }
 
     /**
      * Build a "similar" response as done in the real BroadcastChannel API
@@ -72,7 +72,7 @@
             lastEventId: '',
             origin: context.location.origin
         };
-    };
+    }
 
     /**
      * Creates a new BroadcastChannel
@@ -110,7 +110,7 @@
         }
 
         return this;
-    };
+    }
 
     /**
      * Empty function to prevent errors when calling onmessage.
@@ -162,7 +162,7 @@
             return;
         }
 
-        setTimeout(function(){ context.localStorage.removeItem( lsKey ) }, 1000);
+        setTimeout(function(){ context.localStorage.removeItem( lsKey ); }, 1000);
 
     };
 
@@ -206,7 +206,7 @@
                 context.localStorage.removeItem( key );
             }
         }
-    };
+    }
 
     /**
      * Closes a Broadcast channel.

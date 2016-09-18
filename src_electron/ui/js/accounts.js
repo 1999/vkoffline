@@ -1,7 +1,11 @@
 'use strict';
 
 import assert from 'assert';
+import chrome from './chrome';
 import StorageManager from './storage';
+
+// initialize chrome.runtime
+chrome.runtime.init(false);
 
 // @requires StorageManager
 export default (function () {

@@ -1,103 +1,137 @@
 'use strict';
 
+import config from './../../lib/config';
 import chrome from './chrome';
+import {appName} from './remote';
 import StorageManager from './storage';
 import SoundManager from './sounds';
+import Auth from './auth';
 import Templates from './templates';
 
-// initialize chrome.runtime
-chrome.runtime.init(true);
+const processAuthFailure = ({reason, from}) => {
+    var i18nTerm,
+        accountsContainer, warnSection, closeBtn,
+        descriptionElem;
 
-chrome.runtime.sendMessage({action: 'getInitialSettings'}, ({flatSettings, accountData}) => {
-    window.Settings = flatSettings;
-    window.Account = accountData;
-});
+    // FIXME: request.reason === 'unknown'
+    i18nTerm = (reason === 'denyAccess')
+        ? chrome.i18n.getMessage('appWontWorkWithoutAccessGranted').replace('%appname%', appName)
+        : chrome.i18n.getMessage('appWontWorkDueSecurityBreach');
 
-document.addEventListener("click", function (e) {
+    if (from === 'new') {
+        descriptionElem = $('p.description');
+        if (descriptionElem === null) {
+            return;
+        }
+
+        descriptionElem.text(i18nTerm);
+    } else {
+        accountsContainer = $('#content > section.accounts-list');
+        if (accountsContainer === null) {
+            return;
+        }
+
+        closeBtn = $('<span class=\'close\'/>').bind('click', function() {
+            this.parentNode.remove();
+        });
+
+        warnSection = $('<section class=\'result warn\'/>').html(i18nTerm).prepend(closeBtn);
+        accountsContainer.prepend(warnSection);
+
+        window.setTimeout(function() {
+            var warnSection = $('#content > section.accounts-list section.result.warn');
+            if (warnSection !== null) {
+                warnSection.remove();
+            }
+        }, 8000);
+    }
+};
+
+document.addEventListener('click', function (e) {
     var matchesSelectorFn = (Element.prototype.webkitMatchesSelector || Element.prototype.matchesSelector);
     var routes = {
         // пропустить синхронизацию
-        ".skip-sync": function (target, evt) {
+        '.skip-sync': function (target, evt) {
             if (!target.dataset.once) {
                 target.dataset.once = 'yes';
-                target.innerHTML = chrome.i18n.getMessage("areyouready");
+                target.innerHTML = chrome.i18n.getMessage('areyouready');
             } else {
-                chrome.runtime.sendMessage({action: "skipSync"});
-                target.innerHTML = Utils.string.ucfirst(chrome.i18n.getMessage("pleaseWait")) + "&hellip;";
+                chrome.runtime.sendMessage({action: 'skipSync'});
+                target.innerHTML = Utils.string.ucfirst(chrome.i18n.getMessage('pleaseWait')) + '&hellip;';
             }
         },
         // открытие Listen!
-        ".listenapp-open": function (target, evt) {
-            chrome.runtime.sendMessage(App.LISTENAPP_ID, {
-                action: "searchArtist",
+        '.listenapp-open': function (target, evt) {
+            chrome.runtime.sendMessage(config.LISTENAPP_ID, {
+                action: 'searchArtist',
                 q: target.dataset.artist
             });
         },
         // закрытие окна уведомления
-        "section.result > span.close": function (target, evt) {
+        'section.result > span.close': function (target, evt) {
             target.parentNode.remove();
         },
         // открытие контакта
-        "#content > section.left.contacts-container > section[data-uid]": function (target, evt) {
-            var uid = target.data("uid");
-            var fioSection = $(target, "section.fio");
+        '#content > section.left.contacts-container > section[data-uid]': function (target, evt) {
+            var uid = target.data('uid');
+            var fioSection = $(target, 'section.fio');
             var fio = fioSection.text();
 
-            this.view("showContact", {
-                uiType: "partial",
+            this.view('showContact', {
+                uiType: 'partial',
                 headers: {
                     left: [
-                        {"type" : "text", "name" : fio},
-                        {"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")}
+                        {'type' : 'text', 'name' : fio},
+                        {'type' : 'icon', 'name' : 'write', 'title' : chrome.i18n.getMessage('writeMessage')}
                     ],
                     right: [
-                        {"type" : "text", "name" : chrome.i18n.getMessage("correspondence")}
+                        {'type' : 'text', 'name' : chrome.i18n.getMessage('correspondence')}
                     ]
                 }
             }, [uid]);
         },
         // открытие чата
-        "#content > section.right.dialogs-container > section[data-id]": function (target, evt) {
-            var dialogId = target.data("id");
-            var subjElem = $(target, "span.text span.subj");
-            var subject = subjElem ? subjElem.text() : "";
+        '#content > section.right.dialogs-container > section[data-id]': function (target, evt) {
+            var dialogId = target.data('id');
+            var subjElem = $(target, 'span.text span.subj');
+            var subject = subjElem ? subjElem.text() : '';
 
-            this.view("chat", {
-                uiType: "partial",
+            this.view('chat', {
+                uiType: 'partial',
                 headers: {
                     right: [
-                        {"type" : "text", "name" : subject},
-                        {"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("backToDialogsList")},
+                        {'type' : 'text', 'name' : subject},
+                        {'type' : 'icon', 'name' : 'back', 'title' : chrome.i18n.getMessage('backToDialogsList')},
                         // {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
-                        {"type" : "icon", "name" : "print", "title" : chrome.i18n.getMessage("printCorrespondence")}
+                        {'type' : 'icon', 'name' : 'print', 'title' : chrome.i18n.getMessage('printCorrespondence')}
                     ]
                 }
             }, [dialogId]);
         },
         // открытие сообщения из переписки
-        "#content > section.right.thread-container > section.half": function (target, evt) {
-            var msgId = target.data("mid");
+        '#content > section.right.thread-container > section.half': function (target, evt) {
+            var msgId = target.data('mid');
             this._drawOpenMessage(msgId);
         },
         // отметка сообщения как важного
-        "#content > section.right span.important": function (target, evt) {
+        '#content > section.right span.important': function (target, evt) {
             var self = this;
-            var closestParent = target.closestParent("section.open") || target.closestParent("section.msg"),
-                msgId = closestParent.data("mid"),
-                tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='important'] span"),
+            var closestParent = target.closestParent('section.open') || target.closestParent('section.msg'),
+                msgId = closestParent.data('mid'),
+                tagListItemCounter = $('#content > section.left.manage-mail li[data-tag=\'important\'] span'),
                 counterValue;
 
-            if (target.hasClass("active")) {
+            if (target.hasClass('active')) {
                 chrome.runtime.sendMessage({
-                    action: "unmarkMessageTag",
+                    action: 'unmarkMessageTag',
                     mid: msgId,
-                    tag: "important"
+                    tag: 'important'
                 }, function (unmarked) {
                     if (unmarked) {
-                        target.removeClass("active").removeAttr("title").removeData();
+                        target.removeClass('active').removeAttr('title').removeData();
 
                         // при необходимости обновляем счетчики
-                        if (self.lastShownView[0] === "messagesOfType") {
+                        if (self.lastShownView[0] === 'messagesOfType') {
                             counterValue = parseInt(tagListItemCounter.text(), 10);
                             tagListItemCounter.text(counterValue - 1);
                         }
@@ -105,15 +139,15 @@ document.addEventListener("click", function (e) {
                 });
             } else {
                 chrome.runtime.sendMessage({
-                    action: "markMessageTag",
+                    action: 'markMessageTag',
                     mid: msgId,
-                    tag: "important"
+                    tag: 'important'
                 }, function (marked) {
                     if (marked) {
-                        target.addClass("active").attr("title", chrome.i18n.getMessage("importantMessage"));
+                        target.addClass('active').attr('title', chrome.i18n.getMessage('importantMessage'));
 
                         // при необходимости обновляем счетчики
-                        if (self.lastShownView[0] === "messagesOfType") {
+                        if (self.lastShownView[0] === 'messagesOfType') {
                             counterValue = parseInt(tagListItemCounter.text(), 10);
                             tagListItemCounter.text(counterValue + 1);
                         }
@@ -122,34 +156,34 @@ document.addEventListener("click", function (e) {
             }
 
             chrome.runtime.sendMessage({
-                action: "useImportantTag",
-                type: "mark"
+                action: 'useImportantTag',
+                type: 'mark'
             });
         },
         // печать сообщения
-        "#content > section.right.thread-container > section.open span.print": function (target, evt) {
-            var msgSection = target.closestParent("section.open"),
-                msgId = msgSection.data("mid"),
-                uid = $(msgSection, "img").data("uid");
+        '#content > section.right.thread-container > section.open span.print': function (target, evt) {
+            var msgSection = target.closestParent('section.open'),
+                msgId = msgSection.data('mid'),
+                uid = $(msgSection, 'img').data('uid');
 
-            openInNewWindow("print.html?mid=" + msgId + "&uid=" + uid);
+            openInNewWindow('print.html?mid=' + msgId + '&uid=' + uid);
         },
         // ответ на сообщение
-        "#content > section.right.thread-container > section.open span.reply": function (target, evt) {
-            var openSection = target.closestParent("section.open"),
-                threadContainer = $("#content > section.right.thread-container"),
-                dialogId = openSection.data("did"),
-                msgId = openSection.data("mid"),
-                fakeArea = $(openSection, "textarea.fake");
+        '#content > section.right.thread-container > section.open span.reply': function (target, evt) {
+            var openSection = target.closestParent('section.open'),
+                threadContainer = $('#content > section.right.thread-container'),
+                dialogId = openSection.data('did'),
+                msgId = openSection.data('mid'),
+                fakeArea = $(openSection, 'textarea.fake');
 
             if (fakeArea)
                 fakeArea.remove();
 
             if (dialogId.length)
-                threadContainer.data("dialogId", dialogId);
+                threadContainer.data('dialogId', dialogId);
 
-            var msgSection = $(threadContainer, "section[data-mid='" + msgId + "']");
-            var replyAreaForm = $(threadContainer, "form.reply");
+            var msgSection = $(threadContainer, 'section[data-mid=\'' + msgId + '\']');
+            var replyAreaForm = $(threadContainer, 'form.reply');
 
             if (replyAreaForm) {
                 if (msgSection.nextElementSibling === replyAreaForm) { // попытка открыть форму в том же месте
@@ -158,7 +192,7 @@ document.addEventListener("click", function (e) {
                     msgSection.after(replyAreaForm);
                     replyAreaForm.scrollIntoView();
 
-                    var textArea = $(replyAreaForm, "textarea");
+                    var textArea = $(replyAreaForm, 'textarea');
                     if (textArea) {
                         textArea.focus();
                     }
@@ -167,34 +201,34 @@ document.addEventListener("click", function (e) {
                 return;
             }
 
-            replyAreaForm = this._drawMessageSendForm("simple");
+            replyAreaForm = this._drawMessageSendForm('simple');
             msgSection.after(replyAreaForm);
         },
         // нажатие на фейковую форму ответа
-        "#content > section.right.thread-container > section.open textarea.fake": function (target, evt) {
-            var openSection = target.closestParent("section.open");
-            $(openSection, "span.reply").click();
+        '#content > section.right.thread-container > section.open textarea.fake': function (target, evt) {
+            var openSection = target.closestParent('section.open');
+            $(openSection, 'span.reply').click();
         },
         // показ вложений
-        "#content > section.right.chat-container section.attach > section.attachment.hidden": function (target, evt) {
+        '#content > section.right.chat-container section.attach > section.attachment.hidden': function (target, evt) {
             var self = this;
-            var msgSection = target.closestParent("section.msg");
-            var msgId = msgSection.data("mid");
-            var requestData = JSON.parse(target.data("info"));
+            var msgSection = target.closestParent('section.msg');
+            var msgId = msgSection.data('mid');
+            var requestData = JSON.parse(target.data('info'));
             var availableWidth = msgSection.offsetWidth;
 
-            if (target.hasClass("loading"))
+            if (target.hasClass('loading'))
                 return;
 
-            target.addClass("loading");
+            target.addClass('loading');
 
             // делаем доп. запросы к API для получения прямых ссылок на вложения
             switch (requestData[0]) {
-                case "photo":
-                    var imgElem = $(target, "img");
+                case 'photo':
+                    var imgElem = $(target, 'img');
 
                     if (requestData.length === 2) {
-                        target.removeClass("hidden");
+                        target.removeClass('hidden');
 
                         var imgAspect = imgElem.width / imgElem.height;
                         var imgWidth = Math.min(availableWidth, imgElem.width);
@@ -205,7 +239,7 @@ document.addEventListener("click", function (e) {
                         });
                     } else {
                         chrome.runtime.sendMessage({
-                            action: "getPhotoById",
+                            action: 'getPhotoById',
                             ownerId: requestData[1],
                             id: requestData[2],
                             mid: msgId
@@ -213,29 +247,29 @@ document.addEventListener("click", function (e) {
                             if (!photoInfo)
                                 return;
 
-                            target.removeClass("hidden");
+                            target.removeClass('hidden');
 
                             var biggestImageSrc = Utils.misc.searchBiggestImage(photoInfo);
                             var imgAspect = photoInfo.width / photoInfo.height;
                             var imgWidth = Math.min(availableWidth, photoInfo.width);
 
                             imgElem.attr({
-                                is: "external-image",
+                                is: 'external-image',
                                 width: imgWidth,
                                 height: imgWidth / imgAspect,
                                 src: biggestImageSrc
                             });
 
-                            var photoDownloadElem = $(target, "a");
-                            photoDownloadElem.setAttribute("href", biggestImageSrc);
+                            var photoDownloadElem = $(target, 'a');
+                            photoDownloadElem.setAttribute('href', biggestImageSrc);
                         });
                     }
 
                     break;
 
-                case "audio":
+                case 'audio':
                     chrome.runtime.sendMessage({
-                        action: "getAudioById",
+                        action: 'getAudioById',
                         ownerId: requestData[1],
                         id: requestData[2],
                         mid: msgId
@@ -248,9 +282,9 @@ document.addEventListener("click", function (e) {
 
                     break;
 
-                case "video":
+                case 'video':
                     chrome.runtime.sendMessage({
-                        action: "getVideoById",
+                        action: 'getVideoById',
                         ownerId: requestData[1],
                         id: requestData[2],
                         mid: msgId
@@ -258,18 +292,18 @@ document.addEventListener("click", function (e) {
                         if (!videoInfo)
                             return;
 
-                        target.removeClass("hidden");
-                        var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
+                        target.removeClass('hidden');
+                        var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + '<br>' + videoInfo.description : videoInfo.description;
 
-                        $(target, "webview").attr("src", videoInfo.player);
-                        $(target, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
+                        $(target, 'webview').attr('src', videoInfo.player);
+                        $(target, 'span.description').html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, '<br>')));
                     });
 
                     break;
 
-                case "doc":
+                case 'doc':
                     chrome.runtime.sendMessage({
-                        action: "getDocById",
+                        action: 'getDocById',
                         ownerId: requestData[1],
                         id: requestData[2],
                         mid: msgId
@@ -277,31 +311,31 @@ document.addEventListener("click", function (e) {
                         if (!fileInfo)
                             return;
 
-                        target.removeClass("hidden");
-                        var regex = new RegExp(fileInfo.ext + "$");
-                        var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
+                        target.removeClass('hidden');
+                        var regex = new RegExp(fileInfo.ext + '$');
+                        var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + '.' + fileInfo.ext;
 
-                        var attachLink = target.querySelector("a");
-                        attachLink.setAttribute("href", fileInfo.url);
-                        attachLink.setAttribute("download", fileName);
+                        var attachLink = target.querySelector('a');
+                        attachLink.setAttribute('href', fileInfo.url);
+                        attachLink.setAttribute('download', fileName);
                         attachLink.innerHTML = fileInfo.title;
 
-                        var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-                        var attachDescription = target.querySelector("span.description");
+                        var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ', ' + chrome.i18n.getMessage('fileType') + ': ' + fileInfo.ext.toUpperCase();
+                        var attachDescription = target.querySelector('span.description');
                         attachDescription.innerHTML = descriptionText;
                     });
 
                     break;
 
-                case "geopoint":
+                case 'geopoint':
                     chrome.runtime.sendMessage({
-                        action: "getGeopointById",
+                        action: 'getGeopointById',
                         mid: msgId
                     }, function (pointInfo) {
                         if (!pointInfo)
                             return;
 
-                        target.removeClass("hidden");
+                        target.removeClass('hidden');
                         self._drawGeoPoint(target.id, pointInfo[0], pointInfo[1]);
 
                         target.scrollIntoView();
@@ -311,27 +345,27 @@ document.addEventListener("click", function (e) {
             }
         },
         // восстановление сообщения
-        "#content > section.right.thread-container > section.open span.restore": function (target, evt) {
+        '#content > section.right.thread-container > section.open span.restore': function (target, evt) {
             var self = this;
-            var msgSection = target.closestParent("section.open");
-            var leftSection = $("#content > section.left");
-            var msgId = msgSection.data("mid");
+            var msgSection = target.closestParent('section.open');
+            var leftSection = $('#content > section.left');
+            var msgId = msgSection.data('mid');
 
             Utils.async.parallel({
                 // снимаем отметку с сообщения "удаленное" в БД
                 db: function (callback) {
                     chrome.runtime.sendMessage({
-                        action: "unmarkMessageTag",
+                        action: 'unmarkMessageTag',
                         mid: msgId,
-                        tag: "trash"
+                        tag: 'trash'
                     }, function (ok) {
-                        callback((ok) ? null : "Update database fail");
+                        callback((ok) ? null : 'Update database fail');
                     });
                 },
                 // восстанавливаем на сервере
                 server: function (callback) {
                     chrome.runtime.sendMessage({
-                        action: "serverRestoreMessage",
+                        action: 'serverRestoreMessage',
                         mid: msgId
                     }, function (ok) {
                         callback();
@@ -344,25 +378,25 @@ document.addEventListener("click", function (e) {
                 msgSection.remove();
 
                 // при необходимости обновляем счетчики
-                if (self.lastShownView[0] !== "messagesOfType")
+                if (self.lastShownView[0] !== 'messagesOfType')
                     return;
 
                 // обновление счетчика корзины
-                var tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='trash'] span");
+                var tagListItemCounter = $('#content > section.left.manage-mail li[data-tag=\'trash\'] span');
                 var counterValue = parseInt(tagListItemCounter.text(), 10);
                 tagListItemCounter.text(counterValue - 1);
 
                 // необходимо обновить все счетчики тэгов для сообщения
-                chrome.runtime.sendMessage({action: "getMessageInfo", mid: msgId}, function (msgInfo) {
+                chrome.runtime.sendMessage({action: 'getMessageInfo', mid: msgId}, function (msgInfo) {
                     var counterValue;
 
                     // добавляем стартовые метки-папки
-                    App.INIT_TAGS.forEach(function (tagName) {
-                        if (tagName === "trash" || msgInfo.tags.indexOf(tagName) === -1) {
+                    config.INIT_TAGS.forEach(function (tagName) {
+                        if (tagName === 'trash' || msgInfo.tags.indexOf(tagName) === -1) {
                             return;
                         }
 
-                        var counterElem = $(leftSection, "li[data-tag='" + tagName + "'] > span.total");
+                        var counterElem = $(leftSection, 'li[data-tag=\'' + tagName + '\'] > span.total');
                         if (counterElem) {
                             counterValue = parseInt(counterElem.text(), 10) + 1;
                             counterElem.text(counterValue);
@@ -372,18 +406,18 @@ document.addEventListener("click", function (e) {
             });
         },
         // удаление сообщения
-        "#content > section.right.thread-container > section.open span.delete": function (target, evt) {
+        '#content > section.right.thread-container > section.open span.delete': function (target, evt) {
             var self = this;
-            var msgSection = target.closestParent("section.open");
-            var msgId = msgSection.data("mid");
-            var leftSection = $("#content > section.left");
-            var activeSectionTag = $(leftSection, "li.active").data("tag");
-            var isTrashFolderContents = (leftSection.hasClass("manage-mail") && activeSectionTag === "trash");
+            var msgSection = target.closestParent('section.open');
+            var msgId = msgSection.data('mid');
+            var leftSection = $('#content > section.left');
+            var activeSectionTag = $(leftSection, 'li.active').data('tag');
+            var isTrashFolderContents = (leftSection.hasClass('manage-mail') && activeSectionTag === 'trash');
             var serverToo = (Settings.DeleteUser !== 0);
 
             if (isTrashFolderContents) {
-                if (confirm(chrome.i18n.getMessage("deleteMessageForever"))) {
-                    chrome.runtime.sendMessage({action: "deleteMessageForever", mid: msgId, serverToo: serverToo}, function () {
+                if (confirm(chrome.i18n.getMessage('deleteMessageForever'))) {
+                    chrome.runtime.sendMessage({action: 'deleteMessageForever', mid: msgId, serverToo: serverToo}, function () {
                         msgSection.remove();
                     });
                 }
@@ -395,21 +429,21 @@ document.addEventListener("click", function (e) {
                 // помечаем сообщение как удаленное в БД
                 db: function (callback) {
                     chrome.runtime.sendMessage({
-                        action: "markMessageTag",
+                        action: 'markMessageTag',
                         mid: msgId,
-                        tag: "trash"
+                        tag: 'trash'
                     }, function (ok) {
-                        callback((ok) ? null : "Update database fail");
+                        callback((ok) ? null : 'Update database fail');
                     });
                 },
                 // удаляем на сервере
                 server: function (callback) {
                     if (Settings.DeleteUser !== 0) {
                         chrome.runtime.sendMessage({
-                            action: "serverDeleteMessage",
+                            action: 'serverDeleteMessage',
                             mid: msgId
                         }, function (ok) {
-                            callback((ok) ? null : "Server delete fail");
+                            callback((ok) ? null : 'Server delete fail');
                         });
                     } else {
                         callback();
@@ -419,9 +453,9 @@ document.addEventListener("click", function (e) {
                 if (err)
                     throw new Error(err);
 
-                var openPrevAfterDelete = (msgSection !== msgSection.parentNode.firstElementChild && msgSection.previousElementSibling.hasClass("open") === false);
-                var sectionToOpen = (openPrevAfterDelete && msgSection.previousElementSibling.hasClass("half")) ? msgSection.previousElementSibling : $("#fold");
-                var tagListItemCounter = $("#content > section.left.manage-mail li[data-tag='trash'] span");
+                var openPrevAfterDelete = (msgSection !== msgSection.parentNode.firstElementChild && msgSection.previousElementSibling.hasClass('open') === false);
+                var sectionToOpen = (openPrevAfterDelete && msgSection.previousElementSibling.hasClass('half')) ? msgSection.previousElementSibling : $('#fold');
+                var tagListItemCounter = $('#content > section.left.manage-mail li[data-tag=\'trash\'] span');
 
                 msgSection.remove();
                 if (openPrevAfterDelete) {
@@ -430,7 +464,7 @@ document.addEventListener("click", function (e) {
                 }
 
                 // при необходимости обновляем счетчики
-                if (self.lastShownView[0] !== "messagesOfType")
+                if (self.lastShownView[0] !== 'messagesOfType')
                     return;
 
                 // обновление счетчика корзины
@@ -438,16 +472,16 @@ document.addEventListener("click", function (e) {
                 tagListItemCounter.text(counterValue + 1);
 
                 // необходимо обновить все счетчики тэгов для сообщения
-                chrome.runtime.sendMessage({action: "getMessageInfo", mid: msgId}, function (msgInfo) {
+                chrome.runtime.sendMessage({action: 'getMessageInfo', mid: msgId}, function (msgInfo) {
                     var counterValue;
 
                     // добавляем стартовые метки-папки
-                    App.INIT_TAGS.forEach(function (tagName) {
-                        if (tagName === "trash" || msgInfo.tags.indexOf(tagName) === -1) {
+                    config.INIT_TAGS.forEach(function (tagName) {
+                        if (tagName === 'trash' || msgInfo.tags.indexOf(tagName) === -1) {
                             return;
                         }
 
-                        var counterElem = $(leftSection, "li[data-tag='" + tagName + "'] > span.total");
+                        var counterElem = $(leftSection, 'li[data-tag=\'' + tagName + '\'] > span.total');
                         if (counterElem) {
                             counterValue = parseInt(counterElem.text(), 10) - 1;
                             counterElem.text(counterValue);
@@ -457,24 +491,24 @@ document.addEventListener("click", function (e) {
             });
         },
         // открытие сообщений определенного типа
-        "#content > section.left.manage-mail li[data-tag]": function (target, evt) {
-            var tag = target.data("tag");
-            var containerSection = target.closestParent("#content > section.left");
+        '#content > section.left.manage-mail li[data-tag]': function (target, evt) {
+            var tag = target.data('tag');
+            var containerSection = target.closestParent('#content > section.left');
 
-            $$(containerSection, "li[data-tag]").each(function () {
+            $$(containerSection, 'li[data-tag]').each(function () {
                 if (target === this) {
-                    this.addClass("active");
+                    this.addClass('active');
                 } else {
-                    this.removeClass("active");
+                    this.removeClass('active');
                 }
             });
 
-            this.view("messagesOfType", {
-                uiType: "partial",
+            this.view('messagesOfType', {
+                uiType: 'partial',
                 headers: {
                     right: [
-                        {"type" : "text", "name" : "..."},
-                        {"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
+                        {'type' : 'text', 'name' : '...'},
+                        {'type' : 'icon', 'name' : 'list', 'title' : chrome.i18n.getMessage('correspondenceManagement')},
                         // {"type" : "icon", "name" : "search"}
                     ]
                 }
@@ -505,7 +539,7 @@ document.addEventListener("click", function (e) {
     e.stopImmediatePropagation();
 }, false);
 
-document.addEventListener("submit", function (e) {
+document.addEventListener('submit', function (e) {
     var matchesSelectorFn = (Element.prototype.webkitMatchesSelector || Element.prototype.matchesSelector);
     var form = e.target;
     var self = AppUI;
@@ -515,27 +549,27 @@ document.addEventListener("submit", function (e) {
 
     var routes = {
         // settings
-        "#content > section.settings-container form": function () {
+        '#content > section.settings-container form': function () {
             var collectedSettings = {};
             Array.prototype.forEach.call(form.elements, function (elem) {
-                var itemName = elem.attr("name"),
-                    itemType = elem.attr("type"),
+                var itemName = elem.attr('name'),
+                    itemType = elem.attr('type'),
                     itemValue = elem.val();
 
                 if (!itemName)
                     return;
 
                 switch (itemType) {
-                    case "range":
+                    case 'range':
                         // такой странный код используется потому что в value из input[type="range"] с min=0, max=1
                         // содержится не 0.7, а 0.700000001 итд. (mac, chrome19)
-                        collectedSettings[itemName] = (itemName !== "SoundLevel")
+                        collectedSettings[itemName] = (itemName !== 'SoundLevel')
                             ? itemValue
                             : itemValue / 10;
 
                         break;
 
-                    case "radio":
+                    case 'radio':
                         if (elem.checked) {
                             collectedSettings[itemName] = itemValue;
                         }
@@ -544,26 +578,26 @@ document.addEventListener("submit", function (e) {
                 }
             });
 
-            chrome.runtime.sendMessage({action: "saveSettings", settings: collectedSettings});
+            chrome.runtime.sendMessage({action: 'saveSettings', settings: collectedSettings});
 
-            var saveBtn = $(form, "button[type='submit']").text(chrome.i18n.getMessage("saveBtnClicked")).attr("disabled", true);
+            var saveBtn = $(form, 'button[type=\'submit\']').text(chrome.i18n.getMessage('saveBtnClicked')).attr('disabled', true);
             window.setTimeout(function () {
-                saveBtn.removeAttr("disabled").text(chrome.i18n.getMessage("saveBtn"));
+                saveBtn.removeAttr('disabled').text(chrome.i18n.getMessage('saveBtn'));
             }, 3000);
         },
         // send message
-        "#content form.reply": function () {
+        '#content form.reply': function () {
             var self = this;
-            var sendObj = {action: "sendMessage"};
-            var dataContainer = $("#content > section.right");
-            var saveMessageKey = "message_" + Account.currentUserId + "_" + dataContainer.data("dialogId");
-            var isChat = dataContainer.hasClass("chat-container");
-            var form = $(dataContainer, "form.reply");
-            var face2face = form.hasClass("face2face");
+            var sendObj = {action: 'sendMessage'};
+            var dataContainer = $('#content > section.right');
+            var saveMessageKey = 'message_' + Account.currentUserId + '_' + dataContainer.data('dialogId');
+            var isChat = dataContainer.hasClass('chat-container');
+            var form = $(dataContainer, 'form.reply');
+            var face2face = form.hasClass('face2face');
 
             var attachmentsUploaded = [];
-            var pleaseWaitText = Utils.string.ucfirst(chrome.i18n.getMessage("pleaseWait")) + "...";
-            var captchaSection = $(form, "section.captcha:not(:empty)");
+            var pleaseWaitText = Utils.string.ucfirst(chrome.i18n.getMessage('pleaseWait')) + '...';
+            var captchaSection = $(form, 'section.captcha:not(:empty)');
             var msgText;
 
             var sendFn = function() {
@@ -576,10 +610,10 @@ document.addEventListener("submit", function (e) {
                             var closeBtn, infoSection, closeTimeoutId;
 
                             // останавливаем таймаут записи в LS
-                            var timeoutId = form.data("timeoutId");
+                            var timeoutId = form.data('timeoutId');
                             if (timeoutId) {
                                 window.clearTimeout(timeoutId);
-                                form.removeData("timeoutId");
+                                form.removeData('timeoutId');
                             }
 
                             // очищаем сохраненный текст сообщения
@@ -587,41 +621,41 @@ document.addEventListener("submit", function (e) {
 
                             if (isChat) {
                                 // восстанавливаем активность кнопок
-                                $$(form, "button").each(function () {
-                                    this.removeAttr("disabled");
+                                $$(form, 'button').each(function () {
+                                    this.removeAttr('disabled');
 
-                                    if (this.hasClass("send")) {
-                                        this.text(Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle")));
+                                    if (this.hasClass('send')) {
+                                        this.text(Utils.string.ucfirst(chrome.i18n.getMessage('sendMessageButtonTitle')));
                                     }
                                 });
 
                                 // очищаем вложения
-                                $$(form, "section.manage.attachments > section.file").remove();
+                                $$(form, 'section.manage.attachments > section.file').remove();
 
-                                $(form, "li.attachments span").empty();
+                                $(form, 'li.attachments span').empty();
 
                                 // очищаем textarea
-                                $(form, "textarea").val("").focus();
+                                $(form, 'textarea').val('').focus();
 
                                 // скроллим ниже
                                 dataContainer.scrollTop = dataContainer.scrollHeight;
                             } else {
                                 // удаляем кнопки у формы
-                                $$(form, "button").remove();
+                                $$(form, 'button').remove();
 
-                                var closeBtn = $("<span>").addClass("close");
-                                var infoSection = $("<section>").addClass("result", "info").text(chrome.i18n.getMessage("messageSentSuccess")).prepend(closeBtn);
+                                var closeBtn = $('<span>').addClass('close');
+                                var infoSection = $('<section>').addClass('result', 'info').text(chrome.i18n.getMessage('messageSentSuccess')).prepend(closeBtn);
 
                                 // устанавливаем форме MID нового сообщения
-                                form.data("mid", sentResultData.response).prepend(infoSection);
+                                form.data('mid', sentResultData.response).prepend(infoSection);
 
                                 // удаляем форму, если сообщение от LP-сервера пришло раньше ответа
-                                if ($(dataContainer, "section[data-mid='" + sentResultData.response + "']"))
+                                if ($(dataContainer, 'section[data-mid=\'' + sentResultData.response + '\']'))
                                     return replyAreaForm.remove();
 
                                 var closeTimeoutId = window.setTimeout(function () {
-                                    var dataContainer = $("#content > section.right");
-                                    var form = $(dataContainer, "form.reply");
+                                    var dataContainer = $('#content > section.right');
+                                    var form = $(dataContainer, 'form.reply');
 
                                     if (form) {
                                         if (form.previousElementSibling)
@@ -631,53 +665,53 @@ document.addEventListener("submit", function (e) {
                                     }
 
                                     if (face2face) {
-                                        var uid = dataContainer.data("dialogId").split("_")[1];
+                                        var uid = dataContainer.data('dialogId').split('_')[1];
 
-                                        self.view("showContact", {
-                                            uiType: "partial",
+                                        self.view('showContact', {
+                                            uiType: 'partial',
                                             headers: {
                                                 left: [
-                                                    {"type" : "text", "name" : "..."},
-                                                    {"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")}
+                                                    {'type' : 'text', 'name' : '...'},
+                                                    {'type' : 'icon', 'name' : 'write', 'title' : chrome.i18n.getMessage('writeMessage')}
                                                 ],
                                                 right: [
-                                                    {"type" : "text", "name" : chrome.i18n.getMessage("correspondence")}
+                                                    {'type' : 'text', 'name' : chrome.i18n.getMessage('correspondence')}
                                                 ]
                                             }
                                         }, [uid]);
                                     }
                                 }, 3000);
 
-                                form.data("timeoutId", closeTimeoutId);
+                                form.data('timeoutId', closeTimeoutId);
                             }
 
                             break;
 
                         case 1 : // captcha
-                            var captchaImg = $("<img/>").attr({"width" : 130, "height" : 50, "alt" : "", "src" : sendResultData.img});
-                            var captchaInputText = $("<input>").attr("placeholder", chrome.i18n.getMessage("typeCaptchaSymbols"));
-                            $(form, "section.captcha").empty().append([captchaImg, captchaInputText]).data("sid", sendResultData.sid);
+                            var captchaImg = $('<img/>').attr({'width' : 130, 'height' : 50, 'alt' : '', 'src' : sendResultData.img});
+                            var captchaInputText = $('<input>').attr('placeholder', chrome.i18n.getMessage('typeCaptchaSymbols'));
+                            $(form, 'section.captcha').empty().append([captchaImg, captchaInputText]).data('sid', sendResultData.sid);
 
                             captchaInputText.focus();
-                            $(form, "button.send").removeAttr("disabled").text(Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle")));
+                            $(form, 'button.send').removeAttr('disabled').text(Utils.string.ucfirst(chrome.i18n.getMessage('sendMessageButtonTitle')));
 
                             break;
 
                         case 2 : // access denied
-                            var closeBtn = $("<span>").addClass("close");
-                            var infoSection = $("<section>").addClass("result", "warn").text(chrome.i18n.getMessage("accessDeniedWhenSendingMessage")).prepend(closeBtn);
+                            var closeBtn = $('<span>').addClass('close');
+                            var infoSection = $('<section>').addClass('result', 'warn').text(chrome.i18n.getMessage('accessDeniedWhenSendingMessage')).prepend(closeBtn);
 
                             form.prepend(infoSection);
-                            $(form, "button.send").removeAttr("disabled").text(Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle")));
+                            $(form, 'button.send').removeAttr('disabled').text(Utils.string.ucfirst(chrome.i18n.getMessage('sendMessageButtonTitle')));
 
                             break;
 
                         default : // error
-                            var closeBtn = $("<span>").addClass("close");
-                            var infoSection = $("<section>").addClass("result", "error").text(chrome.i18n.getMessage("messageSentFail")).prepend(closeBtn);
+                            var closeBtn = $('<span>').addClass('close');
+                            var infoSection = $('<section>').addClass('result', 'error').text(chrome.i18n.getMessage('messageSentFail')).prepend(closeBtn);
 
                             form.prepend(infoSection);
-                            $(form, "button.send").text(Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle")));
+                            $(form, 'button.send').text(Utils.string.ucfirst(chrome.i18n.getMessage('sendMessageButtonTitle')));
 
                             break;
                     }
@@ -686,33 +720,33 @@ document.addEventListener("submit", function (e) {
 
 
             if (captchaSection) {
-                var captchaValue = $(captchaSection, "input").val();
+                var captchaValue = $(captchaSection, 'input').val();
                 if (!captchaValue.length)
-                    return $(captchaSection, "input").addClass("empty").focus();
+                    return $(captchaSection, 'input').addClass('empty').focus();
 
-                sendObj.sid = captchaSection.data("sid");
+                sendObj.sid = captchaSection.data('sid');
                 sendObj.key = captchaValue;
             }
 
             sendObj.attachments = [];
-            $$(form, "section.manage.attachments > section.file").each(function () {
+            $$(form, 'section.manage.attachments > section.file').each(function () {
                 var section = this;
-                var attachmentId = section.data("id");
+                var attachmentId = section.data('id');
 
                 if (attachmentId.length) {
                     sendObj.attachments.push(attachmentId);
                 }
             });
 
-            sendObj.to = dataContainer.data("dialogId");
-            sendObj.body = $(form, "textarea").val();
+            sendObj.to = dataContainer.data('dialogId');
+            sendObj.body = $(form, 'textarea').val();
 
             var subjectElem = form.elements.subject;
             if (face2face && subjectElem.val().length)
                 sendObj.subject = subjectElem.val();
 
-            $(form, "button.send").text(pleaseWaitText).attr("disabled", true);
-            $$(form, "section.result").remove();
+            $(form, 'button.send').text(pleaseWaitText).attr('disabled', true);
+            $$(form, 'section.result').remove();
 
             if (Settings.AttachGeolocation === 1) {
                 navigator.geolocation.getCurrentPosition(function (position) {
@@ -740,14 +774,14 @@ export default {
             startFrom = startFrom || 0;
 
             var self = this;
-            var leftSection = $("#content > section.left").addClass("loading");
-            var searchIcon = $("#content > header.left > span.icon.search");
+            var leftSection = $('#content > section.left').addClass('loading');
+            var searchIcon = $('#content > header.left > span.icon.search');
             var sortType;
 
             if (startFrom === 0) {
                 // при первом вызове привязываем обработчик события onscroll
-                leftSection.bind("scroll", function () {
-                    var moreSection = $(this, "section.more");
+                leftSection.bind('scroll', function () {
+                    var moreSection = $(this, 'section.more');
                     if (!moreSection)
                         return;
 
@@ -757,13 +791,13 @@ export default {
                     }
                 }, true);
 
-                searchIcon.bind("click", function () {
-                    self.view("searchContact", {
-                        "uiType" : "partial",
-                        "headers" : {
-                            "left" : [
-                                {"type" : "text", "name" : chrome.i18n.getMessage("searchContact")},
-                                {"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("contactsName")}
+                searchIcon.bind('click', function () {
+                    self.view('searchContact', {
+                        'uiType' : 'partial',
+                        'headers' : {
+                            'left' : [
+                                {'type' : 'text', 'name' : chrome.i18n.getMessage('searchContact')},
+                                {'type' : 'icon', 'name' : 'back', 'title' : chrome.i18n.getMessage('contactsName')}
                             ]
                         }
                     });
@@ -772,30 +806,30 @@ export default {
 
             switch (Settings.SortContacts) {
                 case 0 :
-                    sortType = "lastdate";
+                    sortType = 'lastdate';
                     break;
 
                 case 1 :
-                    sortType = "messagesnum";
+                    sortType = 'messagesnum';
                     break;
 
                 case 2 :
-                    sortType = "alpha";
+                    sortType = 'alpha';
                     break;
             }
 
             chrome.runtime.sendMessage({
-                action: "fetchContactList",
+                action: 'fetchContactList',
                 type: sortType,
                 totalShown: startFrom
             }, function (contactsData) {
                 var contactsList = contactsData[0];
                 var total = contactsData[1];
                 var contacts = [];
-                var moreSection = $(leftSection, "section.more");
+                var moreSection = $(leftSection, 'section.more');
                 var more, totalShown;
 
-                leftSection.removeClass().addClass("left", "contacts-container").removeData();
+                leftSection.removeClass().addClass('left', 'contacts-container').removeData();
                 if (moreSection)
                     moreSection.remove();
 
@@ -804,19 +838,19 @@ export default {
                     contacts.push(contactObj);
                 });
 
-                var contactsContents = Templates.render("contactsList", {contacts: contacts});
-                leftSection.removeClass("loading").append(contactsContents);
+                var contactsContents = Templates.render('contactsList', {contacts: contacts});
+                leftSection.removeClass('loading').append(contactsContents);
 
                 // добавляем при необходимости кнопку "еще"
-                totalShown = $$(leftSection, "section[data-uid]:not(.more)").length;
+                totalShown = $$(leftSection, 'section[data-uid]:not(.more)').length;
                 if (totalShown < total) {
-                    var moreText = Utils.string.ucfirst(chrome.i18n.getMessage("more"));
-                    more = $("<section class='more view'>" + moreText + "</section>").bind("click", function () {
-                        if (this.hasClass("loading"))
+                    var moreText = Utils.string.ucfirst(chrome.i18n.getMessage('more'));
+                    more = $('<section class=\'more view\'>' + moreText + '</section>').bind('click', function () {
+                        if (this.hasClass('loading'))
                             return;
 
-                        this.html("&nbsp;").addClass("loading");
-                        self.view("contactsList", {}, [totalShown]);
+                        this.html('&nbsp;').addClass('loading');
+                        self.view('contactsList', {}, [totalShown]);
                     });
 
                     leftSection.append(more);
@@ -830,51 +864,51 @@ export default {
             var self = this;
 
             var descriptionElems = [];
-            chrome.i18n.getMessage("tourStep" + num + "Description").split("|").forEach(function (paraText) {
-                paraText = paraText.replace("%appname%", App.NAME);
+            chrome.i18n.getMessage('tourStep' + num + 'Description').split('|').forEach(function (paraText) {
+                paraText = paraText.replace('%appname%', appName);
                 descriptionElems.push({text: paraText});
             });
 
             var tplData = {
-                headerText: chrome.i18n.getMessage("tourStep" + num + "Title"),
+                headerText: chrome.i18n.getMessage('tourStep' + num + 'Title'),
                 descriptionElems: descriptionElems,
-                tourText: (num === STEPSNUM) ? chrome.i18n.getMessage("tourAgainButtonTitle") : chrome.i18n.getMessage("tourFurtherButtonTitle"),
-                grantAccess: chrome.i18n.getMessage("installGrantAccess"),
+                tourText: (num === STEPSNUM) ? chrome.i18n.getMessage('tourAgainButtonTitle') : chrome.i18n.getMessage('tourFurtherButtonTitle'),
+                grantAccess: chrome.i18n.getMessage('installGrantAccess'),
                 nextStep: (num === STEPSNUM) ? 1 : (num + 1)
             };
 
-            tplData["step" + num] = true;
-            var contents = Templates.render("tourStep", tplData);
+            tplData['step' + num] = true;
+            var contents = Templates.render('tourStep', tplData);
 
             document.body.empty().html(contents);
-            chrome.runtime.sendMessage({"action" : "tourWatch", "step" : num});
+            chrome.runtime.sendMessage({'action' : 'tourWatch', 'step' : num});
 
-            $("section.buttons.in-tour button.tour").bind("click", function (e) {
-                var step = parseInt(this.data("step"), 10);
-                self.view("tourStep", {}, [step]);
+            $('section.buttons.in-tour button.tour').bind('click', function (e) {
+                var step = parseInt(this.data('step'), 10);
+                self.view('tourStep', {}, [step]);
 
                 e.stopPropagation();
             });
 
-            $("section.buttons.in-tour button.access").bind("click", function (evt) {
+            $('section.buttons.in-tour button.access').bind('click', function (evt) {
                 evt.stopPropagation();
-                Auth.requestFirstToken();
+                Auth.requestFirstToken().catch(processAuthFailure);
             });
         },
 
         // просмотр данных о контакте
         showContact: function (uid, dontOpenUniqueThread) {
-            var left = $("#content > section.left").empty().addClass("loading");
-            var right = $("#content > section.right").empty().addClass("loading");
-            var writeMessageIcon = $("#content > header > span.icon.write");
+            var left = $('#content > section.left').empty().addClass('loading');
+            var right = $('#content > section.right').empty().addClass('loading');
+            var writeMessageIcon = $('#content > header > span.icon.write');
             var self = this;
 
-            writeMessageIcon.bind("click", function() {
-                self.view("writeMessageToContact", {
-                    uiType: "partial",
+            writeMessageIcon.bind('click', function() {
+                self.view('writeMessageToContact', {
+                    uiType: 'partial',
                     headers: {
                         right: [
-                            {"type" : "text", "name" : chrome.i18n.getMessage("newMessage")}
+                            {'type' : 'text', 'name' : chrome.i18n.getMessage('newMessage')}
                         ]
                     }
                 }, [uid]);
@@ -882,33 +916,33 @@ export default {
 
             // слева показываем подробную информацию о контакте
             chrome.runtime.sendMessage({
-                action: "getContactData",
+                action: 'getContactData',
                 uid: uid,
                 includeOnlineStatus: true
             }, function (userData) {
                 if (!userData)
                     return;
 
-                left.removeClass().addClass("left", "contact-data");
+                left.removeClass().addClass('left', 'contact-data');
 
-                var leftHeaderText = $("#content > header.left > span.text");
-                if (leftHeaderText.text() === "...")
-                    leftHeaderText.text(userData.first_name + " " + userData.last_name);
+                var leftHeaderText = $('#content > header.left > span.text');
+                if (leftHeaderText.text() === '...')
+                    leftHeaderText.text(userData.first_name + ' ' + userData.last_name);
 
-                var userDomain = userData.domain || "id" + uid;
+                var userDomain = userData.domain || 'id' + uid;
 
                 var linkTitle = (/^id[0-9]+$/.test(userDomain))
-                    ? "vk.com/" + userDomain
-                    : "@" + userDomain;
+                    ? 'vk.com/' + userDomain
+                    : '@' + userDomain;
 
                 // birthday
                 var hasBirthday = false;
-                var birthday = "";
+                var birthday = '';
                 if (userData.bdate) {
                     hasBirthday = true;
 
-                    var monthes = chrome.i18n.getMessage("monthes").split("|");
-                    var splitUserData = userData.bdate.split(".");
+                    var monthes = chrome.i18n.getMessage('monthes').split('|');
+                    var splitUserData = userData.bdate.split('.');
                     var isEnglishLocale = (chrome.i18n.getMessage('@@ui_locale').indexOf('en') !== -1);
                     var part;
 
@@ -916,12 +950,12 @@ export default {
                         if (i === 1) {
                             part = parseInt(splitUserData[i], 10) - 1;
                             if (isEnglishLocale) {
-                                birthday += " " + Utils.string.ucfirst(monthes[part]);
+                                birthday += ' ' + Utils.string.ucfirst(monthes[part]);
                             } else {
-                                birthday += " " + monthes[part];
+                                birthday += ' ' + monthes[part];
                             }
                         } else {
-                            birthday += " " + splitUserData[i];
+                            birthday += ' ' + splitUserData[i];
                         }
                     }
                 }
@@ -942,19 +976,19 @@ export default {
                     mobilePhone = userData.mobile_phone;
                 }
 
-                var contents = Templates.render("contactInfo", {
+                var contents = Templates.render('contactInfo', {
                     avatarSrc: userData.photo,
                     uid: uid,
-                    linkToProfile: "http://vk.com/" + userDomain,
+                    linkToProfile: 'http://vk.com/' + userDomain,
                     linkTitle: linkTitle,
                     hasBirthday: hasBirthday,
-                    birthdayI18n: Utils.string.ucfirst(chrome.i18n.getMessage("birthdate")),
+                    birthdayI18n: Utils.string.ucfirst(chrome.i18n.getMessage('birthdate')),
                     birthday: birthday,
                     hasMobilePhone: hasMobilePhone,
-                    mobilePhoneI18n: Utils.string.ucfirst(chrome.i18n.getMessage("mobilephone")),
+                    mobilePhoneI18n: Utils.string.ucfirst(chrome.i18n.getMessage('mobilephone')),
                     mobilePhone: mobilePhone,
                     hasHomePhone: hasHomePhone,
-                    homePhoneI18n: Utils.string.ucfirst(chrome.i18n.getMessage("homephone")),
+                    homePhoneI18n: Utils.string.ucfirst(chrome.i18n.getMessage('homephone')),
                     homePhone: homePhone
                 });
 
@@ -963,15 +997,15 @@ export default {
 
             // справа показываем диалоги, в которых участвует контакт и активный пользователь
             chrome.runtime.sendMessage({
-                action: "getConversationThreadsWithContact",
+                action: 'getConversationThreadsWithContact',
                 uid: uid
             }, function (threads) {
                 // отрисовываем список тредов
                 var dialogSections = self._drawThreads(threads);
-                right.removeClass().addClass("right", "dialogs-container").removeData().append(dialogSections);
+                right.removeClass().addClass('right', 'dialogs-container').removeData().append(dialogSections);
 
                 // если тред один, то сразу открываем его
-                var threadsInserted = $$(right, "section[data-id]");
+                var threadsInserted = $$(right, 'section[data-id]');
 
                 if (threadsInserted.length === 1 && dontOpenUniqueThread !== true) {
                     threadsInserted[0].click();
@@ -982,15 +1016,15 @@ export default {
         // поиск контактов
         searchContact: function () {
             var self = this;
-            var leftSection = $("#content > section.left").empty().removeClass().addClass("left", "search-contacts-container", "contacts-container");
-            var backIcon = $("#content > header.left > span.icon.back");
+            var leftSection = $('#content > section.left').empty().removeClass().addClass('left', 'search-contacts-container', 'contacts-container');
+            var backIcon = $('#content > header.left > span.icon.back');
 
-            var placeholderText = chrome.i18n.getMessage("searchContactPlaceholder");
-            var formContents = Templates.render("searchForm", {placeholder: placeholderText});
+            var placeholderText = chrome.i18n.getMessage('searchContactPlaceholder');
+            var formContents = Templates.render('searchForm', {placeholder: placeholderText});
 
             leftSection.append(formContents);
-            var form = $(leftSection, "form");
-            var searchInput = $(leftSection, "input[type='search']");
+            var form = $(leftSection, 'form');
+            var searchInput = $(leftSection, 'input[type=\'search\']');
 
             /**
              * Нахождение уникальных терминов в поисковой строке (например ["иванов"] из "иван иванов")
@@ -998,7 +1032,7 @@ export default {
              */
             var getUniqueSearchTermsFn = function (searchString) {
                 var output = [];
-                var terms = searchString.split(" ");
+                var terms = searchString.split(' ');
                 var term, isSubstring;
 
                 for (var i = 0; i < terms.length; i++) {
@@ -1027,7 +1061,7 @@ export default {
                 var total = data[1];
                 var search = data[2];
                 var contacts = [];
-                var moreSection = $(leftSection, "section.more");
+                var moreSection = $(leftSection, 'section.more');
                 var searchTerms;
 
                 if (search !== searchInput.val())
@@ -1042,19 +1076,19 @@ export default {
                     contacts.push(contactObj);
                 });
 
-                var contactsContents = Templates.render("contactsList", {contacts: contacts});
-                leftSection.removeClass("loading").append(contactsContents);
+                var contactsContents = Templates.render('contactsList', {contacts: contacts});
+                leftSection.removeClass('loading').append(contactsContents);
 
                 // добавляем при необходимости кнопку "еще"
-                var totalShown = $$(leftSection, "section[data-uid]:not(.more)").length;
+                var totalShown = $$(leftSection, 'section[data-uid]:not(.more)').length;
                 if (totalShown < total) {
-                    var moreText = Utils.string.ucfirst(chrome.i18n.getMessage("more"));
-                    var more = $("<section class='more view'>" + moreText + "</section>").bind("click", function () {
-                        if (this.hasClass("loading"))
+                    var moreText = Utils.string.ucfirst(chrome.i18n.getMessage('more'));
+                    var more = $('<section class=\'more view\'>' + moreText + '</section>').bind('click', function () {
+                        if (this.hasClass('loading'))
                             return;
 
-                        this.html("&nbsp;").addClass("loading");
-                        chrome.runtime.sendMessage({"action" : "searchContact", "value" : searchInput.val(), "totalShown" : totalShown}, backendCallback);
+                        this.html('&nbsp;').addClass('loading');
+                        chrome.runtime.sendMessage({'action' : 'searchContact', 'value' : searchInput.val(), 'totalShown' : totalShown}, backendCallback);
                     });
 
                     leftSection.append(more);
@@ -1062,8 +1096,8 @@ export default {
             };
 
             // при первом вызове привязываем обработчик события onscroll
-            leftSection.bind("scroll", function () {
-                var moreSection = $(this, "section.more");
+            leftSection.bind('scroll', function () {
+                var moreSection = $(this, 'section.more');
                 if (!moreSection)
                     return;
 
@@ -1073,49 +1107,49 @@ export default {
                 }
             });
 
-            backIcon.bind("click", function () {
+            backIcon.bind('click', function () {
                 form.remove();
 
-                self.view("contactsList", {
-                    uiType: "partial",
+                self.view('contactsList', {
+                    uiType: 'partial',
                     headers: {
                         left: [
-                            {"type" : "text", "name" : chrome.i18n.getMessage("contactsName")},
-                            {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchContact")}
+                            {'type' : 'text', 'name' : chrome.i18n.getMessage('contactsName')},
+                            {'type' : 'icon', 'name' : 'search', 'title' : chrome.i18n.getMessage('searchContact')}
                         ]
                     }
                 });
             });
 
-            searchInput.bind("search", function() {
-                var more = $(leftSection, "section.more");
+            searchInput.bind('search', function() {
+                var more = $(leftSection, 'section.more');
                 if (more)
                     more.remove();
 
-                var allSections = $$(leftSection, "section[data-uid]");
+                var allSections = $$(leftSection, 'section[data-uid]');
                 for (var section in allSections)
                     section.remove();
 
-                leftSection.removeClass("loading");
+                leftSection.removeClass('loading');
             });
 
-            searchInput.bind("keyup", function() {
+            searchInput.bind('keyup', function() {
                 var value = searchInput.val();
-                var more = $(leftSection, "section.more");
+                var more = $(leftSection, 'section.more');
 
                 if (more)
                     more.remove();
 
                 if (!value.length) {
-                    $$(leftSection, "section[data-uid]").remove();
-                    return leftSection.removeClass("loading");
+                    $$(leftSection, 'section[data-uid]').remove();
+                    return leftSection.removeClass('loading');
                 }
 
-                $$(leftSection, "section[data-uid]").remove();
+                $$(leftSection, 'section[data-uid]').remove();
 
-                leftSection.addClass("loading");
+                leftSection.addClass('loading');
                 chrome.runtime.sendMessage({
-                    action: "searchContact",
+                    action: 'searchContact',
                     value: searchInput.val(),
                     totalShown: 0
                 }, backendCallback);
@@ -1127,17 +1161,17 @@ export default {
         // показ "почтовых тредов" в правой половине окна
         mailList: function (startFrom) {
             startFrom = startFrom || 0;
-            var rightSection = $("#content > section.right").addClass("loading"),
-                listHeader = $("#content > header.right > span.icon.list"),
-                searchHeader = $("#content > header.right > span.icon.search"),
+            var rightSection = $('#content > section.right').addClass('loading'),
+                listHeader = $('#content > header.right > span.icon.list'),
+                searchHeader = $('#content > header.right > span.icon.search'),
                 self = this;
 
             // при первом вызове привязываем обработчик события onscroll
             if (startFrom === 0) {
                 rightSection.empty();
 
-                rightSection.bind("scroll", function () {
-                    var moreSection = $(this, "section.more");
+                rightSection.bind('scroll', function () {
+                    var moreSection = $(this, 'section.more');
                     if (!moreSection)
                         return;
 
@@ -1147,24 +1181,24 @@ export default {
                     }
                 }, true);
 
-                listHeader.bind("click", function() {
-                    self.view("manageMail", {
-                        "uiType" : "partial",
-                        "headers" : {
-                            "left" : [
-                                {"type" : "text", "name" : chrome.i18n.getMessage("foldersAndTags")}
+                listHeader.bind('click', function() {
+                    self.view('manageMail', {
+                        'uiType' : 'partial',
+                        'headers' : {
+                            'left' : [
+                                {'type' : 'text', 'name' : chrome.i18n.getMessage('foldersAndTags')}
                             ]
                         }
                     });
                 });
 
-                searchHeader.bind("click", function() {
-                    self.view("searchMail", {
-                        "uiType" : "partial",
-                        "headers" : {
-                            "right" : [
-                                {"type" : "text", "name" : chrome.i18n.getMessage("searchMail")},
-                                {"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("correspondence")}
+                searchHeader.bind('click', function() {
+                    self.view('searchMail', {
+                        'uiType' : 'partial',
+                        'headers' : {
+                            'right' : [
+                                {'type' : 'text', 'name' : chrome.i18n.getMessage('searchMail')},
+                                {'type' : 'icon', 'name' : 'back', 'title' : chrome.i18n.getMessage('correspondence')}
                             ]
                         }
                     });
@@ -1172,29 +1206,29 @@ export default {
             }
 
             chrome.runtime.sendMessage({
-                action: "fetchConversations",
+                action: 'fetchConversations',
                 totalShown: startFrom
             }, function (dialogsData) {
                 var dialogs = dialogsData[0];
                 var total = dialogsData[1];
                 var dialogSections = self._drawThreads(dialogs);
-                var moreSection = $(rightSection, "section.more");
+                var moreSection = $(rightSection, 'section.more');
 
-                rightSection.removeData().removeClass().addClass("right", "dialogs-container");
+                rightSection.removeData().removeClass().addClass('right', 'dialogs-container');
                 if (moreSection)
                     moreSection.remove();
 
                 rightSection.append(dialogSections);
 
                 // добавляем при необходимости кнопку "еще"
-                var totalShown = $$(rightSection, "section[data-id]").length;
+                var totalShown = $$(rightSection, 'section[data-id]').length;
                 if (totalShown < total) {
-                    var more = $("<section>").addClass("more", "view").text(Utils.string.ucfirst(chrome.i18n.getMessage("more"))).bind("click", function() {
-                        if (this.hasClass("loading"))
+                    var more = $('<section>').addClass('more', 'view').text(Utils.string.ucfirst(chrome.i18n.getMessage('more'))).bind('click', function() {
+                        if (this.hasClass('loading'))
                             return;
 
-                        this.html("&nbsp;").addClass("loading");
-                        self.view("mailList", {}, [totalShown]);
+                        this.html('&nbsp;').addClass('loading');
+                        self.view('mailList', {}, [totalShown]);
                     });
 
                     rightSection.append(more);
@@ -1205,49 +1239,49 @@ export default {
         // настройки
         settings: function () {
             var self = this;
-            var leftSection = $("#content > section.left").empty().removeClass().addClass("left", "accounts-list").removeData();
-            var rightSection = $("#content > section.right").empty().removeClass().addClass("right", "settings-container").removeData();
-            var addAccountIcon = $("#content > header > span.icon.plus");
+            var leftSection = $('#content > section.left').empty().removeClass().addClass('left', 'accounts-list').removeData();
+            var rightSection = $('#content > section.right').empty().removeClass().addClass('right', 'settings-container').removeData();
+            var addAccountIcon = $('#content > header > span.icon.plus');
 
             // добавление аккаунта
-            addAccountIcon.bind("click", function () {
-                $$(leftSection, "section.result").remove();
-                Auth.addNewAccount();
+            addAccountIcon.bind('click', function () {
+                $$(leftSection, 'section.result').remove();
+                Auth.addNewAccount().catch(processAuthFailure);
             });
 
             var optionsData = {
-                saveBtnText: chrome.i18n.getMessage("saveBtn"),
+                saveBtnText: chrome.i18n.getMessage('saveBtn'),
                 keysets: []
             };
 
             // сортировка контактов
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsSortContacts") + "&hellip;",
-                name: "SortContacts",
+                header: chrome.i18n.getMessage('settingsSortContacts') + '&hellip;',
+                name: 'SortContacts',
                 radio: true,
                 items: [
-                    {value: 0, active: (Settings.SortContacts === 0), title: chrome.i18n.getMessage("settingsSortContactsLast")},
-                    {value: 1, active: (Settings.SortContacts === 1), title: chrome.i18n.getMessage("settingsSortContactsPopular")},
-                    {value: 2, active: (Settings.SortContacts === 2), title: chrome.i18n.getMessage("settingsSortContactsAlpha")}
+                    {value: 0, active: (Settings.SortContacts === 0), title: chrome.i18n.getMessage('settingsSortContactsLast')},
+                    {value: 1, active: (Settings.SortContacts === 1), title: chrome.i18n.getMessage('settingsSortContactsPopular')},
+                    {value: 2, active: (Settings.SortContacts === 2), title: chrome.i18n.getMessage('settingsSortContactsAlpha')}
                 ]
             });
 
             // удаление контактов
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsDeleteUser") + "&hellip;",
-                name: "DeleteUser",
+                header: chrome.i18n.getMessage('settingsDeleteUser') + '&hellip;',
+                name: 'DeleteUser',
                 radio: true,
                 items: [
-                    {value: 0, active: (Settings.SortContacts === 0), title: chrome.i18n.getMessage("settingsDeleteUserLocal")},
-                    {value: 1, active: (Settings.SortContacts === 1), title: chrome.i18n.getMessage("settingsDeleteUserServer")},
-                    {value: 2, active: (Settings.SortContacts === 2), title: chrome.i18n.getMessage("settingsDeleteUserEverything")}
+                    {value: 0, active: (Settings.SortContacts === 0), title: chrome.i18n.getMessage('settingsDeleteUserLocal')},
+                    {value: 1, active: (Settings.SortContacts === 1), title: chrome.i18n.getMessage('settingsDeleteUserServer')},
+                    {value: 2, active: (Settings.SortContacts === 2), title: chrome.i18n.getMessage('settingsDeleteUserEverything')}
                 ]
             });
 
             // громкость звука уведомлений
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsSoundLevel"),
-                name: "SoundLevel",
+                header: chrome.i18n.getMessage('settingsSoundLevel'),
+                name: 'SoundLevel',
                 range: true,
                 value: Settings.SoundLevel * 10,
                 min: 0,
@@ -1257,8 +1291,8 @@ export default {
 
             // время показа уедомлений
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsNotificationsTime"),
-                name: "NotificationsTime",
+                header: chrome.i18n.getMessage('settingsNotificationsTime'),
+                name: 'NotificationsTime',
                 range: true,
                 info: true,
                 value: Settings.NotificationsTime,
@@ -1269,81 +1303,81 @@ export default {
 
             // показывать уведомления при открытой вкладке ВК
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsShowWhenVK"),
-                name: "ShowWhenVK",
+                header: chrome.i18n.getMessage('settingsShowWhenVK'),
+                name: 'ShowWhenVK',
                 radio: true,
                 items: [
-                    {value: 0, active: (Settings.ShowWhenVK === 0), title: chrome.i18n.getMessage("no")},
-                    {value: 1, active: (Settings.ShowWhenVK === 1), title: chrome.i18n.getMessage("yes")}
+                    {value: 0, active: (Settings.ShowWhenVK === 0), title: chrome.i18n.getMessage('no')},
+                    {value: 1, active: (Settings.ShowWhenVK === 1), title: chrome.i18n.getMessage('yes')}
                 ]
             });
 
             // показывать уведомления о ДР друзей
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsShowBirthdayNotifications"),
-                name: "ShowBirthdayNotifications",
+                header: chrome.i18n.getMessage('settingsShowBirthdayNotifications'),
+                name: 'ShowBirthdayNotifications',
                 radio: true,
                 items: [
-                    {value: 0, active: (Settings.ShowBirthdayNotifications === 0), title: chrome.i18n.getMessage("no")},
-                    {value: 1, active: (Settings.ShowBirthdayNotifications === 1), title: chrome.i18n.getMessage("yes")}
+                    {value: 0, active: (Settings.ShowBirthdayNotifications === 0), title: chrome.i18n.getMessage('no')},
+                    {value: 1, active: (Settings.ShowBirthdayNotifications === 1), title: chrome.i18n.getMessage('yes')}
                 ]
             });
 
             // добавлять геометки в отправляемые сообщения
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsAttachGeolocation"),
-                name: "AttachGeolocation",
+                header: chrome.i18n.getMessage('settingsAttachGeolocation'),
+                name: 'AttachGeolocation',
                 radio: true,
                 items: [
-                    {value: 0, active: (Settings.AttachGeolocation === 0), title: chrome.i18n.getMessage("no")},
-                    {value: 1, active: (Settings.AttachGeolocation === 1), title: chrome.i18n.getMessage("yes")}
+                    {value: 0, active: (Settings.AttachGeolocation === 0), title: chrome.i18n.getMessage('no')},
+                    {value: 1, active: (Settings.AttachGeolocation === 1), title: chrome.i18n.getMessage('yes')}
                 ]
             });
 
             // онлайн-статус контактов
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsShowOnline"),
-                name: "ShowOnline",
+                header: chrome.i18n.getMessage('settingsShowOnline'),
+                name: 'ShowOnline',
                 radio: true,
                 items: [
-                    {value: 0, active: (Settings.ShowOnline === 0), title: chrome.i18n.getMessage("no")},
-                    {value: 1, active: (Settings.ShowOnline === 1), title: chrome.i18n.getMessage("yes")}
+                    {value: 0, active: (Settings.ShowOnline === 0), title: chrome.i18n.getMessage('no')},
+                    {value: 1, active: (Settings.ShowOnline === 1), title: chrome.i18n.getMessage('yes')}
                 ]
             });
 
             // speech recognition language
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsSpeechRecognitionLanguage"),
-                name: "SpeechRecognitionLanguage",
+                header: chrome.i18n.getMessage('settingsSpeechRecognitionLanguage'),
+                name: 'SpeechRecognitionLanguage',
                 radio: true,
                 items: [
-                    {value: "ru-RU", active: (Settings.SpeechRecognitionLanguage === "ru-RU"), title: "Русский"},
-                    {value: "en-US", active: (Settings.SpeechRecognitionLanguage === "en-US"), title: "English"}
+                    {value: 'ru-RU', active: (Settings.SpeechRecognitionLanguage === 'ru-RU'), title: 'Русский'},
+                    {value: 'en-US', active: (Settings.SpeechRecognitionLanguage === 'en-US'), title: 'English'}
                 ]
             });
 
             // debug level
             optionsData.keysets.push({
-                header: chrome.i18n.getMessage("settingsDebug"),
-                name: "Debug",
+                header: chrome.i18n.getMessage('settingsDebug'),
+                name: 'Debug',
                 radio: true,
                 items: [
-                    {value: 0, active: (Settings.Debug === 0), title: chrome.i18n.getMessage("settingsDebugWarningsErrors")},
-                    {value: 1, active: (Settings.Debug === 1), title: chrome.i18n.getMessage("settingsDebugMore")},
-                    {value: 2, active: (Settings.Debug === 2), title: chrome.i18n.getMessage("settingsDebugEverything")}
+                    {value: 0, active: (Settings.Debug === 0), title: chrome.i18n.getMessage('settingsDebugWarningsErrors')},
+                    {value: 1, active: (Settings.Debug === 1), title: chrome.i18n.getMessage('settingsDebugMore')},
+                    {value: 2, active: (Settings.Debug === 2), title: chrome.i18n.getMessage('settingsDebugEverything')}
                 ]
             });
 
-            var optionsHTML = Templates.render("settingsOptions", optionsData);
+            var optionsHTML = Templates.render('settingsOptions', optionsData);
             rightSection.html(optionsHTML);
 
-            $(rightSection, "input[name='SoundLevel']").bind("change", function () {
-                SoundManager.play("message", this.val() / 10);
+            $(rightSection, 'input[name=\'SoundLevel\']').bind('change', function () {
+                SoundManager.play('message', this.val() / 10);
             });
 
-            var notificationsTimeElem = $(rightSection, "output.range-info");
-            var notificationsRange = $(rightSection, "input[name='NotificationsTime']");
-            notificationsRange.bind("change", function () {
+            var notificationsTimeElem = $(rightSection, 'output.range-info');
+            var notificationsRange = $(rightSection, 'input[name=\'NotificationsTime\']');
+            notificationsRange.bind('change', function () {
                 var value = parseInt(this.val(), 10);
                 switch (value) {
                     case 0 :
@@ -1360,64 +1394,64 @@ export default {
             });
 
             // вручную генерируем "change"-событие для показа output.range-info
-            var evt = document.createEvent("HTMLEvents");
-            evt.initEvent("change", false, true);
+            var evt = document.createEvent('HTMLEvents');
+            evt.initEvent('change', false, true);
             notificationsRange.dispatchEvent(evt);
 
             // заполняем список аккаунтов
-            chrome.runtime.sendMessage({action: "getAccountsList"}, function (accounts) {
+            chrome.runtime.sendMessage({action: 'getAccountsList'}, function (accounts) {
                 var usersTplData = [];
 
                 _.forIn(accounts, function (userData, uid) {
                     var switchAccountText = (uid == Account.currentUserId)
-                        ? chrome.i18n.getMessage("currentActiveAccount")
-                        : chrome.i18n.getMessage("switchToAnotherAccount");
+                        ? chrome.i18n.getMessage('currentActiveAccount')
+                        : chrome.i18n.getMessage('switchToAnotherAccount');
 
                     usersTplData.push({
                         id: uid,
-                        avatarSrc: userData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
-                        deleteAccountText: chrome.i18n.getMessage("deleteAccount"),
-                        updateTokenText: chrome.i18n.getMessage("updateAccountToken"),
+                        avatarSrc: userData.avatar || chrome.runtime.getURL('pic/question_th.gif'),
+                        deleteAccountText: chrome.i18n.getMessage('deleteAccount'),
+                        updateTokenText: chrome.i18n.getMessage('updateAccountToken'),
                         switchAccountText: switchAccountText,
                         active: (uid == Account.currentUserId),
                         fio: userData.fio
                     });
                 });
 
-                var accountsHTML = Templates.render("settingsAccounts", {users: usersTplData});
+                var accountsHTML = Templates.render('settingsAccounts', {users: usersTplData});
                 leftSection.html(accountsHTML);
 
-                $$(leftSection, "span.switch").bind("click", function () {
-                    if (this.hasClass("active"))
+                $$(leftSection, 'span.switch').bind('click', function () {
+                    if (this.hasClass('active'))
                         return;
 
-                    var uid = this.closestParent("section[data-uid]").data("uid");
-                    chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : uid});
+                    var uid = this.closestParent('section[data-uid]').data('uid');
+                    chrome.runtime.sendMessage({'action' : 'switchToAccount', 'uid' : uid});
                 });
 
-                $$(leftSection, "span.update").bind("click", function () {
-                    $$(leftSection, "section.result").remove();
+                $$(leftSection, 'span.update').bind('click', function () {
+                    $$(leftSection, 'section.result').remove();
 
-                    var uid = Number(this.closestParent("section[data-uid]").data("uid"));
-                    Auth.updateExistingToken(uid);
+                    var uid = Number(this.closestParent('section[data-uid]').data('uid'));
+                    Auth.updateExistingToken(uid).catch(processAuthFailure);
                 });
 
-                $$(leftSection, "span.delete").bind("click", function () {
-                    var accountSection = this.closestParent("section[data-uid]");
-                    var uid = accountSection.data("uid");
+                $$(leftSection, 'span.delete').bind('click', function () {
+                    var accountSection = this.closestParent('section[data-uid]');
+                    var uid = accountSection.data('uid');
                     var nextAccountSection, nextAccountUid;
 
                     if (accountSection.nextElementSibling) {
-                        nextAccountUid = accountSection.nextElementSibling.data("uid");
+                        nextAccountUid = accountSection.nextElementSibling.data('uid');
                     } else {
                         nextAccountUid = (accountSection.previousElementSibling)
-                            ? accountSection.previousElementSibling.data("uid")
+                            ? accountSection.previousElementSibling.data('uid')
                             : false;
                     }
 
-                    $$(leftSection, "section.result").remove();
+                    $$(leftSection, 'section.result').remove();
                     chrome.runtime.sendMessage({
-                        action: "deleteAccount",
+                        action: 'deleteAccount',
                         uid: uid,
                         next: nextAccountUid
                     });
@@ -1428,22 +1462,22 @@ export default {
         // новости по каналу
         news: function () {
             var self = this;
-            var oneSection = $("#content > section.one").removeClass().addClass("one", "news-container").removeData().empty();
-            var newsIcon = $("aside > span.news").removeData().removeAttr("title").addClass("is-empty").empty();
-            var tipsyLayer = $("div.tipsy");
+            var oneSection = $('#content > section.one').removeClass().addClass('one', 'news-container').removeData().empty();
+            var newsIcon = $('aside > span.news').removeData().removeAttr('title').addClass('is-empty').empty();
+            var tipsyLayer = $('div.tipsy');
 
             // FIXME
             StorageManager.load().then(function () {
-                var storedPostsArray = StorageManager.get("vkgroupwall_stored_posts", {constructor: Array, strict: true, create: true});
-                var seenPostsArray = StorageManager.get("vkgroupwall_synced_posts", {constructor: Array, strict: true, create: true});
+                var storedPostsArray = StorageManager.get('vkgroupwall_stored_posts', {constructor: Array, strict: true, create: true});
+                var seenPostsArray = StorageManager.get('vkgroupwall_synced_posts', {constructor: Array, strict: true, create: true});
 
                 // избавляемся от артефактов tipsy
                 if (tipsyLayer)
                     tipsyLayer.remove();
 
                 if (!storedPostsArray.length) {
-                    StorageManager.remove("vkgroupwall_stored_posts");
-                    $("#header > section.acc-container").click();
+                    StorageManager.remove('vkgroupwall_stored_posts');
+                    $('#header > section.acc-container').click();
 
                     return;
                 }
@@ -1456,7 +1490,7 @@ export default {
                     var postDate = new Date(postData.date * 1000);
 
                     var tplItem = {
-                        date: postDate.getDate() + " " + monthesi18nTerm[postDate.getMonth()] + " " + postDate.getFullYear(),
+                        date: postDate.getDate() + ' ' + monthesi18nTerm[postDate.getMonth()] + ' ' + postDate.getFullYear(),
                         id: postData.id,
                         text: postData.text,
                         attachments: []
@@ -1467,8 +1501,8 @@ export default {
                         var id;
 
                         switch (attachmentData.type) {
-                            case "photo" : // фотография из альбома
-                            case "posted_photo" : // фотография, загруженная напрямую с компьютера пользователя
+                            case 'photo' : // фотография из альбома
+                            case 'posted_photo' : // фотография, загруженная напрямую с компьютера пользователя
                                 var imgAspect = data.width / data.height;
                                 var imgWidth = Math.min(data.width, oneSection.offsetWidth);
                                 var imgHeight = Math.round(imgWidth / imgAspect);
@@ -1482,8 +1516,8 @@ export default {
 
                                 break;
 
-                            case "video" : // видеозапись
-                                id = "vid_" + data.owner_id + data.vid;
+                            case 'video' : // видеозапись
+                                id = 'vid_' + data.owner_id + data.vid;
 
                                 tplItem.attachments.push({
                                     video: true,
@@ -1491,24 +1525,24 @@ export default {
                                 });
 
                                 chrome.runtime.sendMessage({
-                                    action: "getVideoById",
+                                    action: 'getVideoById',
                                     ownerId: data.owner_id,
                                     id: data.vid
                                 }, function (videoInfo) {
                                     if (!videoInfo)
                                         return;
 
-                                    var attachmentArea = $("#" + id).removeClass("hidden");
-                                    var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
+                                    var attachmentArea = $('#' + id).removeClass('hidden');
+                                    var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + '<br>' + videoInfo.description : videoInfo.description;
 
-                                    $(attachmentArea, "webview").attr("src", videoInfo.player);
-                                    $(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
+                                    $(attachmentArea, 'webview').attr('src', videoInfo.player);
+                                    $(attachmentArea, 'span.description').html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, '<br>')));
                                 });
 
                                 break;
 
-                            case "audio": // аудиозапись
-                                id = "aud_" + data.owner_id + data.aid;
+                            case 'audio': // аудиозапись
+                                id = 'aud_' + data.owner_id + data.aid;
 
                                 tplItem.attachments.push({
                                     audio: true,
@@ -1516,7 +1550,7 @@ export default {
                                 });
 
                                 chrome.runtime.sendMessage({
-                                    action: "getAudioById",
+                                    action: 'getAudioById',
                                     ownerId: data.owner_id,
                                     id: data.aid
                                 }, function (audioInfo) {
@@ -1524,9 +1558,9 @@ export default {
                                         return;
 
                                     var attachmentArea = self._drawAudioSection(id, audioInfo);
-                                    $(attachmentArea, "audio").bind("playing", function () {
+                                    $(attachmentArea, 'audio').bind('playing', function () {
                                         chrome.runtime.sendMessage({
-                                            action: "newsAudioPlaying",
+                                            action: 'newsAudioPlaying',
                                             id: postData.id,
                                             owner_id: data.owner_id,
                                             aid: data.aid
@@ -1536,7 +1570,7 @@ export default {
 
                                 break;
 
-                            case "link": // ссылка на web-страницу
+                            case 'link': // ссылка на web-страницу
                                 tplItem.attachments.push({
                                     link: true,
                                     url: data.url,
@@ -1546,8 +1580,8 @@ export default {
 
                                 break;
 
-                            case "doc" : // документ
-                                id = "doc_" + data.owner_id + data.did;
+                            case 'doc' : // документ
+                                id = 'doc_' + data.owner_id + data.did;
 
                                 var tplData = {
                                     doc: true,
@@ -1557,29 +1591,29 @@ export default {
 
                                 if (data.url) {
                                     tplData.url = data.url;
-                                    tplData.fileName = (regex.test(data.title)) ? data.title : data.title + "." + data.ext;
+                                    tplData.fileName = (regex.test(data.title)) ? data.title : data.title + '.' + data.ext;
                                     tplData.title = data.title;
-                                    tplData.description = Utils.string.humanFileSize(data.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + data.ext.toUpperCase();
+                                    tplData.description = Utils.string.humanFileSize(data.size) + ', ' + chrome.i18n.getMessage('fileType') + ': ' + data.ext.toUpperCase();
                                 } else {
                                     chrome.runtime.sendMessage({
-                                        action: "getDocById",
+                                        action: 'getDocById',
                                         ownerId: data.owner_id,
                                         id: data.did
                                     }, function (fileInfo) {
                                         if (!fileInfo)
                                             return;
 
-                                        var regex = new RegExp(fileInfo.ext + "$");
-                                        var attachmentArea = $("#" + id).removeClass("hidden");
-                                        var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
+                                        var regex = new RegExp(fileInfo.ext + '$');
+                                        var attachmentArea = $('#' + id).removeClass('hidden');
+                                        var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + '.' + fileInfo.ext;
 
-                                        $(attachmentArea, "a").attr({
+                                        $(attachmentArea, 'a').attr({
                                             href: fileInfo.url,
                                             download: fileName
                                         }).text(data.title);
 
-                                        var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-                                        $(attachmentArea, "span.description").text(descriptionText);
+                                        var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ', ' + chrome.i18n.getMessage('fileType') + ': ' + fileInfo.ext.toUpperCase();
+                                        $(attachmentArea, 'span.description').text(descriptionText);
                                     });
                                 }
 
@@ -1588,8 +1622,8 @@ export default {
 
                             default :
                                 chrome.runtime.sendMessage({
-                                    action: "errorGot",
-                                    error: "Unsupported attachment type",
+                                    action: 'errorGot',
+                                    error: 'Unsupported attachment type',
                                     message: [attachmentData.type, postData.id]
                                 });
                         }
@@ -1598,53 +1632,53 @@ export default {
                     newsData.push(tplItem);
 
                     seenPostsArray.push(postData.id);
-                    chrome.runtime.sendMessage({"action" : "newsPostSeen", "id" : postData.id});
+                    chrome.runtime.sendMessage({'action' : 'newsPostSeen', 'id' : postData.id});
                 });
 
-                var newsHTML = Templates.render("news", {
+                var newsHTML = Templates.render('news', {
                     news: newsData,
-                    downloadPhotoText: chrome.i18n.getMessage("downloadPhoto")
+                    downloadPhotoText: chrome.i18n.getMessage('downloadPhoto')
                 });
 
                 oneSection.html(newsHTML);
 
-                var link_ = $(oneSection, "a");
+                var link_ = $(oneSection, 'a');
 
                 if (link_) {
-                    link_.bind("click", function () {
-                        var id = this.closestParent("section[data-id]").data("id");
+                    link_.bind('click', function () {
+                        var id = this.closestParent('section[data-id]').data('id');
 
                         chrome.runtime.sendMessage({
-                            action: "newsLinkClicked",
+                            action: 'newsLinkClicked',
                             id: id,
-                            url: this.attr("href")
+                            url: this.attr('href')
                         });
                     });
                 }
 
                 // добавляем ID постов в список просмотренных
-                StorageManager.set("vkgroupwall_synced_posts", seenPostsArray);
+                StorageManager.set('vkgroupwall_synced_posts', seenPostsArray);
 
                 // очищаем сохраненные данные
-                StorageManager.remove("vkgroupwall_stored_posts");
+                StorageManager.remove('vkgroupwall_stored_posts');
             });
         },
 
         // чаты-диалоги
         chat: function (dialogId, startFrom) {
-            var right = $("#content > section.right");
-            var rightHeader = $("#content > header.right");
-            var rightHeaderText = $(rightHeader, "span.text").text();
-            var rightHeaderBack = $(rightHeader, "span.icon.back");
-            var rightHeaderPrint = $(rightHeader, "span.icon.print");
-            var rightHeaderSearch = $(rightHeader, "span.icon.search");
+            var right = $('#content > section.right');
+            var rightHeader = $('#content > header.right');
+            var rightHeaderText = $(rightHeader, 'span.text').text();
+            var rightHeaderBack = $(rightHeader, 'span.icon.back');
+            var rightHeaderPrint = $(rightHeader, 'span.icon.print');
+            var rightHeaderSearch = $(rightHeader, 'span.icon.search');
             var self = this;
 
             startFrom = startFrom || 0;
             if (startFrom === 0) {
                 // при первом вызове привязываем обработчик события onscroll
-                right.bind("scroll", function (e) {
-                    var moreSection = $(this, "section.more");
+                right.bind('scroll', function (e) {
+                    var moreSection = $(this, 'section.more');
                     if (!moreSection)
                         return;
 
@@ -1653,8 +1687,8 @@ export default {
                     }
                 }, true);
 
-                rightHeaderPrint.bind("click", function() {
-                    openInNewWindow("print.html?did=" + dialogId);
+                rightHeaderPrint.bind('click', function() {
+                    openInNewWindow('print.html?did=' + dialogId);
                 });
 
                 // rightHeaderSearch.bind("click", function() {
@@ -1669,33 +1703,33 @@ export default {
                 //  }, [{"id" : dialogId, "chatName" : rightHeaderText}]);
                 // });
 
-                if (this.prevShownView[0] === "showContact") {
+                if (this.prevShownView[0] === 'showContact') {
                     var uid = this.prevShownView[1];
 
-                    $("#content > header.right > span.icon.back").bind("click", function(e) {
-                        self.view("showContact", {
-                            "uiType" : "partial",
-                            "headers" : {
-                                "left" : [
-                                    {"type" : "text", "name" : "..."},
-                                    {"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")}
+                    $('#content > header.right > span.icon.back').bind('click', function(e) {
+                        self.view('showContact', {
+                            'uiType' : 'partial',
+                            'headers' : {
+                                'left' : [
+                                    {'type' : 'text', 'name' : '...'},
+                                    {'type' : 'icon', 'name' : 'write', 'title' : chrome.i18n.getMessage('writeMessage')}
                                 ],
-                                "right" : [
-                                    {"type" : "text", "name" : chrome.i18n.getMessage("correspondence")}
+                                'right' : [
+                                    {'type' : 'text', 'name' : chrome.i18n.getMessage('correspondence')}
                                 ]
                             }
                         }, [uid, true]);
                     });
                 } else {
-                    $("#content > header.right > span.icon.back").bind("click", function(e) {
-                        self.view("mailList", {
-                            "uiType" : "partial",
-                            "headers" : {
-                                "right" : [
-                                    {"type" : "text", "name" : chrome.i18n.getMessage("correspondence")},
-                                    {"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
+                    $('#content > header.right > span.icon.back').bind('click', function(e) {
+                        self.view('mailList', {
+                            'uiType' : 'partial',
+                            'headers' : {
+                                'right' : [
+                                    {'type' : 'text', 'name' : chrome.i18n.getMessage('correspondence')},
+                                    {'type' : 'icon', 'name' : 'list', 'title' : chrome.i18n.getMessage('correspondenceManagement')},
                                     /*{"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")},*/
-                                    {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")}
+                                    {'type' : 'icon', 'name' : 'search', 'title' : chrome.i18n.getMessage('searchMail')}
                                 ]
                             }
                         });
@@ -1703,11 +1737,11 @@ export default {
                 }
 
                 // очищаем правую часть окна
-                right.empty().addClass("loading").data("dialogId", dialogId);
+                right.empty().addClass('loading').data('dialogId', dialogId);
             }
 
             chrome.runtime.sendMessage({
-                action: "getDialogThread",
+                action: 'getDialogThread',
                 id: dialogId,
                 from: startFrom
             }, function (dialogData) {
@@ -1721,27 +1755,27 @@ export default {
                     lastUserSpeechSection, lastSpeechUid, lastSpeechTs,
                     msgSenderUid, isInboxMsg;
 
-                var dialogIdTmp = right.data("dialogId");
-                right.removeClass().removeData().data("dialogId", dialogIdTmp).addClass("right", "chat-container");
+                var dialogIdTmp = right.data('dialogId');
+                right.removeClass().removeData().data('dialogId', dialogIdTmp).addClass('right', 'chat-container');
 
-                var moreSection = $(right, "section.more");
+                var moreSection = $(right, 'section.more');
                 if (moreSection)
                     moreSection.remove();
 
                 var scrollToElem;
                 if (startFrom)
-                    scrollToElem = $(right, "section.msg");
+                    scrollToElem = $(right, 'section.msg');
 
                 for (var i = startIndex; i >= 0; i--) {
-                    isInboxMsg = (messages[i].tags.indexOf("inbox") !== -1);
+                    isInboxMsg = (messages[i].tags.indexOf('inbox') !== -1);
                     msgSenderUid = (isInboxMsg) ? messages[i].uid : Account.currentUserId;
                     msgSection = self._prepareMessage(messages[i]);
 
                     if (i === startIndex) {
-                        lastUserSpeechSection = $(right, "section.user-speech:first-of-type");
+                        lastUserSpeechSection = $(right, 'section.user-speech:first-of-type');
                         if (lastUserSpeechSection) {
-                            lastSpeechUid = parseInt(lastUserSpeechSection.data("uid"), 10);
-                            lastSpeechTs = parseInt(lastUserSpeechSection.data("ts"), 10);
+                            lastSpeechUid = parseInt(lastUserSpeechSection.data('uid'), 10);
+                            lastSpeechTs = parseInt(lastUserSpeechSection.data('ts'), 10);
 
                             createNewSpeechSection = (msgSenderUid !== lastSpeechUid);
                         } else {
@@ -1766,17 +1800,17 @@ export default {
                     }
 
                     // добавляем новое сообщение после аватарки
-                    $(lastUserSpeechSection, "img").after(Templates.render("chatMessage", msgSection));
+                    $(lastUserSpeechSection, 'img').after(Templates.render('chatMessage', msgSection));
                 }
 
                 if (insertSections.length)
                     right.prepend(insertSections);
 
-                $$(right, "section.msg").bind("mouseover", self._chatMessageMouseOverListener);
+                $$(right, 'section.msg').bind('mouseover', self._chatMessageMouseOverListener);
 
                 // определять scrollTop для элемента после вставки других
                 if (startFrom === 0) {
-                    var replyAreaForm = self._drawMessageSendForm("simple");
+                    var replyAreaForm = self._drawMessageSendForm('simple');
                     right.append(replyAreaForm);
 
                     replyAreaForm.scrollIntoView();
@@ -1784,17 +1818,17 @@ export default {
                     scrollToElem.scrollIntoView(true);
                 }
 
-                var totalShown = $$(right, "section.msg").length;
+                var totalShown = $$(right, 'section.msg').length;
                 if (totalShown < total) {
-                    var more = $("<section>").addClass("more", "view").text(Utils.string.ucfirst(chrome.i18n.getMessage("more"))).bind("click", function() {
-                        if (this.hasClass("loading"))
+                    var more = $('<section>').addClass('more', 'view').text(Utils.string.ucfirst(chrome.i18n.getMessage('more'))).bind('click', function() {
+                        if (this.hasClass('loading'))
                             return;
 
                         // может измениться за время просмотра чата
-                        var totalShown = $$(right, "section.msg").length;
+                        var totalShown = $$(right, 'section.msg').length;
 
-                        this.html("&nbsp;").addClass("loading");
-                        self.view("chat", {}, [dialogId, totalShown]);
+                        this.html('&nbsp;').addClass('loading');
+                        self.view('chat', {}, [dialogId, totalShown]);
                     });
 
                     right.prepend(more);
@@ -1805,78 +1839,78 @@ export default {
         // список папок
         manageMail: function () {
             var self = this;
-            var leftSection = $("#content > section.left").removeClass().addClass("left", "manage-mail", "loading").removeData().empty();
-            var rightSection = $("#content > section.right").removeClass().addClass("right").removeData().empty();
-            var searchRightHeader = $("#content > header.right > span.icon.search");
+            var leftSection = $('#content > section.left').removeClass().addClass('left', 'manage-mail', 'loading').removeData().empty();
+            var rightSection = $('#content > section.right').removeClass().addClass('right').removeData().empty();
+            var searchRightHeader = $('#content > header.right > span.icon.search');
             var folders = [];
 
             // добавляем стартовые метки-папки
-            App.INIT_TAGS.forEach(function (tagName) {
-                if (tagName === "important" || tagName === "attachments" || tagName === "trash")
+            config.INIT_TAGS.forEach(function (tagName) {
+                if (tagName === 'important' || tagName === 'attachments' || tagName === 'trash')
                     return;
 
-                if (tagName === "outbox" || tagName === "drafts")
+                if (tagName === 'outbox' || tagName === 'drafts')
                     return;
 
                 folders.push({
                     tag: tagName,
-                    title: chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tagName) + "Name"),
+                    title: chrome.i18n.getMessage('tag' + Utils.string.ucfirst(tagName) + 'Name'),
                     total: 0
                 });
             });
 
             // добавляем "удаленные", "важные" и "с вложениями"
-            ["trash", "important", "attachments"].forEach(function (tagName) {
+            ['trash', 'important', 'attachments'].forEach(function (tagName) {
                 folders.push({
                     tag: tagName,
-                    title: chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tagName) + "Name"),
-                    classNames: "custom " + tagName,
+                    title: chrome.i18n.getMessage('tag' + Utils.string.ucfirst(tagName) + 'Name'),
+                    classNames: 'custom ' + tagName,
                     total: 0
                 });
             });
 
-            chrome.runtime.sendMessage({action: "getTagsFrequency"}, function (freq) {
+            chrome.runtime.sendMessage({action: 'getTagsFrequency'}, function (freq) {
                 folders.forEach(function (folder) {
                     folder.total = freq[folder.tag] || 0;
                 });
 
-                var foldersHTML = Templates.render("mailFolders", {folders: folders});
+                var foldersHTML = Templates.render('mailFolders', {folders: folders});
                 leftSection.html(foldersHTML);
-                $(leftSection, "li[data-tag]").click();
+                $(leftSection, 'li[data-tag]').click();
             });
         },
 
         // список сообщений определенной папки
         messagesOfType: function (tag, startFrom) {
             var self = this;
-            var textHeader = $("#content > header.right > span.text");
-            var listHeader = $("#content > header.right > span.icon.list");
+            var textHeader = $('#content > header.right > span.text');
+            var listHeader = $('#content > header.right > span.icon.list');
             // var searchHeader = $("#content > header.right > span.icon.search");
-            var rightSection = $("#content > section.right").data("tag", tag);
+            var rightSection = $('#content > section.right').data('tag', tag);
             var tagTitle;
 
             startFrom = startFrom || 0;
 
             // при первом вызове привязываем обработчик события onscroll
             if (startFrom === 0) {
-                rightSection.empty().addClass("loading");
+                rightSection.empty().addClass('loading');
 
                 // устанавливаем span.text
-                for (i = 0; i < App.INIT_TAGS.length; i++) {
-                    if (tag === App.INIT_TAGS[i]) {
-                        tagTitle = chrome.i18n.getMessage("tag" + Utils.string.ucfirst(tag) + "Name");
+                for (i = 0; i < config.INIT_TAGS.length; i++) {
+                    if (tag === config.INIT_TAGS[i]) {
+                        tagTitle = chrome.i18n.getMessage('tag' + Utils.string.ucfirst(tag) + 'Name');
                         break;
                     }
                 }
 
                 textHeader.text(tagTitle);
 
-                listHeader.bind("click", function () {
-                    self.view("manageMail", {
-                        uiType: "partial",
+                listHeader.bind('click', function () {
+                    self.view('manageMail', {
+                        uiType: 'partial',
                         headers: {
                             left: [
-                                {"type" : "text", "name" : chrome.i18n.getMessage("foldersAndTags")}
+                                {'type' : 'text', 'name' : chrome.i18n.getMessage('foldersAndTags')}
                             ]
                         }
                     });
@@ -1894,8 +1928,8 @@ export default {
                 //  }, [{tag: tag}]);
                 // });
 
-                rightSection.bind("scroll", function () {
-                    var moreSection = $(this, "section.more");
+                rightSection.bind('scroll', function () {
+                    var moreSection = $(this, 'section.more');
                     if (!moreSection)
                         return;
 
@@ -1905,19 +1939,19 @@ export default {
                     }
                 }, true);
 
-                if (tag === "important") {
-                    chrome.runtime.sendMessage({"action" : "useImportantTag", "type" : "list"});
+                if (tag === 'important') {
+                    chrome.runtime.sendMessage({'action' : 'useImportantTag', 'type' : 'list'});
                 }
             }
 
             chrome.runtime.sendMessage({
-                action: "getMessagesByTagName",
+                action: 'getMessagesByTagName',
                 tag: tag,
                 totalShown: startFrom
             }, function (data) {
                 var messagesData = data[0];
                 var total = data[1];
-                var moreSection = $(rightSection, "section.more");
+                var moreSection = $(rightSection, 'section.more');
 
                 if (moreSection)
                     moreSection.remove();
@@ -1928,20 +1962,20 @@ export default {
                     halfSections.push(tplData);
                 });
 
-                var sectionsHTML = Templates.render("halfSections", {sections: halfSections});
-                var tagTmp = rightSection.data("tag");
-                rightSection.removeData().data("tag", tagTmp).removeClass().addClass("right", "thread-container").append(sectionsHTML);
+                var sectionsHTML = Templates.render('halfSections', {sections: halfSections});
+                var tagTmp = rightSection.data('tag');
+                rightSection.removeData().data('tag', tagTmp).removeClass().addClass('right', 'thread-container').append(sectionsHTML);
 
                 // добавляем при необходимости кнопку "еще"
-                var totalShown = $$(rightSection, "section[data-mid]").length + messagesData.length;
+                var totalShown = $$(rightSection, 'section[data-mid]').length + messagesData.length;
 
                 if (totalShown < total) {
-                    var more = $("<section>").addClass("more").text(Utils.string.ucfirst(chrome.i18n.getMessage("more"))).bind("click", function () {
-                        if (this.hasClass("loading"))
+                    var more = $('<section>').addClass('more').text(Utils.string.ucfirst(chrome.i18n.getMessage('more'))).bind('click', function () {
+                        if (this.hasClass('loading'))
                             return;
 
-                        this.html("&nbsp;").addClass("loading");
-                        self.view("messagesOfType", {}, [tag, totalShown]);
+                        this.html('&nbsp;').addClass('loading');
+                        self.view('messagesOfType', {}, [tag, totalShown]);
                     });
 
                     rightSection.append(more);
@@ -1955,15 +1989,15 @@ export default {
          */
         searchMail: function (params) {
             var self = this;
-            var rightSection = $("#content > section.right").empty().removeClass().addClass("right", "search-mail-container", "thread-container");
-            var backIcon = $("#content > header.right > span.icon.back");
+            var rightSection = $('#content > section.right').empty().removeClass().addClass('right', 'search-mail-container', 'thread-container');
+            var backIcon = $('#content > header.right > span.icon.back');
 
-            var placeholderText = chrome.i18n.getMessage("searchMailPlaceholder");
-            var formContents = Templates.render("searchForm", {placeholder: placeholderText});
+            var placeholderText = chrome.i18n.getMessage('searchMailPlaceholder');
+            var formContents = Templates.render('searchForm', {placeholder: placeholderText});
 
             rightSection.append(formContents);
-            var form = $(rightSection, "form");
-            var searchInput = $(rightSection, "input[type='search']");
+            var form = $(rightSection, 'form');
+            var searchInput = $(rightSection, 'input[type=\'search\']');
 
             params = params || {};
 
@@ -1976,7 +2010,7 @@ export default {
                     total = data[1],
                     search = data[2],
                     mailSections = [],
-                    moreSection = $(rightSection, "section.more"),
+                    moreSection = $(rightSection, 'section.more'),
                     totalShown, more;
 
                 if (search !== searchInput.val()) {
@@ -1992,19 +2026,19 @@ export default {
                     mailSections.push(section);
                 });
 
-                var sectionsHTML = Templates.render("halfSections", {sections: mailSections});
-                rightSection.removeClass("loading").append(sectionsHTML);
+                var sectionsHTML = Templates.render('halfSections', {sections: mailSections});
+                rightSection.removeClass('loading').append(sectionsHTML);
 
                 // добавляем при необходимости кнопку "еще"
-                totalShown = $$(rightSection, "section[data-mid]").length;
+                totalShown = $$(rightSection, 'section[data-mid]').length;
                 if (totalShown < total) {
-                    more = $("<section>").addClass("more", "view").text(Utils.string.ucfirst(chrome.i18n.getMessage("more"))).bind("click", function() {
-                        if (this.hasClass("loading")) {
+                    more = $('<section>').addClass('more', 'view').text(Utils.string.ucfirst(chrome.i18n.getMessage('more'))).bind('click', function() {
+                        if (this.hasClass('loading')) {
                             return;
                         }
 
-                        this.html("&nbsp;").addClass("loading");
-                        chrome.runtime.sendMessage({"action" : "searchMail", "params" : params, "value" : searchInput.val(), "totalShown" : totalShown}, backendCallback);
+                        this.html('&nbsp;').addClass('loading');
+                        chrome.runtime.sendMessage({'action' : 'searchMail', 'params' : params, 'value' : searchInput.val(), 'totalShown' : totalShown}, backendCallback);
                     });
 
                     rightSection.append(more);
@@ -2012,8 +2046,8 @@ export default {
             };
 
             // при первом вызове привязываем обработчик события onscroll
-            rightSection.bind("scroll", function () {
-                var moreSection = $(this, "section.more");
+            rightSection.bind('scroll', function () {
+                var moreSection = $(this, 'section.more');
                 if (!moreSection)
                     return;
 
@@ -2023,32 +2057,32 @@ export default {
                 }
             }, true);
 
-            backIcon.bind("click", function() {
+            backIcon.bind('click', function() {
                 form.remove();
 
                 switch (self.prevShownView[0]) {
-                    case "chat" :
-                        self.view("chat", {
-                            "uiType" : "partial",
-                            "headers" : {
-                                "right" : [
-                                    {"type" : "text", "name" : chatName},
-                                    {"type" : "icon", "name" : "back", "title" : chrome.i18n.getMessage("backToDialogsList")},
+                    case 'chat' :
+                        self.view('chat', {
+                            'uiType' : 'partial',
+                            'headers' : {
+                                'right' : [
+                                    {'type' : 'text', 'name' : chatName},
+                                    {'type' : 'icon', 'name' : 'back', 'title' : chrome.i18n.getMessage('backToDialogsList')},
                                     // {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")},
-                                    {"type" : "icon", "name" : "print", "title" : chrome.i18n.getMessage("printCorrespondence")}
+                                    {'type' : 'icon', 'name' : 'print', 'title' : chrome.i18n.getMessage('printCorrespondence')}
                                 ]
                             }
                         }, [params.id]);
 
                         break;
 
-                    case "messagesOfType" :
-                        self.view("messagesOfType", {
-                            "uiType" : "partial",
-                            "headers" : {
-                                "right" : [
-                                    {"type" : "text", "name" : "..."},
-                                    {"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
+                    case 'messagesOfType' :
+                        self.view('messagesOfType', {
+                            'uiType' : 'partial',
+                            'headers' : {
+                                'right' : [
+                                    {'type' : 'text', 'name' : '...'},
+                                    {'type' : 'icon', 'name' : 'list', 'title' : chrome.i18n.getMessage('correspondenceManagement')},
                                     // {"type" : "icon", "name" : "search"}
                                 ]
                             }
@@ -2057,44 +2091,44 @@ export default {
                         break;
 
                     default :
-                        self.view("mailList", {
-                            "uiType" : "partial",
-                            "headers" : {
-                                "right" : [
-                                    {"type" : "text", "name" : chrome.i18n.getMessage("correspondence")},
-                                    {"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
+                        self.view('mailList', {
+                            'uiType' : 'partial',
+                            'headers' : {
+                                'right' : [
+                                    {'type' : 'text', 'name' : chrome.i18n.getMessage('correspondence')},
+                                    {'type' : 'icon', 'name' : 'list', 'title' : chrome.i18n.getMessage('correspondenceManagement')},
                                     /*{"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")},*/
-                                    {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")}
+                                    {'type' : 'icon', 'name' : 'search', 'title' : chrome.i18n.getMessage('searchMail')}
                                 ]
                             }
                         });
                 }
             });
 
-            searchInput.bind("search", function () {
-                var more = $(rightSection, "section.more");
+            searchInput.bind('search', function () {
+                var more = $(rightSection, 'section.more');
                 if (more)
                     more.remove();
 
-                $$(rightSection.removeClass("loading"), "section[data-mid]").remove();
+                $$(rightSection.removeClass('loading'), 'section[data-mid]').remove();
             });
 
-            searchInput.bind("keyup", function () {
+            searchInput.bind('keyup', function () {
                 var value = this.val();
-                var moreSection = $(rightSection, "section.more");
+                var moreSection = $(rightSection, 'section.more');
 
                 if (moreSection)
                     moreSection.remove();
 
                 if (!value.length)
-                    return $$(rightSection.removeClass("loading"), "section[data-mid]").remove();
+                    return $$(rightSection.removeClass('loading'), 'section[data-mid]').remove();
 
                 if (value.length < 2)
                     return;
 
-                $$(rightSection.addClass("loading"), "section[data-mid]").remove();
+                $$(rightSection.addClass('loading'), 'section[data-mid]').remove();
                 chrome.runtime.sendMessage({
-                    action: "searchMail",
+                    action: 'searchMail',
                     params: params,
                     value: this.val(),
                     totalShown: 0
@@ -2105,8 +2139,8 @@ export default {
         },
 
         writeMessageToContact: function (contactId) {
-            var rightSection = $("#content > section.right").empty().addClass("thread-container").data("dialogId", "0_" + contactId);
-            var replyAreaForm = this._drawMessageSendForm("face-to-face");
+            var rightSection = $('#content > section.right').empty().addClass('thread-container').data('dialogId', '0_' + contactId);
+            var replyAreaForm = this._drawMessageSendForm('face-to-face');
 
             rightSection.append(replyAreaForm);
         },
@@ -2123,23 +2157,23 @@ export default {
      */
     view: function (viewName, requiredParams, optionalParams) {
         if (!this.Views[viewName])
-            throw new Error("View #" + viewName + " doesn't exist");
+            throw new Error('View #' + viewName + ' doesn\'t exist');
 
-        if (requiredParams.uiType !== undefined && ["partial", "full"].indexOf(requiredParams.uiType) === -1)
-            throw new Error("No/wrong UI type was set when calling #" + viewName + " view");
+        if (requiredParams.uiType !== undefined && ['partial', 'full'].indexOf(requiredParams.uiType) === -1)
+            throw new Error('No/wrong UI type was set when calling #' + viewName + ' view');
 
         optionalParams = optionalParams || [];
         if (!(optionalParams instanceof Array))
-            throw new TypeError("Optional params type for #" + viewName + " view is not array: " + typeof optionalParams);
+            throw new TypeError('Optional params type for #' + viewName + ' view is not array: ' + typeof optionalParams);
 
-        var content = $("#content");
+        var content = $('#content');
 
         // очищаем ненужные секции данных
         if (requiredParams.uiType) {
-            if (requiredParams.uiType === "partial") {
-                $$(content, "section.one, header.one").addClass("is-empty").empty();
+            if (requiredParams.uiType === 'partial') {
+                $$(content, 'section.one, header.one').addClass('is-empty').empty();
             } else {
-                $$(content, "section.left, header.left, section.right, header.right").addClass("is-empty").empty();
+                $$(content, 'section.left, header.left, section.right, header.right').addClass('is-empty').empty();
             }
         }
 
@@ -2148,17 +2182,17 @@ export default {
             var sectionHeader;
 
             for (var prop in requiredParams.headers) {
-                if (["left", "right", "one"].indexOf(prop) === -1)
-                    throw new Error("Section header for #" + viewName + " view is denied: " + prop);
+                if (['left', 'right', 'one'].indexOf(prop) === -1)
+                    throw new Error('Section header for #' + viewName + ' view is denied: ' + prop);
 
-                sectionHeader = $(content, "header." + prop).removeClass("is-empty").empty();
+                sectionHeader = $(content, 'header.' + prop).removeClass('is-empty').empty();
                 requiredParams.headers[prop].forEach(function (item) {
-                    var elem = $("<span/>").addClass(item.type);
+                    var elem = $('<span/>').addClass(item.type);
 
-                    if (item.type === "icon") {
+                    if (item.type === 'icon') {
                         elem.addClass(item.name);
                         if (item.title) {
-                            elem.attr("title", Utils.string.ucfirst(item.title)).data("gravity", "n");
+                            elem.attr('title', Utils.string.ucfirst(item.title)).data('gravity', 'n');
                         }
                     } else {
                         elem.text(item.name);
@@ -2188,61 +2222,61 @@ export default {
 
     _mainTypes: {
         brokenApp: function () {
-            var contents = Templates.render("frontendAttention", {
-                description: chrome.i18n.getMessage("chromeAppIsBroken"),
-                btnText: chrome.i18n.getMessage("updateItNow")
+            var contents = Templates.render('frontendAttention', {
+                description: chrome.i18n.getMessage('chromeAppIsBroken'),
+                btnText: chrome.i18n.getMessage('updateItNow')
             });
 
-            document.body.removeClass().addClass("grey").html(contents);
+            document.body.removeClass().addClass('grey').html(contents);
 
-            $("button.green").bind("click", function () {
-                openInNewWindow("https://www.google.com/chrome/");
+            $('button.green').bind('click', function () {
+                openInNewWindow('https://www.google.com/chrome/');
             });
         },
 
         backendLoading: function () {
-            var contents = Templates.render("frontendAttention", {
-                description: chrome.i18n.getMessage("backendIsLoading"),
-                btnText: chrome.i18n.getMessage("refreshPage")
+            var contents = Templates.render('frontendAttention', {
+                description: chrome.i18n.getMessage('backendIsLoading'),
+                btnText: chrome.i18n.getMessage('refreshPage')
             });
 
-            document.body.removeClass().addClass("grey").html(contents);
+            document.body.removeClass().addClass('grey').html(contents);
 
-            $("button.green").bind("click", function () {
+            $('button.green').bind('click', function () {
                 window.location.reload();
             });
         },
 
         guest: function () {
-            var firstInstallText = chrome.i18n.getMessage("firstInstallText").replace("%appname%", App.NAME);
+            var firstInstallText = chrome.i18n.getMessage('firstInstallText').replace('%appname%', appName);
             var firstInstallTextMatches = firstInstallText.match(/(.+)\|(.+)\|(.+)/);
             var self = this;
 
-            var contents = Templates.render("guest", {
+            var contents = Templates.render('guest', {
                 afterBegin: firstInstallTextMatches[1],
                 grantAccessLink: firstInstallTextMatches[2],
                 beforeEnd: firstInstallTextMatches[3],
-                takeTour: chrome.i18n.getMessage("takeTour"),
-                grantAccessBtn: chrome.i18n.getMessage("installGrantAccess")
+                takeTour: chrome.i18n.getMessage('takeTour'),
+                grantAccessBtn: chrome.i18n.getMessage('installGrantAccess')
             });
 
             var authFn = function (evt) {
                 evt.stopPropagation();
-                Auth.requestFirstToken();
+                Auth.requestFirstToken().catch(processAuthFailure);
             };
 
-            document.body.removeClass().addClass("grey").html(contents);
+            document.body.removeClass().addClass('grey').html(contents);
 
-            $("button.tour").bind("click", function (e) {
-                self.view("tourStep", {}, [1]);
+            $('button.tour').bind('click', function (e) {
+                self.view('tourStep', {}, [1]);
                 e.stopPropagation();
             });
 
-            $("button.access").bind("click", authFn);
-            $("p.description a").bind("click", authFn);
+            $('button.access').bind('click', authFn);
+            $('p.description a').bind('click', authFn);
 
             if (Account.tokenExpired) {
-                Auth.requestFirstToken();
+                Auth.requestFirstToken().catch(processAuthFailure);
             }
         },
 
@@ -2250,23 +2284,23 @@ export default {
             var self = this;
 
             chrome.runtime.sendMessage({
-                action: "currentSyncValues"
+                action: 'currentSyncValues'
             }, function (res) {
                 var syncingData = res.data;
-                var avatarSrc = res.avatar || chrome.runtime.getURL("pic/question_th.gif");
+                var avatarSrc = res.avatar || chrome.runtime.getURL('pic/question_th.gif');
 
                 var tplData = {
                     avatarSrc: avatarSrc,
                     uid: Account.currentUserId,
-                    fio: (Account.currentUserFio === "...") ? "#" + Account.currentUserId : Account.currentUserFio,
-                    skipSync: chrome.i18n.getMessage("skipSync"),
+                    fio: (Account.currentUserFio === '...') ? '#' + Account.currentUserId : Account.currentUserFio,
+                    skipSync: chrome.i18n.getMessage('skipSync'),
                     data: []
                 };
 
                 for (var key in syncingData) {
                     tplData.data.push({
                         key: key,
-                        description: chrome.i18n.getMessage("syncing" + Utils.string.ucfirst(key)),
+                        description: chrome.i18n.getMessage('syncing' + Utils.string.ucfirst(key)),
                         done: syncingData[key][1],
                         total: syncingData[key][0] || syncingData[key][1],
                         max: syncingData[key][0],
@@ -2274,44 +2308,44 @@ export default {
                     });
                 }
 
-                var contents = Templates.render("syncing", tplData);
-                document.body.removeClass().addClass("grey").html(contents);
+                var contents = Templates.render('syncing', tplData);
+                document.body.removeClass().addClass('grey').html(contents);
             });
         },
 
         user: function () {
             var self = this;
-            var wallTokenUpdated = StorageManager.get("wall_token_updated", {constructor: Object, strict: true, create: true});
-            var appLike = StorageManager.get("app_like", {constructor: Array, strict: true, create: true});
+            var wallTokenUpdated = StorageManager.get('wall_token_updated', {constructor: Object, strict: true, create: true});
+            var appLike = StorageManager.get('app_like', {constructor: Array, strict: true, create: true});
             var tokenUpdatedForUser = (wallTokenUpdated[Account.currentUserId] === 1);
             var appLikedByUser = (appLike.indexOf(Account.currentUserId) !== -1);
 
-            var appInstallTime = StorageManager.get("app_install_time") || Date.now();
+            var appInstallTime = StorageManager.get('app_install_time') || Date.now();
             var totalDaysLive = Math.floor((Date.now() - appInstallTime) / 1000 / 60 / 60 / 24);
             var isLoyalUser = (totalDaysLive >= 1);
 
             var tplData = {
                 multipleAccountsMargin: 3,
                 accounts: [],
-                activeAccountFio: (Account.currentUserFio === "...") ? "#" + Account.currentUserId : Account.currentUserFio,
+                activeAccountFio: (Account.currentUserFio === '...') ? '#' + Account.currentUserId : Account.currentUserFio,
                 offline: !navigator.onLine,
                 tokenExpired: false,
-                settingsTitle: chrome.i18n.getMessage("options"),
-                likeTitle: chrome.i18n.getMessage("likeIconTitle").replace("%appname%", App.NAME) + "!",
+                settingsTitle: chrome.i18n.getMessage('options'),
+                likeTitle: chrome.i18n.getMessage('likeIconTitle').replace('%appname%', appName) + '!',
                 showLike: tokenUpdatedForUser && !appLikedByUser && isLoyalUser
             };
 
-            chrome.runtime.sendMessage({action: "getAccountsList"}, function (accounts) {
+            chrome.runtime.sendMessage({action: 'getAccountsList'}, function (accounts) {
                 var accountsNum = 0;
 
                 _.forIn(accounts, function (userData, uid) {
                     var accountData = {
-                        avatarSrc: userData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
+                        avatarSrc: userData.avatar || chrome.runtime.getURL('pic/question_th.gif'),
                         uid: uid
                     };
 
                     // текущий пользователь должен быть последним в списке
-                    var methodToInsert = (uid == Account.currentUserId) ? "push" : "unshift";
+                    var methodToInsert = (uid == Account.currentUserId) ? 'push' : 'unshift';
                     Array.prototype[methodToInsert].call(tplData.accounts, accountData);
 
                     if (accountsNum) {
@@ -2324,58 +2358,58 @@ export default {
 
                 tplData.multipleAccounts = (accountsNum > 1);
 
-                document.body.removeClass().addClass("white");
-                if (navigator.platform.indexOf("Win") !== -1)
-                    document.body.addClass("win");
+                document.body.removeClass().addClass('white');
+                if (navigator.platform.indexOf('Win') !== -1)
+                    document.body.addClass('win');
 
-                var html = Templates.render("main", tplData);
+                var html = Templates.render('main', tplData);
                 document.body.html(html);
 
 
                 // ставим простой таймаут, чтобы после смены аккаунта / перезагрузки страницы не прыгал блок с аватарками
                 window.setTimeout(function() {
-                    $("section.acc-container").addClass("loaded");
+                    $('section.acc-container').addClass('loaded');
                 }, 1000);
 
-                $("section.acc-container").bind("click", function(e) {
-                    var hasManyAccounts = ($$(this, "img[data-uid]").length > 1);
+                $('section.acc-container').bind('click', function(e) {
+                    var hasManyAccounts = ($$(this, 'img[data-uid]').length > 1);
                     var matchesSelectorFn = (this.webkitMatchesSelector || this.matchesSelector);
-                    var avatarClicked = matchesSelectorFn.call(e.target, "img[data-uid]");
-                    var uidClicked = avatarClicked ? parseInt(e.target.data("uid"), 10) : null;
+                    var avatarClicked = matchesSelectorFn.call(e.target, 'img[data-uid]');
+                    var uidClicked = avatarClicked ? parseInt(e.target.data('uid'), 10) : null;
 
                     if (avatarClicked && hasManyAccounts && uidClicked !== Account.currentUserId) {
-                        chrome.runtime.sendMessage({"action" : "switchToAccount", "uid" : e.target.data("uid")});
+                        chrome.runtime.sendMessage({'action' : 'switchToAccount', 'uid' : e.target.data('uid')});
                     } else {
-                        self.main("user", true);
+                        self.main('user', true);
                     }
                 });
 
-                $("span.icon.settings").bind("click", function() {
-                    self.view("settings", {
-                        uiType: "partial",
+                $('span.icon.settings').bind('click', function() {
+                    self.view('settings', {
+                        uiType: 'partial',
                         headers: {
                             left: [
-                                {"type" : "text", "name" : chrome.i18n.getMessage("accounts")},
-                                {"type" : "icon", "name" : "plus", "title" : chrome.i18n.getMessage("addMoreProfiles")}
+                                {'type' : 'text', 'name' : chrome.i18n.getMessage('accounts')},
+                                {'type' : 'icon', 'name' : 'plus', 'title' : chrome.i18n.getMessage('addMoreProfiles')}
                             ],
                             right: [
-                                {"type" : "text", "name" : chrome.i18n.getMessage("options")}
+                                {'type' : 'text', 'name' : chrome.i18n.getMessage('options')}
                             ]
                         }
                     });
                 });
 
-                var likeIcon = $("span.icon.like");
+                var likeIcon = $('span.icon.like');
                 if (likeIcon) {
-                    likeIcon.bind("click", function() {
-                        var appLike = StorageManager.get("app_like", {constructor: Array, strict: true, create: true});
+                    likeIcon.bind('click', function() {
+                        var appLike = StorageManager.get('app_like', {constructor: Array, strict: true, create: true});
                         var icon = this;
 
-                        chrome.runtime.sendMessage({action: "addLike"}, function (likeResult) {
+                        chrome.runtime.sendMessage({action: 'addLike'}, function (likeResult) {
                             switch (likeResult) {
                                 case 1 :
                                     appLike.push(Account.currentUserId);
-                                    StorageManager.set("app_like", appLike);
+                                    StorageManager.set('app_like', appLike);
 
                                     // @todo thanks?
                                     icon.remove();
@@ -2390,16 +2424,16 @@ export default {
                 }
 
                 // сразу обновляем иконку оповещений
-                var newsIcon = $("span.news")
-                var storedPostsArray = StorageManager.get("vkgroupwall_stored_posts", {constructor: Array, strict: true, create: true});
+                var newsIcon = $('span.news');
+                var storedPostsArray = StorageManager.get('vkgroupwall_stored_posts', {constructor: Array, strict: true, create: true});
                 self.updateNewsIcon(newsIcon, storedPostsArray.length);
 
-                newsIcon.bind("click", function() {
-                    self.view("news", {
-                        uiType: "full",
+                newsIcon.bind('click', function() {
+                    self.view('news', {
+                        uiType: 'full',
                         headers: {
                             one: [
-                                {"type" : "text", "name" : chrome.i18n.getMessage("newNotifications")}
+                                {'type' : 'text', 'name' : chrome.i18n.getMessage('newNotifications')}
                             ]
                         }
                     });
@@ -2407,31 +2441,31 @@ export default {
 
 
                 // показываем список контактов
-                self.view("contactsList", {
-                    "uiType" : "partial",
-                    "headers" : {
-                        "left" : [
-                            {"type" : "text", "name" : chrome.i18n.getMessage("contactsName")},
-                            {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchContact")}
+                self.view('contactsList', {
+                    'uiType' : 'partial',
+                    'headers' : {
+                        'left' : [
+                            {'type' : 'text', 'name' : chrome.i18n.getMessage('contactsName')},
+                            {'type' : 'icon', 'name' : 'search', 'title' : chrome.i18n.getMessage('searchContact')}
                         ]
                     }
                 });
 
                 // показываем диалоги
-                self.view("mailList", {
-                    "uiType" : "partial",
-                    "headers" : {
-                        "right" : [
-                            {"type" : "text", "name" : chrome.i18n.getMessage("correspondence")},
-                            {"type" : "icon", "name" : "list", "title" : chrome.i18n.getMessage("correspondenceManagement")},
+                self.view('mailList', {
+                    'uiType' : 'partial',
+                    'headers' : {
+                        'right' : [
+                            {'type' : 'text', 'name' : chrome.i18n.getMessage('correspondence')},
+                            {'type' : 'icon', 'name' : 'list', 'title' : chrome.i18n.getMessage('correspondenceManagement')},
                             /*{"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")},*/
-                            {"type" : "icon", "name" : "search", "title" : chrome.i18n.getMessage("searchMail")}
+                            {'type' : 'icon', 'name' : 'search', 'title' : chrome.i18n.getMessage('searchMail')}
                         ]
                     }
                 });
 
                 if (Account.tokenExpired) {
-                    Auth.updateExistingToken(Account.currentUserId);
+                    Auth.updateExistingToken(Account.currentUserId).catch(processAuthFailure);
                 }
             });
         }
@@ -2451,7 +2485,7 @@ export default {
     },
 
     updateNewsIcon: function (iconElem, newPostsNum) {
-        var i18nTitleTerms = chrome.i18n.getMessage("newsIconTitles").split("|");
+        var i18nTitleTerms = chrome.i18n.getMessage('newsIconTitles').split('|');
 
         if (!newPostsNum) {
             return;
@@ -2459,19 +2493,19 @@ export default {
 
         iconElem
             .text(newPostsNum)
-            .attr("title", newPostsNum + " " + Utils.string.plural(newPostsNum, i18nTitleTerms))
-            .removeClass("is-empty");
+            .attr('title', newPostsNum + ' ' + Utils.string.plural(newPostsNum, i18nTitleTerms))
+            .removeClass('is-empty');
     },
 
     addReceivedMessage: function (msgData) {
         var self = this,
-            isInboxMsg = (msgData.tags.indexOf("inbox") !== -1),
+            isInboxMsg = (msgData.tags.indexOf('inbox') !== -1),
             msgSenderUid = (isInboxMsg) ? msgData.uid : Account.currentUserId,
-            chatContainer = $("#content > section.chat-container"),
+            chatContainer = $('#content > section.chat-container'),
             msgDataObj = self._prepareMessage(msgData, true),
-            lastUserSpeechSection = $(chatContainer, "section.user-speech:last-of-type"),
-            lastSpeechUid = (lastUserSpeechSection) ? parseInt(lastUserSpeechSection.data("uid"), 10) : null,
-            lastSpeechTs = (lastUserSpeechSection) ? parseInt(lastUserSpeechSection.lastElementChild.data("ts"), 10) : 0,
+            lastUserSpeechSection = $(chatContainer, 'section.user-speech:last-of-type'),
+            lastSpeechUid = (lastUserSpeechSection) ? parseInt(lastUserSpeechSection.data('uid'), 10) : null,
+            lastSpeechTs = (lastUserSpeechSection) ? parseInt(lastUserSpeechSection.lastElementChild.data('ts'), 10) : 0,
             createNewSpeechSection, userSpeechSection;
 
         createNewSpeechSection = ((msgSenderUid !== lastSpeechUid) || (lastSpeechTs - msgData.date > 8 * 60 * 60));
@@ -2486,10 +2520,10 @@ export default {
             userSpeechSection = lastUserSpeechSection;
         }
 
-        var msgContents = Templates.render("chatMessage", msgDataObj);
+        var msgContents = Templates.render('chatMessage', msgDataObj);
         userSpeechSection.append(msgContents);
 
-        $$(userSpeechSection, "section.msg").bind("mouseover", self._chatMessageMouseOverListener);
+        $$(userSpeechSection, 'section.msg').bind('mouseover', self._chatMessageMouseOverListener);
         chatContainer.scrollTop = chatContainer.scrollHeight;
     },
 
@@ -2503,29 +2537,29 @@ export default {
      */
     _prepareHalfSection: function (msgData, searchTerm) {
         var self = this;
-        var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
+        var isInboxMsg = (msgData.tags.indexOf('inbox') !== -1);
         var uid = msgData.uid ; //isInboxMsg ? msgData.uid : Account.currentUserId;
 
-        var contactFio = msgData.first_name + " " + msgData.last_name;
+        var contactFio = msgData.first_name + ' ' + msgData.last_name;
         if (!isInboxMsg)
-            contactFio = chrome.i18n.getMessage("recepientTo") + contactFio;
+            contactFio = chrome.i18n.getMessage('recepientTo') + contactFio;
 
-        var textHTML = Utils.string.emoji(msgData.body.split("<br>")[0], true);
+        var textHTML = Utils.string.emoji(msgData.body.split('<br>')[0], true);
         if (searchTerm) {
-            searchTerm = searchTerm.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+            searchTerm = searchTerm.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
-            var regex = new RegExp(searchTerm, "i");
+            var regex = new RegExp(searchTerm, 'i');
             var matches = textHTML.match(regex);
 
             if (matches) {
-                textHTML = textHTML.replace(matches[0], "<b>" + matches[0] + "</b>");
+                textHTML = textHTML.replace(matches[0], '<b>' + matches[0] + '</b>');
             }
         }
 
         var output = {
-            is_new: (msgData.tags.indexOf("inbox") !== -1 && msgData.status === 0),
+            is_new: (msgData.tags.indexOf('inbox') !== -1 && msgData.status === 0),
             mid: msgData.mid,
-            avatarSrc: msgData.avatar || chrome.runtime.getURL("pic/question_th.gif"),
+            avatarSrc: msgData.avatar || chrome.runtime.getURL('pic/question_th.gif'),
             uid: uid,
             humanDate: Utils.string.humanDate(msgData.date),
             fio: contactFio,
@@ -2547,16 +2581,16 @@ export default {
      * @return {Object}
      */
     _prepareContactSection: function (userData, searchTerms) {
-        var fio = userData.first_name + " " + userData.last_name;
+        var fio = userData.first_name + ' ' + userData.last_name;
 
         if (searchTerms instanceof Array) {
             searchTerms.forEach(function (term) {
-                var term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-                var regex = new RegExp(term.replace(), "i");
+                var term = term.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                var regex = new RegExp(term.replace(), 'i');
                 var matches = fio.match(regex);
 
                 if (matches) {
-                    fio = fio.replace(matches[0], "<b>" + matches[0] + "</b>");
+                    fio = fio.replace(matches[0], '<b>' + matches[0] + '</b>');
                 }
             });
         }
@@ -2572,9 +2606,9 @@ export default {
         return {
             uid: userData.uid,
             avatarSrc: userData.photo,
-            showMoreInfo: chrome.i18n.getMessage("showMoreInfoAboutContactOrMessage"),
+            showMoreInfo: chrome.i18n.getMessage('showMoreInfoAboutContactOrMessage'),
             fio: fio,
-            phones: phones.join(", "),
+            phones: phones.join(', '),
             hidden: (Account.currentUserId === userData.uid)
         };
     },
@@ -2585,7 +2619,7 @@ export default {
      */
     _prepareMessage: function (msgData, forceShowUnread) {
         var self = this;
-        var isInbox = (msgData.tags.indexOf("inbox") !== -1);
+        var isInbox = (msgData.tags.indexOf('inbox') !== -1);
         var unread = forceShowUnread || (msgData.status === 0 && isInbox);
         var msgObj;
 
@@ -2599,18 +2633,18 @@ export default {
             id: msgData.mid,
             sent: !isInbox,
             date: msgData.date,
-            localizedDate: (new Date(msgData.date * 1000)).toLocaleString().replace(/\sGMT.*/, ""),
+            localizedDate: (new Date(msgData.date * 1000)).toLocaleString().replace(/\sGMT.*/, ''),
             humanDate: Utils.string.humanDate(msgData.date),
-            important: (msgData.tags.indexOf("important") !== -1),
-            importantTitle: chrome.i18n.getMessage("importantMessage"),
+            important: (msgData.tags.indexOf('important') !== -1),
+            importantTitle: chrome.i18n.getMessage('importantMessage'),
             body: msgData.body,
-            downloadPhotoText: chrome.i18n.getMessage("downloadPhoto"),
+            downloadPhotoText: chrome.i18n.getMessage('downloadPhoto'),
             attachments: []
         };
 
         (msgData.attachments || []).forEach(function (attachmentInfo) {
             var type = (attachmentInfo instanceof Array) ? attachmentInfo[0] : attachmentInfo.type;
-            var id = "att_" + Math.random().toString().substr(2);
+            var id = 'att_' + Math.random().toString().substr(2);
             var tplData = {};
 
             if (attachmentInfo instanceof Array) { // LP
@@ -2618,54 +2652,54 @@ export default {
                 tplData.id = id;
                 tplData.info = JSON.stringify(attachmentInfo);
 
-                if (type === "photo") {
+                if (type === 'photo') {
                     tplData.noimage = true;
-                } else if (type === "geopoint") {
+                } else if (type === 'geopoint') {
                     tplData.nopoint = true;
-                } else if (type === "doc") {
+                } else if (type === 'doc') {
                     tplData.nolink = true;
                 }
             } else { // mailSync
                 switch (attachmentInfo.type) {
-                    case "audio":
+                    case 'audio':
                         var info = [attachmentInfo.type, attachmentInfo[attachmentInfo.type].owner_id, attachmentInfo.audio.aid];
                         tplData.audio = true;
                         tplData.id = id;
                         tplData.info = JSON.stringify(info);
                         break;
 
-                    case "video":
+                    case 'video':
                         var info = [attachmentInfo.type, attachmentInfo[attachmentInfo.type].owner_id, attachmentInfo.video.vid];
                         tplData.video = true;
                         tplData.id = id;
                         tplData.info = JSON.stringify(info);
                         break;
 
-                    case "photo":
+                    case 'photo':
                         var biggestPhoto = Utils.misc.searchBiggestImage(attachmentInfo.photo);
 
                         tplData.photo = true;
                         tplData.id = id;
                         tplData.noimage = true;
-                        tplData.info = JSON.stringify(["photo", biggestPhoto]);
+                        tplData.info = JSON.stringify(['photo', biggestPhoto]);
                         tplData.src = biggestPhoto;
                         break;
 
-                    case "doc":
-                        var regex = new RegExp(attachmentInfo.doc.ext + "$");
+                    case 'doc':
+                        var regex = new RegExp(attachmentInfo.doc.ext + '$');
 
                         tplData.doc = true;
                         tplData.id = id;
                         tplData.url = attachmentInfo.doc.url;
-                        tplData.fileName = (regex.test(attachmentInfo.doc.title)) ? attachmentInfo.doc.title : attachmentInfo.doc.title + "." + attachmentInfo.doc.ext;
+                        tplData.fileName = (regex.test(attachmentInfo.doc.title)) ? attachmentInfo.doc.title : attachmentInfo.doc.title + '.' + attachmentInfo.doc.ext;
                         tplData.title = attachmentInfo.doc.title;
-                        tplData.description = Utils.string.humanFileSize(attachmentInfo.doc.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + attachmentInfo.doc.ext.toUpperCase();
+                        tplData.description = Utils.string.humanFileSize(attachmentInfo.doc.size) + ', ' + chrome.i18n.getMessage('fileType') + ': ' + attachmentInfo.doc.ext.toUpperCase();
                         break;
 
-                    case "geopoint":
+                    case 'geopoint':
                         tplData.geopoint = true;
                         tplData.id = id;
-                        tplData.info = JSON.stringify(["geopoint"]);
+                        tplData.info = JSON.stringify(['geopoint']);
                         tplData.nopoint = true;
                         break;
                 }
@@ -2682,35 +2716,35 @@ export default {
      */
     _drawOpenMessage: function (msgId) {
         var self = this;
-        var leftSection = $("#content > section.left");
-        var rightSection = $("#content > section.right");
-        var currentMsgSection = $(rightSection, "section[data-mid='" + msgId + "']");
-        var availableWidth = $(currentMsgSection, "section.data").offsetWidth;
-        var fromFio = $(currentMsgSection, "section.from").text();
-        var id = currentMsgSection.data("did");
+        var leftSection = $('#content > section.left');
+        var rightSection = $('#content > section.right');
+        var currentMsgSection = $(rightSection, 'section[data-mid=\'' + msgId + '\']');
+        var availableWidth = $(currentMsgSection, 'section.data').offsetWidth;
+        var fromFio = $(currentMsgSection, 'section.from').text();
+        var id = currentMsgSection.data('did');
 
-        currentMsgSection.addClass("half-loading");
-        $(currentMsgSection, "section.text").text(chrome.i18n.getMessage("pleaseWait") + "...");
+        currentMsgSection.addClass('half-loading');
+        $(currentMsgSection, 'section.text').text(chrome.i18n.getMessage('pleaseWait') + '...');
 
         chrome.runtime.sendMessage({
-            action: "getMessageInfo",
+            action: 'getMessageInfo',
             mid: msgId
         }, function (msgInfo) {
-            var activeSectionTag = $(leftSection, "li.active").data("tag");
-            var isTrashFolderContents = (leftSection.hasClass("manage-mail") && activeSectionTag === "trash");
+            var activeSectionTag = $(leftSection, 'li.active').data('tag');
+            var isTrashFolderContents = (leftSection.hasClass('manage-mail') && activeSectionTag === 'trash');
 
             var msgTplData = self._prepareHalfSection(msgInfo);
             msgTplData.fio = fromFio;
             msgTplData.text = Utils.string.emoji(Utils.string.replaceLinks(msgInfo.body), true);
             msgTplData.trash = isTrashFolderContents;
-            msgTplData.printText = chrome.i18n.getMessage("printMessage");
-            msgTplData.restoreText = chrome.i18n.getMessage("restoreMessage")
-            msgTplData.deleteText = chrome.i18n.getMessage("deleteMessage");
-            msgTplData.replyText = chrome.i18n.getMessage("respondMessage");
-            msgTplData.startTyping = chrome.i18n.getMessage("startTypingMessage");
-            msgTplData.important = (!isTrashFolderContents && msgInfo.tags.indexOf("important") !== -1);
-            msgTplData.importantText = chrome.i18n.getMessage("importantMessage");
-            msgTplData.downloadPhotoText = chrome.i18n.getMessage("downloadPhoto");
+            msgTplData.printText = chrome.i18n.getMessage('printMessage');
+            msgTplData.restoreText = chrome.i18n.getMessage('restoreMessage');
+            msgTplData.deleteText = chrome.i18n.getMessage('deleteMessage');
+            msgTplData.replyText = chrome.i18n.getMessage('respondMessage');
+            msgTplData.startTyping = chrome.i18n.getMessage('startTypingMessage');
+            msgTplData.important = (!isTrashFolderContents && msgInfo.tags.indexOf('important') !== -1);
+            msgTplData.importantText = chrome.i18n.getMessage('importantMessage');
+            msgTplData.downloadPhotoText = chrome.i18n.getMessage('downloadPhoto');
             msgTplData.attachments = [];
 
             if (id.length)
@@ -2718,30 +2752,30 @@ export default {
 
             // преобразуем вложения
             (msgInfo.attachments || []).forEach(function (attachmentData) {
-                var id = "rnd_" + Math.random().toString().substr(2);
+                var id = 'rnd_' + Math.random().toString().substr(2);
                 var attachmentType = (attachmentData instanceof Array) ? attachmentData[0] : attachmentData.type;
                 var requestData, attachmentTplData;
                 var data = attachmentData[attachmentData.type];
 
                 // сразу добавляем поля для шаблона
                 switch (attachmentType) {
-                    case "audio":
+                    case 'audio':
                         attachmentTplData = {audio: true, id: id};
                         break;
 
-                    case "video":
+                    case 'video':
                         attachmentTplData = {video: true, id: id};
                         break;
 
-                    case "photo":
+                    case 'photo':
                         attachmentTplData = {photo: true, id: id, noimage: true};
                         break;
 
-                    case "doc":
+                    case 'doc':
                         attachmentTplData = {doc: true, id: id, nolink: true};
                         break;
 
-                    case "geopoint":
+                    case 'geopoint':
                         attachmentTplData = {geopoint: true, id: id};
                         break;
                 }
@@ -2750,23 +2784,23 @@ export default {
                     requestData = attachmentData;
                 } else { // mailSync
                     switch (attachmentData.type) {
-                        case "audio":
-                            requestData = ["audio", data.owner_id, data.aid];
+                        case 'audio':
+                            requestData = ['audio', data.owner_id, data.aid];
                             break;
 
-                        case "video":
-                            requestData = ["video", data.owner_id, data.vid];
+                        case 'video':
+                            requestData = ['video', data.owner_id, data.vid];
                             break;
 
-                        case "photo":
+                        case 'photo':
                             attachmentTplData.src = Utils.misc.searchBiggestImage(data);
 
                             // когда данных о размере картинки нет, загружаем ее и после этого высчитываем пропорции
                             if (!data.width || !data.height) {
                                 var image = new Image();
                                 image.onload = function () {
-                                    var attachmentArea = $("#" + id).removeClass("hidden");
-                                    var attachmentImg = $(attachmentArea, "img");
+                                    var attachmentArea = $('#' + id).removeClass('hidden');
+                                    var attachmentImg = $(attachmentArea, 'img');
 
                                     var imgAspect = image.width / image.height;
                                     var imgWidth = Math.min(availableWidth, image.width);
@@ -2788,18 +2822,18 @@ export default {
 
                             break;
 
-                        case "doc":
-                            var regex = new RegExp(data.ext + "$");
+                        case 'doc':
+                            var regex = new RegExp(data.ext + '$');
 
                             delete attachmentTplData.nolink;
                             attachmentTplData.url = data.url;
-                            attachmentTplData.fileName = (regex.test(data.title)) ? data.title : data.title + "." + data.ext;
+                            attachmentTplData.fileName = (regex.test(data.title)) ? data.title : data.title + '.' + data.ext;
                             attachmentTplData.title = data.title;
-                            attachmentTplData.description = Utils.string.humanFileSize(data.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + data.ext.toUpperCase();
+                            attachmentTplData.description = Utils.string.humanFileSize(data.size) + ', ' + chrome.i18n.getMessage('fileType') + ': ' + data.ext.toUpperCase();
 
                             break;
 
-                        case "geopoint":
+                        case 'geopoint':
                             // на этом этапе HTML еще не существует
                             Utils.async.nextTick(function () {
                                 self._drawGeoPoint(id, data.lat, data.lng);
@@ -2817,9 +2851,9 @@ export default {
 
                 // делаем доп. запросы к API для получения прямых ссылок на вложения
                 switch (requestData[0]) {
-                    case "photo":
+                    case 'photo':
                         chrome.runtime.sendMessage({
-                            action: "getPhotoById",
+                            action: 'getPhotoById',
                             ownerId: requestData[1],
                             id: requestData[2],
                             mid: msgId
@@ -2827,9 +2861,9 @@ export default {
                             if (!photoInfo)
                                 return;
 
-                            var attachmentArea = $("#" + id).removeClass("hidden");
-                            var attachmentImg = $(attachmentArea, "img");
-                            var attachmentDownload = $(attachmentArea, "a");
+                            var attachmentArea = $('#' + id).removeClass('hidden');
+                            var attachmentImg = $(attachmentArea, 'img');
+                            var attachmentDownload = $(attachmentArea, 'a');
 
                             var biggestImageSrc = Utils.misc.searchBiggestImage(photoInfo);
                             var imgAspect = photoInfo.width / photoInfo.height;
@@ -2841,14 +2875,14 @@ export default {
                                 src: biggestImageSrc
                             });
 
-                            attachmentDownload.setAttribute("href", biggestImageSrc);
+                            attachmentDownload.setAttribute('href', biggestImageSrc);
                         });
 
                         break;
 
-                    case "audio":
+                    case 'audio':
                         chrome.runtime.sendMessage({
-                            action: "getAudioById",
+                            action: 'getAudioById',
                             ownerId: requestData[1],
                             id: requestData[2]
                         }, function (audioInfo) {
@@ -2860,27 +2894,27 @@ export default {
 
                         break;
 
-                    case "video":
+                    case 'video':
                         chrome.runtime.sendMessage({
-                            action: "getVideoById",
+                            action: 'getVideoById',
                             ownerId: requestData[1],
                             id: requestData[2]
                         }, function (videoInfo) {
                             if (!videoInfo)
                                 return;
 
-                            var attachmentArea = $("#" + id).removeClass("hidden");
-                            var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + "<br>" + videoInfo.description : videoInfo.description;
+                            var attachmentArea = $('#' + id).removeClass('hidden');
+                            var descriptionText = (videoInfo.description.indexOf(videoInfo.title) === -1) ? videoInfo.title + '<br>' + videoInfo.description : videoInfo.description;
 
-                            $(attachmentArea, "webview").attr("src", videoInfo.player);
-                            $(attachmentArea, "span.description").html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, "<br>")));
+                            $(attachmentArea, 'webview').attr('src', videoInfo.player);
+                            $(attachmentArea, 'span.description').html(Utils.string.replaceLinks(descriptionText.replace(/(<br>){2,}/gm, '<br>')));
                         });
 
                         break;
 
-                    case "doc" :
+                    case 'doc' :
                         chrome.runtime.sendMessage({
-                            action: "getDocById",
+                            action: 'getDocById',
                             ownerId: requestData[1],
                             id: requestData[2],
                             mid: msgId
@@ -2888,31 +2922,31 @@ export default {
                             if (!fileInfo)
                                 return;
 
-                            var regex = new RegExp(fileInfo.ext + "$");
-                            var attachmentArea = $("#" + id).removeClass("hidden");
-                            var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + "." + fileInfo.ext;
+                            var regex = new RegExp(fileInfo.ext + '$');
+                            var attachmentArea = $('#' + id).removeClass('hidden');
+                            var fileName = (regex.test(fileInfo.title)) ? fileInfo.title : fileInfo.title + '.' + fileInfo.ext;
 
-                            var attachLink = attachmentArea.querySelector("a");
-                            attachLink.setAttribute("href", fileInfo.url);
-                            attachLink.setAttribute("download", fileName);
+                            var attachLink = attachmentArea.querySelector('a');
+                            attachLink.setAttribute('href', fileInfo.url);
+                            attachLink.setAttribute('download', fileName);
                             attachLink.innerHTML = fileInfo.title;
 
-                            var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ", " + chrome.i18n.getMessage("fileType") + ": " + fileInfo.ext.toUpperCase();
-                            var attachDescription = attachmentArea.querySelector("span.description");
+                            var descriptionText = Utils.string.humanFileSize(fileInfo.size) + ', ' + chrome.i18n.getMessage('fileType') + ': ' + fileInfo.ext.toUpperCase();
+                            var attachDescription = attachmentArea.querySelector('span.description');
                             attachDescription.innerHTML = descriptionText;
                         });
 
                         break;
 
-                    case "geopoint":
+                    case 'geopoint':
                         chrome.runtime.sendMessage({
-                            action: "getGeopointById",
+                            action: 'getGeopointById',
                             mid: msgId
                         }, function (pointInfo) {
                             if (!pointInfo)
                                 return;
 
-                            var attachmentArea = $("#" + id).removeClass("hidden");
+                            var attachmentArea = $('#' + id).removeClass('hidden');
                             self._drawGeoPoint(id, pointInfo[0], pointInfo[1]);
                         });
 
@@ -2920,15 +2954,15 @@ export default {
                 }
             });
 
-            var msgSection = Templates.render("halfSectionOpened", msgTplData);
+            var msgSection = Templates.render('halfSectionOpened', msgTplData);
             currentMsgSection.after(msgSection).remove();
 
             // помечаем сообщение как прочитанное
-            if (msgInfo.status === 0 && msgInfo.tags.indexOf("inbox") !== -1)
-                chrome.runtime.sendMessage({action: "markAsRead", mid: msgInfo.mid});
+            if (msgInfo.status === 0 && msgInfo.tags.indexOf('inbox') !== -1)
+                chrome.runtime.sendMessage({action: 'markAsRead', mid: msgInfo.mid});
 
             // закрываем уведомление
-            chrome.runtime.sendMessage({action: "closeNotification", mid: msgInfo.mid});
+            chrome.runtime.sendMessage({action: 'closeNotification', mid: msgInfo.mid});
         });
     },
 
@@ -2950,14 +2984,14 @@ export default {
             };
 
             if (/^[\d]+$/.test(thread.id)) {
-                var threadTitle = thread.title.trim().replace(/(Re(\([\d]+\))?:[\s]+)+/, "").replace(/VKontakte\sOffline\smessage/, "VK Offline message");
-                threadData.subject = (["...", ""].indexOf(threadTitle) !== -1) ? chrome.i18n.getMessage("commonDialog") : threadTitle;
+                var threadTitle = thread.title.trim().replace(/(Re(\([\d]+\))?:[\s]+)+/, '').replace(/VKontakte\sOffline\smessage/, 'VK Offline message');
+                threadData.subject = (['...', ''].indexOf(threadTitle) !== -1) ? chrome.i18n.getMessage('commonDialog') : threadTitle;
             }
 
             thread.participants.forEach(function (contactData) {
                 var isCurrentUser = (contactData.uid === Account.currentUserId);
-                var fio = isCurrentUser ? null : contactData.first_name + " " + contactData.last_name;
-                var userName = isCurrentUser ? chrome.i18n.getMessage("participantMe") : contactData.first_name;
+                var fio = isCurrentUser ? null : contactData.first_name + ' ' + contactData.last_name;
+                var userName = isCurrentUser ? chrome.i18n.getMessage('participantMe') : contactData.first_name;
 
                 threadData.participants.push({
                     fio: fio,
@@ -2969,15 +3003,15 @@ export default {
             threadsTplData.push(threadData);
         });
 
-        return Templates.render("threadsList", {threads: threadsTplData});
+        return Templates.render('threadsList', {threads: threadsTplData});
     },
 
     _drawUserSpeechSection: function (msgData) {
-        var isInboxMsg = (msgData.tags.indexOf("inbox") !== -1);
+        var isInboxMsg = (msgData.tags.indexOf('inbox') !== -1);
         var msgSenderUid = isInboxMsg ? msgData.uid : Account.currentUserId;
-        var fio = isInboxMsg ? msgData.first_name + " " + msgData.last_name : Account.currentUserFio;
+        var fio = isInboxMsg ? msgData.first_name + ' ' + msgData.last_name : Account.currentUserFio;
 
-        var html = Templates.render("userSpeech", {
+        var html = Templates.render('userSpeech', {
             uid: msgSenderUid,
             avatarSrc: msgData.photo,
             fio: fio
@@ -2995,7 +3029,7 @@ export default {
      */
     _drawGeoPoint: function (domElemId, lat, lng) {
         var domElem = document.getElementById(domElemId);
-        var imgElem = domElem.querySelector("img");
+        var imgElem = domElem.querySelector('img');
         var availableWidth = domElem.offsetWidth;
         var height = Math.round(availableWidth * 2 / 3);
 
@@ -3003,39 +3037,39 @@ export default {
             width: availableWidth,
             height: height,
             src: [
-                "https://maps.googleapis.com/maps/api/staticmap?center=" + lat + "," + lng,
-                "zoom=14",
-                "size=" + availableWidth + "x" + height,
-                "maptype=roadmap",
-                "sensor=false",
-                "markers=color:blue%7Clabel:S%7C" + lat + "," + lng
-            ].join("&")
+                'https://maps.googleapis.com/maps/api/staticmap?center=' + lat + ',' + lng,
+                'zoom=14',
+                'size=' + availableWidth + 'x' + height,
+                'maptype=roadmap',
+                'sensor=false',
+                'markers=color:blue%7Clabel:S%7C' + lat + ',' + lng
+            ].join('&')
         });
     },
 
     _drawAudioSection: function (elem, audioInfo) {
-        var attachmentArea = (typeof elem === "string")
-            ? $("#" + elem)
+        var attachmentArea = (typeof elem === 'string')
+            ? $('#' + elem)
             : elem;
 
-        var attachmentListenappOpen = $(attachmentArea, ".listenapp-open");
-        var attachmentListenappInstall = $(attachmentArea, ".listenapp-install");
+        var attachmentListenappOpen = $(attachmentArea, '.listenapp-open');
+        var attachmentListenappInstall = $(attachmentArea, '.listenapp-install');
 
-        $(attachmentArea, "span.description").text(audioInfo.artist + " - " + audioInfo.title);
-        $(attachmentArea, "audio").attr("src", audioInfo.url);
+        $(attachmentArea, 'span.description').text(audioInfo.artist + ' - ' + audioInfo.title);
+        $(attachmentArea, 'audio').attr('src', audioInfo.url);
 
-        chrome.runtime.sendMessage(App.LISTENAPP_ID, {action: "isAlive"}, function (isAlive) {
+        chrome.runtime.sendMessage(config.LISTENAPP_ID, {action: 'isAlive'}, function (isAlive) {
             if (isAlive) {
                 attachmentListenappOpen.dataset.artist = audioInfo.artist;
-                attachmentListenappOpen.innerHTML = chrome.i18n.getMessage("listenAppOpen").replace("%artist%", audioInfo.artist);
-                attachmentListenappOpen.classList.add("active");
+                attachmentListenappOpen.innerHTML = chrome.i18n.getMessage('listenAppOpen').replace('%artist%', audioInfo.artist);
+                attachmentListenappOpen.classList.add('active');
             } else {
-                attachmentListenappInstall.innerHTML = chrome.i18n.getMessage("listenAppInstall").replace("%artist%", audioInfo.artist),
-                attachmentListenappInstall.setAttribute("href", "https://chrome.google.com/webstore/detail/" + App.LISTENAPP_ID);
-                attachmentListenappInstall.addClass("active");
+                attachmentListenappInstall.innerHTML = chrome.i18n.getMessage('listenAppInstall').replace('%artist%', audioInfo.artist),
+                attachmentListenappInstall.setAttribute('href', 'https://chrome.google.com/webstore/detail/' + config.LISTENAPP_ID);
+                attachmentListenappInstall.addClass('active');
             }
 
-            attachmentArea.removeClass("hidden");
+            attachmentArea.removeClass('hidden');
         });
 
         return attachmentArea;
@@ -3046,36 +3080,36 @@ export default {
      */
     _drawMessageSendForm: function (formType) {
         var self = this;
-        var threadContainer = $("#content > section.right");
-        var saveMessageKey = "message_" + Account.currentUserId + "_" + threadContainer.data("dialogId");
-        var savedMessageText = StorageManager.get(saveMessageKey) || "";
-        var isChat = threadContainer.hasClass("chat-container");
-        var face2face = (formType === "face-to-face");
+        var threadContainer = $('#content > section.right');
+        var saveMessageKey = 'message_' + Account.currentUserId + '_' + threadContainer.data('dialogId');
+        var savedMessageText = StorageManager.get(saveMessageKey) || '';
+        var isChat = threadContainer.hasClass('chat-container');
+        var face2face = (formType === 'face-to-face');
 
         var tplData = {
             face2face: face2face,
-            subjectText: chrome.i18n.getMessage("subject"),
+            subjectText: chrome.i18n.getMessage('subject'),
             types: [],
             savedMessageText: savedMessageText,
-            waitForImplementationText: chrome.i18n.getMessage("tourStep4Description").split("|")[1] + " " + chrome.i18n.getMessage("tourStep4SmallDescription"),
-            sendBtnText: Utils.string.ucfirst(chrome.i18n.getMessage("sendMessageButtonTitle")),
+            waitForImplementationText: chrome.i18n.getMessage('tourStep4Description').split('|')[1] + ' ' + chrome.i18n.getMessage('tourStep4SmallDescription'),
+            sendBtnText: Utils.string.ucfirst(chrome.i18n.getMessage('sendMessageButtonTitle')),
             isChat: isChat,
-            closeBtnText: Utils.string.ucfirst(chrome.i18n.getMessage("close")),
-            startRecording: chrome.i18n.getMessage("speechStart")
+            closeBtnText: Utils.string.ucfirst(chrome.i18n.getMessage('close')),
+            startRecording: chrome.i18n.getMessage('speechStart')
         };
 
-        ["text", "attachments"/*, "audio", "video"*/].forEach(function (msgType) {
-            var i18nTerm = "messageType" + Utils.string.ucfirst(msgType);
+        ['text', 'attachments'/*, "audio", "video"*/].forEach(function (msgType) {
+            var i18nTerm = 'messageType' + Utils.string.ucfirst(msgType);
 
             tplData.types.push({
                 type: msgType,
-                active: (msgType === "text"),
+                active: (msgType === 'text'),
                 inactive: !navigator.onLine,
                 messageTypeText: chrome.i18n.getMessage(i18nTerm)
             });
         });
 
-        var formHTML = Templates.render("messageSendForm", tplData);
+        var formHTML = Templates.render('messageSendForm', tplData);
         var form = $(formHTML);
         var timeoutId;
 
@@ -3090,32 +3124,32 @@ export default {
              * @return {HTMLExtendedElement}
              */
             var fileProcessFn = function(fileData) {
-                var i18nTerm = chrome.i18n.getMessage("getUploadDataFromServer").replace(/%filename%/, fileData.name),
-                    uniqueId = "vk_" + Math.random().toString().substr(2),
-                    info = $("<section>").text(i18nTerm + "..."),
-                    progressBar = $("<progress>").attr("max", fileData.size),
+                var i18nTerm = chrome.i18n.getMessage('getUploadDataFromServer').replace(/%filename%/, fileData.name),
+                    uniqueId = 'vk_' + Math.random().toString().substr(2),
+                    info = $('<section>').text(i18nTerm + '...'),
+                    progressBar = $('<progress>').attr('max', fileData.size),
                     isImage = (/^image\/(jpe?g|gif|bmp|png)$/.test(fileData.type)),
-                    getServerDataAction = (isImage) ? "getMessagesUploadServer" : "getDocsUploadServer";
+                    getServerDataAction = (isImage) ? 'getMessagesUploadServer' : 'getDocsUploadServer';
 
                 // @todo обработчики 3 фэйлов: не получилось получить сервер, фэйл аплоада, фэйл сохранения
-                chrome.runtime.sendMessage({"action" : getServerDataAction}, function (data) {
+                chrome.runtime.sendMessage({'action' : getServerDataAction}, function (data) {
                     if (!data)
                         return;
 
                     var xhr = new XMLHttpRequest(),
-                        formDataField = isImage ? "photo" : "file";
+                        formDataField = isImage ? 'photo' : 'file';
 
-                    xhr.open("POST", data.response.upload_url, true);
-                    xhr.addEventListener("load", function () {
+                    xhr.open('POST', data.response.upload_url, true);
+                    xhr.addEventListener('load', function () {
                         var uploadRes,
                             parseExceptionMessage,
                             errorText,
                             closeErrorBtn;
 
                         // обновляем строку данных
-                        info.text(chrome.i18n.getMessage("saveUploadedData") + "...");
+                        info.text(chrome.i18n.getMessage('saveUploadedData') + '...');
 
-                        progressBar.removeAttr("value");
+                        progressBar.removeAttr('value');
                         try {
                             uploadRes = JSON.parse(xhr.responseText);
                         } catch (e) {
@@ -3123,68 +3157,68 @@ export default {
                         }
 
                         if (!uploadRes) {
-                            errorText = chrome.i18n.getMessage("fileUploadFailed").replace(/%filename%/, "<b>" + fileData.name + "</b>");
-                            closeErrorBtn = $("<span>").addClass("close").bind("click", function() {
-                                this.closestParent("section.file").remove();
+                            errorText = chrome.i18n.getMessage('fileUploadFailed').replace(/%filename%/, '<b>' + fileData.name + '</b>');
+                            closeErrorBtn = $('<span>').addClass('close').bind('click', function() {
+                                this.closestParent('section.file').remove();
                             });
 
-                            info.addClass("error").html(errorText).prepend(closeErrorBtn);
+                            info.addClass('error').html(errorText).prepend(closeErrorBtn);
                             progressBar.remove();
 
                             // уведомляем GA
                             chrome.runtime.sendMessage({
-                                action: "errorGot",
-                                error: "Failed to upload file",
-                                message: "Failed parsing response: " + parseExceptionMessage
+                                action: 'errorGot',
+                                error: 'Failed to upload file',
+                                message: 'Failed parsing response: ' + parseExceptionMessage
                             });
 
                             return;
                         }
 
                         if (uploadRes.error) {
-                            errorText = chrome.i18n.getMessage("fileUploadRejected").replace(/%filename%/, "<b>" + fileData.name + "</b>");
-                            closeErrorBtn = $("<span>").addClass("close").bind("click", function() {
-                                this.closestParent("section.file").remove();
+                            errorText = chrome.i18n.getMessage('fileUploadRejected').replace(/%filename%/, '<b>' + fileData.name + '</b>');
+                            closeErrorBtn = $('<span>').addClass('close').bind('click', function() {
+                                this.closestParent('section.file').remove();
                             });
 
-                            info.addClass("error").html(errorText).prepend(closeErrorBtn);
+                            info.addClass('error').html(errorText).prepend(closeErrorBtn);
                             progressBar.remove();
 
                             // уведомляем GA
                             chrome.runtime.sendMessage({
-                                action: "errorGot",
-                                error: "Failed to upload file",
-                                message: "Failed storing file: " + uploadRes.error
+                                action: 'errorGot',
+                                error: 'Failed to upload file',
+                                message: 'Failed storing file: ' + uploadRes.error
                             });
 
                             return;
                         }
 
-                        uploadRes.action = (isImage) ? "saveMessagesPhoto" : "saveMessagesDoc";
+                        uploadRes.action = (isImage) ? 'saveMessagesPhoto' : 'saveMessagesDoc';
                         chrome.runtime.sendMessage(uploadRes, function (data) {
                             if (!data)
                                 return;
 
                             // обновляем счетчик
-                            var mngElem = $("#content > section.right li.attachments span"),
+                            var mngElem = $('#content > section.right li.attachments span'),
                                 currentValue = mngElem.text(),
                                 section, attachmentId;
 
                             if (currentValue.length) {
                                 mngElem.text(parseInt(currentValue, 10) + 1);
                             } else {
-                                mngElem.text("1");
+                                mngElem.text('1');
                             }
 
                             attachmentId = (isImage)
-                                ? "photo" + data.response[0].owner_id + "_" + data.response[0].pid
-                                : "doc" + data.response[0].owner_id + "_" + data.response[0].did;
+                                ? 'photo' + data.response[0].owner_id + '_' + data.response[0].pid
+                                : 'doc' + data.response[0].owner_id + '_' + data.response[0].did;
 
-                            var removeFile = $("<span>").addClass("remove").attr("title", chrome.i18n.getMessage("deleteMessage")).bind("click", function () {
+                            var removeFile = $('<span>').addClass('remove').attr('title', chrome.i18n.getMessage('deleteMessage')).bind('click', function () {
                                 this.parentNode.remove();
 
                                 // обновляем счетчик
-                                var mngElem = $("#content > section.right li.attachments span"),
+                                var mngElem = $('#content > section.right li.attachments span'),
                                     currentValue = mngElem.text(),
                                     newValue = parseInt(currentValue, 10) - 1;
 
@@ -3195,28 +3229,28 @@ export default {
                                 }
                             });
 
-                            section = $("#" + uniqueId);
+                            section = $('#' + uniqueId);
                             if (section) {
-                                section.empty().append(removeFile).data("id", attachmentId).insertAdjacentHTML("afterbegin", fileData.name);
+                                section.empty().append(removeFile).data('id', attachmentId).insertAdjacentHTML('afterbegin', fileData.name);
                             }
                         });
                     }, false);
 
                     // TODO перепроверить
-                    xhr.addEventListener("error", function() {
+                    xhr.addEventListener('error', function() {
                         var errorText,
                             closeErrorBtn;
 
-                        errorText = chrome.i18n.getMessage("fileUploadFailed").replace(/%filename%/, "<b>" + fileData.name + "</b>");
-                        closeErrorBtn = $("<span>").addClass("close").bind("click", function() {
-                            this.closestParent("section.file").remove();
+                        errorText = chrome.i18n.getMessage('fileUploadFailed').replace(/%filename%/, '<b>' + fileData.name + '</b>');
+                        closeErrorBtn = $('<span>').addClass('close').bind('click', function() {
+                            this.closestParent('section.file').remove();
                         });
 
-                        info.addClass("error").html(errorText).prepend(closeErrorBtn);
+                        info.addClass('error').html(errorText).prepend(closeErrorBtn);
                         progressBar.remove();
 
                         // уведомляем GA
-                        chrome.runtime.sendMessage({"action" : "errorGot", "error" : "Failed to upload file", "message" : "Failed to perform request"});
+                        chrome.runtime.sendMessage({'action' : 'errorGot', 'error' : 'Failed to upload file', 'message' : 'Failed to perform request'});
                     }, false);
 
                     xhr.upload.onprogress = function(e) {
@@ -3224,11 +3258,11 @@ export default {
                             progressBar.val(e.loaded);
 
                             // обновляем строку данных
-                            var total = progressBar.attr("max"),
-                                percents = Math.round(e.loaded / total * 100) + "%",
+                            var total = progressBar.attr('max'),
+                                percents = Math.round(e.loaded / total * 100) + '%',
                                 fileSizeUploaded = Utils.string.humanFileSize(e.loaded),
                                 totalSize = Utils.string.humanFileSize(total),
-                                i18nTerm = chrome.i18n.getMessage("uploadedPercents").replace(/%bytes%/, fileSizeUploaded).replace(/%percents%/, percents).replace(/%total%/, totalSize);
+                                i18nTerm = chrome.i18n.getMessage('uploadedPercents').replace(/%bytes%/, fileSizeUploaded).replace(/%percents%/, percents).replace(/%total%/, totalSize);
 
                             info.text(i18nTerm);
                         }
@@ -3239,7 +3273,7 @@ export default {
                     xhr.send(sendData);
                 });
 
-                return $("<section>").attr("id", uniqueId).addClass("file").append([info, progressBar]);
+                return $('<section>').attr('id', uniqueId).addClass('file').append([info, progressBar]);
             };
 
 
@@ -3264,7 +3298,7 @@ export default {
                     if (item.isDirectory) {
                         item.createReader().readEntries(walkThroughItemsFn);
                     } else {
-                        if (item.name.charAt(0) === ".")
+                        if (item.name.charAt(0) === '.')
                             return;
 
                         item.file(function (fileData) {
@@ -3278,26 +3312,26 @@ export default {
             walkThroughItemsFn(itemsList);
         };
 
-        $$(form, "ul.selectable li").bind("click", function (e) {
+        $$(form, 'ul.selectable li').bind('click', function (e) {
             var listElem = this;
-            var msgType = this.data("type");
-            var mngSection = $("#content > section.right section.manage." + msgType);
+            var msgType = this.data('type');
+            var mngSection = $('#content > section.right section.manage.' + msgType);
 
             // меняем активный таб
-            $$("#content ul.selectable li").each(function () {
+            $$('#content ul.selectable li').each(function () {
                 if (this === listElem) {
-                    this.addClass("active");
+                    this.addClass('active');
                 } else {
-                    this.removeClass("active");
+                    this.removeClass('active');
                 }
             });
 
             // скрываем/открываем сами секции с данными
-            $$("#content > section.right section.manage").each(function () {
+            $$('#content > section.right section.manage').each(function () {
                 if (this.hasClass(msgType)) {
-                    this.removeClass("hidden");
+                    this.removeClass('hidden');
                 } else {
-                    this.addClass("hidden");
+                    this.addClass('hidden');
                 }
             });
 
@@ -3307,27 +3341,27 @@ export default {
             }
         });
 
-        $(form, "section.manage.attachments").bind("dragenter", function (e) {
+        $(form, 'section.manage.attachments').bind('dragenter', function (e) {
             e.stopPropagation();
             e.preventDefault();
-        }).bind("dragover", function (e) {
-            e.stopPropagation();
-            e.preventDefault();
-
-            this.addClass("drag-over");
-        }).bind("dragleave", function (e) {
+        }).bind('dragover', function (e) {
             e.stopPropagation();
             e.preventDefault();
 
-            this.removeClass("drag-over");
-        }).bind("drop", function (e) {
+            this.addClass('drag-over');
+        }).bind('dragleave', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            this.removeClass('drag-over');
+        }).bind('drop', function (e) {
             var prependSections;
             var args, entrySample; // Chrome21 folder DND support
 
             e.stopPropagation();
             e.preventDefault();
 
-            this.removeClass("drag-over");
+            this.removeClass('drag-over');
 
             try {
                 entrySample = e.dataTransfer.items.item(0).webkitGetAsEntry();
@@ -3340,7 +3374,7 @@ export default {
 
             // статистика
             chrome.runtime.sendMessage({
-                action: "DNDhappened",
+                action: 'DNDhappened',
                 num: args[0].length
             });
 
@@ -3350,23 +3384,23 @@ export default {
         });
 
         // Ctrl+Enter support
-        $(form, "textarea").bind("keydown", function (e) {
-            var isMac = (navigator.appVersion.indexOf("Mac") !== -1);
+        $(form, 'textarea').bind('keydown', function (e) {
+            var isMac = (navigator.appVersion.indexOf('Mac') !== -1);
             var serviceKeyPressed = isMac ? e.metaKey : e.ctrlKey;
 
             if (e.keyCode === 13 && serviceKeyPressed) {
-                var sendBtn = $(form, "button.send");
+                var sendBtn = $(form, 'button.send');
                 if (sendBtn)
                     sendBtn.click();
 
                 e.stopPropagation();
             }
-        }).bind("keyup", function () {
+        }).bind('keyup', function () {
             var self = this;
 
             if (timeoutId) {
                 window.clearTimeout(timeoutId);
-                form.removeData("timeoutId");
+                form.removeData('timeoutId');
             }
 
             timeoutId = window.setTimeout(function () {
@@ -3374,26 +3408,26 @@ export default {
             }, 1000);
 
             // прокидываем timeoutId, чтобы в submit можно было его очистить
-            form.data("timeoutId", timeoutId);
+            form.data('timeoutId', timeoutId);
         });
 
-        $(form, "input[type='file']").bind("change", function onChangeHandler(e) {
+        $(form, 'input[type=\'file\']').bind('change', function onChangeHandler(e) {
             var appendSections = onFilesAdded(e.target.files);
-            var attachmentsManageSection = this.closestParent("section.manage");
+            var attachmentsManageSection = this.closestParent('section.manage');
 
             // удаляем старый input[type="file"]
             this.after(appendSections).remove();
 
             // добавляем новый input[type="file"]
-            var newAttachFileInput = $("<input type='file' multiple>").bind("change", onChangeHandler);
+            var newAttachFileInput = $('<input type=\'file\' multiple>').bind('change', onChangeHandler);
             attachmentsManageSection.append(newAttachFileInput);
         });
 
         // обработка голосового ввода
-        $(form, ".speech-start").bind("click", function () {
-            var startSpeech = this.attr("disabled", "disabled").html(chrome.i18n.getMessage("speechProcessing"));
-            var replyAreaTextarea = $(form, "textarea");
-            var SPOKEN_WORDS_SEPERATOR = ". ";
+        $(form, '.speech-start').bind('click', function () {
+            var startSpeech = this.attr('disabled', 'disabled').html(chrome.i18n.getMessage('speechProcessing'));
+            var replyAreaTextarea = $(form, 'textarea');
+            var SPOKEN_WORDS_SEPERATOR = '. ';
 
             var recognition = new webkitSpeechRecognition;
             recognition.lang = Settings.SpeechRecognitionLanguage;
@@ -3404,50 +3438,50 @@ export default {
                 }).join(SPOKEN_WORDS_SEPERATOR) + SPOKEN_WORDS_SEPERATOR;
 
                 var existingWords = replyAreaTextarea.val();
-                var newWords = existingWords.substr(0, replyAreaTextarea.selectionStart) + spokenWords + " " + existingWords.substr(replyAreaTextarea.selectionEnd);
+                var newWords = existingWords.substr(0, replyAreaTextarea.selectionStart) + spokenWords + ' ' + existingWords.substr(replyAreaTextarea.selectionEnd);
                 replyAreaTextarea.val(newWords);
 
-                chrome.runtime.sendMessage({"action" : "speechChange"});
+                chrome.runtime.sendMessage({'action' : 'speechChange'});
 
-                var evt = document.createEvent("KeyboardEvent");
-                evt.initKeyboardEvent("keypress", true, true, null, false, false, false, false, 9, 0);
+                var evt = document.createEvent('KeyboardEvent');
+                evt.initKeyboardEvent('keypress', true, true, null, false, false, false, false, 9, 0);
                 replyAreaTextarea.dispatchEvent(evt);
             };
 
             // recognition.onerror = console.log.bind(console);
             recognition.onend = function () {
-                startSpeech.removeAttr("disabled").html(chrome.i18n.getMessage("speechStart"));
+                startSpeech.removeAttr('disabled').html(chrome.i18n.getMessage('speechStart'));
             };
 
             recognition.start();
         });
 
         // click на кнопку генерируется перед общим submit у формы
-        $(form, "button.send").bind("click", function () {
-            $(form, "ul li.text").click();
+        $(form, 'button.send').bind('click', function () {
+            $(form, 'ul li.text').click();
         });
 
-        var closeBtn = $(form, "button.close");
+        var closeBtn = $(form, 'button.close');
         if (closeBtn) {
-            closeBtn.bind("click", function () {
+            closeBtn.bind('click', function () {
                 var beforeFormElem = form.previousElementSibling;
 
                 form.remove();
-                beforeFormElem.scrollIntoView()
+                beforeFormElem.scrollIntoView();
 
                 if (!face2face)
                     return;
 
-                var uid = threadContainer.data("dialogId").split("_")[1];
-                self.view("showContact", {
-                    uiType: "partial",
+                var uid = threadContainer.data('dialogId').split('_')[1];
+                self.view('showContact', {
+                    uiType: 'partial',
                     headers: {
                         left: [
-                            {"type" : "text", "name" : "..."},
-                            {"type" : "icon", "name" : "write", "title" : chrome.i18n.getMessage("writeMessage")}
+                            {'type' : 'text', 'name' : '...'},
+                            {'type' : 'icon', 'name' : 'write', 'title' : chrome.i18n.getMessage('writeMessage')}
                         ],
                         right: [
-                            {"type" : "text", "name" : chrome.i18n.getMessage("correspondence")}
+                            {'type' : 'text', 'name' : chrome.i18n.getMessage('correspondence')}
                         ]
                     }
                 }, [uid]);
@@ -3459,16 +3493,16 @@ export default {
 
     // @todo эта мешанина методов и обработчиков - нехорошо
     _chatMessageMouseOverListener: function (e) {
-        if (this.hasClass("sent"))
+        if (this.hasClass('sent'))
             return;
 
-        var msgId = this.data("mid");
-        if (!this.hasClass("new"))
+        var msgId = this.data('mid');
+        if (!this.hasClass('new'))
             return;
 
-        this.removeClass("new");
+        this.removeClass('new');
         chrome.runtime.sendMessage({
-            action: "markAsRead",
+            action: 'markAsRead',
             mid: msgId
         });
     },

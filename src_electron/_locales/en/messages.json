@@ -532,7 +532,7 @@
 		"message": "Please wait while the background page of the app is loading..."
 	},
 	"refreshPage": {
-		"message": "Обновить страницу"
+		"message": "Refresh page"
 	},
 	"settingsAttachGeolocation": {
 		"message": "Attach your geolocation to sent messages"

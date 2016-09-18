@@ -5,9 +5,9 @@ import SoundManager from './sounds';
 import CPA from './cpa';
 
 export default (function () {
-    "use strict";
+    'use strict';
 
-    var CHANGELOG_KEY = "changelog_notified";
+    var CHANGELOG_KEY = 'changelog_notified';
 
     // FIXME: migration scripts
     // which run from previousVersion to current
@@ -21,18 +21,18 @@ export default (function () {
                     StorageManager.set(CHANGELOG_KEY, appVersionsHistory);
                 }
 
-                if (currentVersion === "5.2" && appVersionsHistory.length > 1) {
+                if (currentVersion === '5.2' && appVersionsHistory.length > 1) {
                     // promote VK Offline launcher
-                    chrome.notifications && chrome.notifications.create(Math.random() + "", {
-                        type: "image",
-                        imageUrl: chrome.runtime.getURL("pic/launcher.png"),
-                        title: chrome.i18n.getMessage("launcherNotificationTitle"),
-                        message: chrome.i18n.getMessage("launcherNotificationMessage"),
-                        iconUrl: chrome.runtime.getURL("pic/icon48.png"),
+                    chrome.notifications && chrome.notifications.create(Math.random() + '', {
+                        type: 'image',
+                        imageUrl: chrome.runtime.getURL('pic/launcher.png'),
+                        title: chrome.i18n.getMessage('launcherNotificationTitle'),
+                        message: chrome.i18n.getMessage('launcherNotificationMessage'),
+                        iconUrl: chrome.runtime.getURL('pic/icon48.png'),
                         isClickable: false
                     }, function (id) {
-                        SoundManager.play("message");
-                        CPA.sendEvent("Lifecycle", "Actions", "Migrate52.NotifyLauncherPromote.Show");
+                        SoundManager.play('message');
+                        CPA.sendEvent('Lifecycle', 'Actions', 'Migrate52.NotifyLauncherPromote.Show');
                     });
                 }
 

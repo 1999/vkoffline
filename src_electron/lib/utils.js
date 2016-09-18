@@ -41,7 +41,7 @@ var Utils = {
 
                     if (err) {
                         var originalCallback = callback;
-                        callback = function () { return true };
+                        callback = function () { return true; };
 
                         return originalCallback(err);
                     }
@@ -208,12 +208,12 @@ var Utils = {
         },
 
         emoji: function (str, replaceWithImages) {
-            var output = "";
-            var baseImgPath = "http://vk.com/images/emoji/";
+            var output = '';
+            var baseImgPath = 'http://vk.com/images/emoji/';
 
             // http://vk.com/dev/emoji
-            var vkSymbols = ["D83DDE0A","D83DDE03","D83DDE09","D83DDE06","D83DDE1C","D83DDE0B","D83DDE0D","D83DDE0E","D83DDE12","D83DDE0F","D83DDE14","D83DDE22","D83DDE2D","D83DDE29","D83DDE28","D83DDE10","D83DDE0C","D83DDE20","D83DDE21","D83DDE07","D83DDE30","D83DDE32","D83DDE33","D83DDE37","D83DDE1A","D83DDE08","2764","D83DDC4D","D83DDC4E","261D","270C","D83DDC4C","26BD","26C5","D83CDF1F","D83CDF4C","D83CDF7A","D83CDF7B","D83CDF39","D83CDF45","D83CDF52","D83CDF81","D83CDF82","D83CDF84","D83CDFC1","D83CDFC6","D83DDC0E","D83DDC0F","D83DDC1C","D83DDC2B","D83DDC2E","D83DDC03","D83DDC3B","D83DDC3C","D83DDC05","D83DDC13","D83DDC18","D83DDC94","D83DDCAD","D83DDC36","D83DDC31","D83DDC37","D83DDC11","23F3","26BE","26C4","2600","D83CDF3A","D83CDF3B","D83CDF3C","D83CDF3D","D83CDF4A","D83CDF4B","D83CDF4D","D83CDF4E","D83CDF4F","D83CDF6D","D83CDF37","D83CDF38","D83CDF46","D83CDF49","D83CDF50","D83CDF51","D83CDF53","D83CDF54","D83CDF55","D83CDF56","D83CDF57","D83CDF69","D83CDF83","D83CDFAA","D83CDFB1","D83CDFB2","D83CDFB7","D83CDFB8","D83CDFBE","D83CDFC0","D83CDFE6","D83DDC00","D83DDC0C","D83DDC1B","D83DDC1D","D83DDC1F","D83DDC2A","D83DDC2C","D83DDC2D","D83DDC3A","D83DDC3D","D83DDC2F","D83DDC5C","D83DDC7B","D83DDC14","D83DDC23","D83DDC24","D83DDC40","D83DDC42","D83DDC43","D83DDC46","D83DDC47","D83DDC48","D83DDC51","D83DDC60","D83DDCA1","D83DDCA3","D83DDCAA","D83DDCAC","D83DDD14","D83DDD25"];
-            var stopCharCode = "d83d";
+            var vkSymbols = ['D83DDE0A','D83DDE03','D83DDE09','D83DDE06','D83DDE1C','D83DDE0B','D83DDE0D','D83DDE0E','D83DDE12','D83DDE0F','D83DDE14','D83DDE22','D83DDE2D','D83DDE29','D83DDE28','D83DDE10','D83DDE0C','D83DDE20','D83DDE21','D83DDE07','D83DDE30','D83DDE32','D83DDE33','D83DDE37','D83DDE1A','D83DDE08','2764','D83DDC4D','D83DDC4E','261D','270C','D83DDC4C','26BD','26C5','D83CDF1F','D83CDF4C','D83CDF7A','D83CDF7B','D83CDF39','D83CDF45','D83CDF52','D83CDF81','D83CDF82','D83CDF84','D83CDFC1','D83CDFC6','D83DDC0E','D83DDC0F','D83DDC1C','D83DDC2B','D83DDC2E','D83DDC03','D83DDC3B','D83DDC3C','D83DDC05','D83DDC13','D83DDC18','D83DDC94','D83DDCAD','D83DDC36','D83DDC31','D83DDC37','D83DDC11','23F3','26BE','26C4','2600','D83CDF3A','D83CDF3B','D83CDF3C','D83CDF3D','D83CDF4A','D83CDF4B','D83CDF4D','D83CDF4E','D83CDF4F','D83CDF6D','D83CDF37','D83CDF38','D83CDF46','D83CDF49','D83CDF50','D83CDF51','D83CDF53','D83CDF54','D83CDF55','D83CDF56','D83CDF57','D83CDF69','D83CDF83','D83CDFAA','D83CDFB1','D83CDFB2','D83CDFB7','D83CDFB8','D83CDFBE','D83CDFC0','D83CDFE6','D83DDC00','D83DDC0C','D83DDC1B','D83DDC1D','D83DDC1F','D83DDC2A','D83DDC2C','D83DDC2D','D83DDC3A','D83DDC3D','D83DDC2F','D83DDC5C','D83DDC7B','D83DDC14','D83DDC23','D83DDC24','D83DDC40','D83DDC42','D83DDC43','D83DDC46','D83DDC47','D83DDC48','D83DDC51','D83DDC60','D83DDCA1','D83DDCA3','D83DDCAA','D83DDCAC','D83DDD14','D83DDD25'];
+            var stopCharCode = 'd83d';
 
             var charCode;
             var codesArray = [];
@@ -227,13 +227,13 @@ var Utils = {
 
                 if (codesArray.length) {
                     codesArray.push(charCode);
-                    charCode = codesArray.join("").toUpperCase();
+                    charCode = codesArray.join('').toUpperCase();
                 } else {
                     charCode = charCode.toUpperCase();
                 }
 
                 if (vkSymbols.indexOf(charCode) !== -1) {
-                    output += replaceWithImages ? " <img is='external-image' class='emoji' src='" + baseImgPath + charCode + ".png' width='16' height='16' alt=''/> " : " ";
+                    output += replaceWithImages ? ' <img is=\'external-image\' class=\'emoji\' src=\'' + baseImgPath + charCode + '.png\' width=\'16\' height=\'16\' alt=\'\'/> ' : ' ';
                 } else {
                     output += str[i];
                 }
@@ -328,21 +328,21 @@ var Utils = {
 };
 
 (function (exports) {
-    "use strict";
+    'use strict';
 
-    var BLANK_TRANSPARENT_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
+    var BLANK_TRANSPARENT_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
 
     function fetchImage(url) {
         return new Promise(function (resolve, reject) {
             var xhr = new XMLHttpRequest;
-            xhr.open("GET", url, true);
-            xhr.responseType = "blob";
+            xhr.open('GET', url, true);
+            xhr.responseType = 'blob';
 
-            xhr.addEventListener("load", function () {
+            xhr.addEventListener('load', function () {
                 resolve(this.response);
             }, false);
 
-            xhr.addEventListener("error", function () {
+            xhr.addEventListener('error', function () {
                 reject();
             }, false);
 
@@ -364,7 +364,7 @@ var Utils = {
     function getContactStoredPhoto(uid) {
         return new Promise(function (resolve, reject) {
             requestFileSystem().then(function (fsLink) {
-                fsLink.root.getFile(uid + "_th.jpg", {create: false}, function (fileEntry) {
+                fsLink.root.getFile(uid + '_th.jpg', {create: false}, function (fileEntry) {
                     // check if file was created more than 1d ago
                     fileEntry.file(function (fileBlob) {
                         var dayBeforeNow = new Date;
@@ -385,22 +385,22 @@ var Utils = {
 
     function processExternalImage() {
         var that = this;
-        var imageSource = this.getAttribute("src") || "";
+        var imageSource = this.getAttribute('src') || '';
 
         if (!imageSource) {
             return;
         }
 
-        this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+        this.setAttribute('src', BLANK_TRANSPARENT_IMG);
         this.dataset.originalSrc = imageSource;
-        this.classList.add("loading");
+        this.classList.add('loading');
 
         // download image
         fetchImage(imageSource).then(function (blob) {
             var uri = URL.createObjectURL(blob);
-            that.setAttribute("src", uri);
+            that.setAttribute('src', uri);
 
-            that.classList.remove("loading");
+            that.classList.remove('loading');
         });
     }
 
@@ -409,7 +409,7 @@ var Utils = {
             getContactStoredPhoto(uid).then(function (fileEntry) {
                 resolve(fileEntry.toURL());
             }, function () {
-                if (imageSource.indexOf("http") !== 0) {
+                if (imageSource.indexOf('http') !== 0) {
                     resolve(imageSource);
                     return;
                 }
@@ -421,11 +421,11 @@ var Utils = {
                     var blob = res[0];
                     var fsLink = res[1];
 
-                    fsLink.root.getFile(uid + "_th.jpg", {create: true}, function (fileEntry) {
+                    fsLink.root.getFile(uid + '_th.jpg', {create: true}, function (fileEntry) {
                         fileEntry.createWriter(function (fileWriter) {
                             fileWriter.onwriteend = function () {
                                 resolve(fileEntry.toURL());
-                            }
+                            };
 
                             fileWriter.onerror = reject;
                             fileWriter.write(blob);
@@ -446,9 +446,9 @@ var Utils = {
     exports.getAvatarImage = getAvatarImage;
 
     exports.uuid = function uuid() {
-        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             var r = Math.random() * 16 | 0;
-            var v = (c == "x") ? r : (r&0x3|0x8);
+            var v = (c == 'x') ? r : (r&0x3|0x8);
 
             return v.toString(16);
         });
@@ -485,17 +485,17 @@ var Utils = {
     /**
      * Custom <img is="external-image"> container for loading external images
      */
-    document.registerElement("external-image", {
-        extends: "img",
+    document.registerElement('external-image', {
+        extends: 'img',
         prototype: _.create(HTMLImageElement.prototype, {
             createdCallback: processExternalImage,
 
             attributeChangedCallback: function (attrName, oldVal, newVal) {
-                if (attrName !== "src") {
+                if (attrName !== 'src') {
                     return;
                 }
 
-                if (newVal.indexOf("http") !== 0) {
+                if (newVal.indexOf('http') !== 0) {
                     return;
                 }
 
@@ -503,8 +503,8 @@ var Utils = {
             },
 
             detachedCallback: function () {
-                var imageSource = this.getAttribute("src");
-                if (imageSource.indexOf("blob:") === 0) {
+                var imageSource = this.getAttribute('src');
+                if (imageSource.indexOf('blob:') === 0) {
                     URL.revokeObjectURL(imageSource);
                 }
             }
@@ -514,24 +514,24 @@ var Utils = {
     /**
      * Custom <img is="avatar-image"> container for loading and saving avatars
      */
-    document.registerElement("avatar-image", {
-        extends: "img",
+    document.registerElement('avatar-image', {
+        extends: 'img',
         prototype: _.create(HTMLImageElement.prototype, {
             createdCallback: function () {
                 var that = this;
-                var imageSource = this.getAttribute("src");
+                var imageSource = this.getAttribute('src');
                 var uid = Number(this.dataset.uid);
 
-                this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+                this.setAttribute('src', BLANK_TRANSPARENT_IMG);
                 this.dataset.originalSrc = imageSource;
-                this.classList.add("loading");
+                this.classList.add('loading');
 
                 getAvatarImage(imageSource, uid).then(function (uri) {
-                    that.classList.remove("loading");
-                    that.setAttribute("src", uri);
+                    that.classList.remove('loading');
+                    that.setAttribute('src', uri);
                 }, function () {
-                    that.classList.remove("loading");
-                    that.setAttribute("src", chrome.runtime.getURL("pic/question_th.gif"));
+                    that.classList.remove('loading');
+                    that.setAttribute('src', chrome.runtime.getURL('pic/question_th.gif'));
                 });
             }
         })

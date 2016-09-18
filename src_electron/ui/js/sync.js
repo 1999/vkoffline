@@ -80,6 +80,68 @@ function showChromeNotification(data) {
     });
 }
 
+const sendInitialSettings = () => {
+    chrome.runtime.sendMessage({
+        action: 'useInitialSettings',
+        flatSettings: getFlatSettings(),
+        accountData: {
+            currentUserId: AccountsManager.currentUserId,
+            currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null,
+            tokenExpired: false
+        }
+    });
+};
+
+const sendUiState = () => {
+    var uiType;
+    var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
+    var inboxSynced, sentSynced, friendsSynced;
+    var wallTokenUpdated;
+
+    if (AccountsManager.currentUserId) {
+        inboxSynced = (StorageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);
+        sentSynced = (StorageManager.get("perm_outbox_" + AccountsManager.currentUserId) !== null);
+        friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
+
+        if (inboxSynced && sentSynced && friendsSynced) {
+            uiType = "user";
+        } else {
+            uiType = "syncing";
+        }
+    } else {
+        uiType = "guest";
+    }
+
+    switch (uiType) {
+        case "user" :
+            CPA.sendAppView("Users");
+            CPA.sendEvent("UI-Draw", "Users", AccountsManager.currentUserId);
+
+            StorageManager.set('dayuse.dau', true);
+            StorageManager.set('weekuse.wau', true);
+
+            break;
+
+        case "syncing" :
+            CPA.sendAppView("Syncing");
+            CPA.sendEvent("UI-Draw", "Syncing", AccountsManager.currentUserId);
+            break;
+
+        case "guest" :
+            CPA.sendAppView("Guests");
+            CPA.sendEvent("UI-Draw", "Guests");
+            break;
+    }
+
+    // уведомляем фронт
+    chrome.runtime.sendMessage({
+        action: "ui",
+        which: uiType,
+        currentUserId: AccountsManager.currentUserId,
+        currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+    });
+};
+
 /**
  * Flatten settings by getting their values in this moment
  * @return {Object}
@@ -271,7 +333,15 @@ function openAppWindow(evt, tokenExpired) {
         SettingsManager.init()
 	]);
 
-    LogManager.config("App started");
+    LogManager.config('App started');
+
+    // by this time UI window could've already been opened
+    // so this is the best place to send initial settings there
+    sendInitialSettings();
+
+    // also this is the best place to notify all tabs
+    // about their UI state
+    sendUiState();
 
     var syncingData = {}, // объект с ключами inbox, sent и contacts - счетчик максимальных чисел
         uidsProcessing = {}; // объект из элементов вида {currentUserId1: {uid1: true, uid2: true, uid3: true}, ...}
@@ -1059,20 +1129,14 @@ function openAppWindow(evt, tokenExpired) {
         }
     };
 
-    console.log('listening to messages now!', Date.now())
     chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-        console.log('got message', request, Date.now())
         switch (request.action) {
             case 'getInitialSettings':
-                sendResponse({
-                    flatSettings: getFlatSettings(),
-                    accountData: {
-                        currentUserId: AccountsManager.currentUserId,
-                        currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null,
-                        tokenExpired: false
-                    }
-                });
+                sendInitialSettings();
+                break;
 
+            case 'sendAuthStat':
+                CPA.sendEvent(...request.data);
                 break;
 
             case "addFirstAccount":
@@ -1249,58 +1313,9 @@ function openAppWindow(evt, tokenExpired) {
 
                 break;
 
-            case "uiDraw" :
-                sendResponse(true);
-
-                var uiType;
-                var changelogNotified = StorageManager.get("changelog_notified", {constructor: Array, strict: true, create: true});
-                var inboxSynced, sentSynced, friendsSynced;
-                var wallTokenUpdated;
-
-                if (AccountsManager.currentUserId) {
-                    inboxSynced = (StorageManager.get("perm_inbox_" + AccountsManager.currentUserId) !== null);
-                    sentSynced = (StorageManager.get("perm_outbox_" + AccountsManager.currentUserId) !== null);
-                    friendsSynced = (StorageManager.get("friends_sync_time", {constructor: Object, strict: true, create: true})[AccountsManager.currentUserId] !== undefined);
-
-                    if (inboxSynced && sentSynced && friendsSynced) {
-                        uiType = "user";
-                    } else {
-                        uiType = "syncing";
-                    }
-                } else {
-                    uiType = "guest";
-                }
-
-                switch (uiType) {
-                    case "user" :
-                        CPA.sendAppView("Users");
-                        CPA.sendEvent("UI-Draw", "Users", AccountsManager.currentUserId);
-
-                        await StorageManager.load();
-                        StorageManager.set('dayuse.dau', true);
-                        StorageManager.set('weekuse.wau', true);
-
-                        break;
-
-                    case "syncing" :
-                        CPA.sendAppView("Syncing");
-                        CPA.sendEvent("UI-Draw", "Syncing", AccountsManager.currentUserId);
-                        break;
-
-                    case "guest" :
-                        CPA.sendAppView("Guests");
-                        CPA.sendEvent("UI-Draw", "Guests");
-                        break;
-                }
-
-                // уведомляем фронт
-                chrome.runtime.sendMessage({
-                    action: "ui",
-                    which: uiType,
-                    currentUserId: AccountsManager.currentUserId,
-                    currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
-                });
-
+            case 'uiDraw':
+                // TODO send to this window only
+                sendUiState();
                 break;
 
             case "closeNotification":

@@ -27,8 +27,10 @@
     "node": ">=6"
   },
   "scripts": {
+    "build:templates": "node tools/build-hogan-templates.js",
+    "copy:hogan": "cp node_modules/hogan.js/web/builds/2.0.0/template-2.0.0.js src_electron/ui/js/hogan.js",
     "lint": "eslint src_electron/",
-    "postinstall": "cp node_modules/hogan.js/web/builds/2.0.0/template-2.0.0.js src_electron/ui/js/hogan.js",
+    "postinstall": "npm run copy:hogan && npm run build:templates",
     "start": "WATCH=1 NODE_ENV=development ./node_modules/.bin/electron .",
     "test": "npm run lint"
   },

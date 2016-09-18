@@ -7,6 +7,7 @@ import AccountsManager from './accounts';
 import StorageManager from './storage';
 import chrome from './chrome';
 import AppUI from './ui';
+import Utils from './utils';
 
 // enable error processing
 errorhandler(global.__filename);
@@ -357,3 +358,6 @@ chrome.runtime.sendMessage({action: 'getInitialSettings'});
 
 // now notify sync window that this UI window is ready to go
 chrome.runtime.sendMessage({action: 'uiDraw'});
+
+document.registerElement('avatar-image', Utils.webComponents.AvatarImage);
+document.registerElement('external-image', Utils.webComponents.ExternalImage);

@@ -8,6 +8,7 @@ import chrome from './chrome';
 import config from '../../lib/config';
 import CPA from './cpa';
 import errorhandler from './errorhandler';
+import Utils from './utils';
 
 import AccountsManager from './accounts';
 import DatabaseManager from './db';
@@ -41,7 +42,7 @@ let forceSkipSync = false;
  */
 function showChromeNotification(data) {
     var promise = data.uid
-        ? getAvatarImage(data.icon, data.uid)
+        ? Utils.mics.getAvatarImage(data.icon, data.uid)
         : Promise.resolve(data.icon);
 
     var showChromeNotificationInner = function (uri) {

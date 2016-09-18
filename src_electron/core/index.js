@@ -98,4 +98,13 @@ ipcMain
         }
 
         createUiWindow(true);
+    })
+    .on('openCustomUrl', (evt, url) => {
+        const window = new BrowserWindow({
+            width: 1000,
+            height: 50,
+            title: 'Loading...'
+        });
+
+        window.loadURL(url);
     });

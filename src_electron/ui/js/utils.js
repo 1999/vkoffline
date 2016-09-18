@@ -1,22 +1,165 @@
-/* ==========================================================
- * App utils (VK Offline Chrome app)
- * https://github.com/1999/vkoffline
- * ==========================================================
- * Copyright 2013 Dmitry Sorin <info@staypositive.ru>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * ========================================================== */
-var Utils = {
+'use strict';
+
+import {ipcRenderer} from 'electron';
+import chrome from './chrome';
+
+const BLANK_TRANSPARENT_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+
+function fetchImage(url) {
+    return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest;
+        xhr.open("GET", url, true);
+        xhr.responseType = "blob";
+
+        xhr.addEventListener("load", function () {
+            resolve(this.response);
+        }, false);
+
+        xhr.addEventListener("error", function () {
+            reject();
+        }, false);
+
+        xhr.send();
+    });
+}
+
+function requestFileSystem() {
+    return new Promise(function (resolve, reject) {
+        (window.webkitRequestFileSystem || window.requestFileSystem)(window.PERSISTENT, 0, resolve, reject);
+    });
+}
+
+/**
+ * Get contact photo stored inside local filesystem
+ * @param {Number} uid
+ * @return {Promise}
+ */
+function getContactStoredPhoto(uid) {
+    return new Promise(function (resolve, reject) {
+        requestFileSystem().then(function (fsLink) {
+            fsLink.root.getFile(uid + "_th.jpg", {create: false}, function (fileEntry) {
+                // check if file was created more than 1d ago
+                fileEntry.file(function (fileBlob) {
+                    var dayBeforeNow = new Date;
+                    dayBeforeNow.setDate(dayBeforeNow.getDate() - 1);
+
+                    if (fileBlob.lastModifiedDate > dayBeforeNow) {
+                        resolve(fileEntry);
+                    } else {
+                        reject();
+                    }
+                }, reject);
+
+                resolve(fileEntry);
+            }, reject);
+        }, reject);
+    });
+}
+
+function processExternalImage() {
+    var that = this;
+    var imageSource = this.getAttribute("src") || "";
+
+    if (!imageSource) {
+        return;
+    }
+
+    this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+    this.dataset.originalSrc = imageSource;
+    this.classList.add("loading");
+
+    // download image
+    fetchImage(imageSource).then(function (blob) {
+        var uri = URL.createObjectURL(blob);
+        that.setAttribute("src", uri);
+
+        that.classList.remove("loading");
+    });
+}
+
+function getAvatarImage(imageSource, uid) {
+    return new Promise(function (resolve, reject) {
+        getContactStoredPhoto(uid).then(function (fileEntry) {
+            resolve(fileEntry.toURL());
+        }, function () {
+            if (imageSource.indexOf("http") !== 0) {
+                resolve(imageSource);
+                return;
+            }
+
+            Promise.all([
+                fetchImage(imageSource),
+                requestFileSystem()
+            ]).then(function (res) {
+                var blob = res[0];
+                var fsLink = res[1];
+
+                fsLink.root.getFile(uid + "_th.jpg", {create: true}, function (fileEntry) {
+                    fileEntry.createWriter(function (fileWriter) {
+                        fileWriter.onwriteend = function () {
+                            resolve(fileEntry.toURL());
+                        }
+
+                        fileWriter.onerror = reject;
+                        fileWriter.write(blob);
+                    });
+                });
+            }, reject);
+        });
+    });
+}
+
+/**
+ * Custom <img is="external-image"> container for loading external images
+ */
+class ExternalImage extends HTMLImageElement {
+    createdCallback() {
+        return processExternalImage.call(this);
+    }
+
+    attributeChangedCallback(attrName, oldVal, newVal) {
+        if (attrName !== 'src') {
+            return;
+        }
+
+        if (!newVal.startsWith('http')) {
+            return;
+        }
+
+        processExternalImage.call(this);
+    }
+
+    detachedCallback() {
+        var imageSource = this.getAttribute('src');
+        if (imageSource.startsWith('blob:')) {
+            URL.revokeObjectURL(imageSource);
+        }
+    }
+}
+
+/**
+ * Custom <img is="avatar-image"> container for loading and saving avatars
+ */
+class AvatarImage extends HTMLImageElement {
+    createdCallback() {
+        var imageSource = this.getAttribute("src");
+        var uid = Number(this.dataset.uid);
+
+        this.setAttribute("src", BLANK_TRANSPARENT_IMG);
+        this.dataset.originalSrc = imageSource;
+        this.classList.add("loading");
+
+        getAvatarImage(imageSource, uid).then(uri => {
+            this.classList.remove("loading");
+            this.setAttribute("src", uri);
+        }).catch(() => {
+            this.classList.remove("loading");
+            this.setAttribute("src", chrome.runtime.getURL("pic/question_th.gif"));
+        });
+    }
+}
+
+export default {
     async: {
         /**
          * Параллельное выполнение задач
@@ -341,215 +484,24 @@ var Utils = {
 
                 ctx2d.drawImage(dataImage, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH);
             }
-        }
+        },
+
+        /**
+         * Get downloaded or download avatar image
+         *
+         * @param {String} imageSource
+         * @param {Number} uid
+         * @return {Promise} which resolves with downloaded URL (filesystem: or blob:)
+         */
+        getAvatarImage,
+
+        openInNewWindow(url) {
+            ipcRenderer.send('openCustomUrl', url);
+        },
+    },
+
+    webComponents: {
+        ExternalImage,
+        AvatarImage
     }
 };
-
-(function (exports) {
-    "use strict";
-
-    var BLANK_TRANSPARENT_IMG = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
-
-    function fetchImage(url) {
-        return new Promise(function (resolve, reject) {
-            var xhr = new XMLHttpRequest;
-            xhr.open("GET", url, true);
-            xhr.responseType = "blob";
-
-            xhr.addEventListener("load", function () {
-                resolve(this.response);
-            }, false);
-
-            xhr.addEventListener("error", function () {
-                reject();
-            }, false);
-
-            xhr.send();
-        });
-    }
-
-    function requestFileSystem() {
-        return new Promise(function (resolve, reject) {
-            (window.webkitRequestFileSystem || window.requestFileSystem)(window.PERSISTENT, 0, resolve, reject);
-        });
-    }
-
-    /**
-     * Get contact photo stored inside local filesystem
-     * @param {Number} uid
-     * @return {Promise}
-     */
-    function getContactStoredPhoto(uid) {
-        return new Promise(function (resolve, reject) {
-            requestFileSystem().then(function (fsLink) {
-                fsLink.root.getFile(uid + "_th.jpg", {create: false}, function (fileEntry) {
-                    // check if file was created more than 1d ago
-                    fileEntry.file(function (fileBlob) {
-                        var dayBeforeNow = new Date;
-                        dayBeforeNow.setDate(dayBeforeNow.getDate() - 1);
-
-                        if (fileBlob.lastModifiedDate > dayBeforeNow) {
-                            resolve(fileEntry);
-                        } else {
-                            reject();
-                        }
-                    }, reject);
-
-                    resolve(fileEntry);
-                }, reject);
-            }, reject);
-        });
-    }
-
-    function processExternalImage() {
-        var that = this;
-        var imageSource = this.getAttribute("src") || "";
-
-        if (!imageSource) {
-            return;
-        }
-
-        this.setAttribute("src", BLANK_TRANSPARENT_IMG);
-        this.dataset.originalSrc = imageSource;
-        this.classList.add("loading");
-
-        // download image
-        fetchImage(imageSource).then(function (blob) {
-            var uri = URL.createObjectURL(blob);
-            that.setAttribute("src", uri);
-
-            that.classList.remove("loading");
-        });
-    }
-
-    function getAvatarImage(imageSource, uid) {
-        return new Promise(function (resolve, reject) {
-            getContactStoredPhoto(uid).then(function (fileEntry) {
-                resolve(fileEntry.toURL());
-            }, function () {
-                if (imageSource.indexOf("http") !== 0) {
-                    resolve(imageSource);
-                    return;
-                }
-
-                Promise.all([
-                    fetchImage(imageSource),
-                    requestFileSystem()
-                ]).then(function (res) {
-                    var blob = res[0];
-                    var fsLink = res[1];
-
-                    fsLink.root.getFile(uid + "_th.jpg", {create: true}, function (fileEntry) {
-                        fileEntry.createWriter(function (fileWriter) {
-                            fileWriter.onwriteend = function () {
-                                resolve(fileEntry.toURL());
-                            }
-
-                            fileWriter.onerror = reject;
-                            fileWriter.write(blob);
-                        });
-                    });
-                }, reject);
-            });
-        });
-    }
-
-    /**
-     * Get downloaded or download avatar image
-     *
-     * @param {String} imageSource
-     * @param {Number} uid
-     * @return {Promise} which resolves with downloaded URL (filesystem: or blob:)
-     */
-    exports.getAvatarImage = getAvatarImage;
-
-    exports.uuid = function uuid() {
-        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-            var r = Math.random() * 16 | 0;
-            var v = (c == "x") ? r : (r&0x3|0x8);
-
-            return v.toString(16);
-        });
-    };
-
-    exports.openInNewWindow = function openInNewWindow(url) {
-        chrome.app.window.create(url, {
-            id: uuid(),
-            innerBounds: {
-                minWidth: 1000,
-                maxHeight: 50
-            }
-        });
-    };
-
-    /**
-     * Notify app windows about smth
-     */
-    exports.notifySelf = function notifySelf(data) {
-        chrome.runtime.sendMessage(data);
-    };
-
-    /**
-     * Get data from background page
-     * @param {Mixed} data
-     * @return {Promise}
-     */
-    exports.requestBackground = function requestBackground(data) {
-        return new Promise(function (resolve) {
-            chrome.runtime.sendMessage(data, resolve);
-        });
-    };
-
-    /**
-     * Custom <img is="external-image"> container for loading external images
-     */
-    class ExternalImage extends HTMLImageElement {
-        createdCallback() {
-            return processExternalImage.call(this);
-        }
-
-        attributeChangedCallback(attrName, oldVal, newVal) {
-            if (attrName !== 'src') {
-                return;
-            }
-
-            if (!newVal.startsWith('http')) {
-                return;
-            }
-
-            processExternalImage.call(this);
-        }
-
-        detachedCallback() {
-            var imageSource = this.getAttribute('src');
-            if (imageSource.startsWith('blob:')) {
-                URL.revokeObjectURL(imageSource);
-            }
-        }
-    }
-
-    /**
-     * Custom <img is="avatar-image"> container for loading and saving avatars
-     */
-    class AvatarImage extends HTMLImageElement {
-        createdCallback() {
-            var imageSource = this.getAttribute("src");
-            var uid = Number(this.dataset.uid);
-
-            this.setAttribute("src", BLANK_TRANSPARENT_IMG);
-            this.dataset.originalSrc = imageSource;
-            this.classList.add("loading");
-
-            getAvatarImage(imageSource, uid).then(uri => {
-                this.classList.remove("loading");
-                this.setAttribute("src", uri);
-            }).catch(() => {
-                this.classList.remove("loading");
-                this.setAttribute("src", chrome.runtime.getURL("pic/question_th.gif"));
-            });
-        }
-    }
-
-    document.registerElement('avatar-image', AvatarImage);
-    document.registerElement('external-image', ExternalImage);
-})(window);

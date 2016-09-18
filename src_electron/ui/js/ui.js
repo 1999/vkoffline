@@ -6,6 +6,7 @@ import {appName} from './remote';
 import StorageManager from './storage';
 import SoundManager from './sounds';
 import Auth from './auth';
+import Utils from './utils';
 import Templates from './templates';
 
 const processAuthFailure = ({reason, from}) => {
@@ -166,7 +167,7 @@ document.addEventListener('click', function (e) {
                 msgId = msgSection.data('mid'),
                 uid = $(msgSection, 'img').data('uid');
 
-            openInNewWindow('print.html?mid=' + msgId + '&uid=' + uid);
+            Utils.misc.openInNewWindow('print.html?mid=' + msgId + '&uid=' + uid);
         },
         // ответ на сообщение
         '#content > section.right.thread-container > section.open span.reply': function (target, evt) {
@@ -767,7 +768,7 @@ document.addEventListener('submit', function (e) {
     }
 }, false);
 
-export default {
+const AppUI = {
     Views: {
         // список контактов
         contactsList: function(startFrom) {
@@ -1688,7 +1689,7 @@ export default {
                 }, true);
 
                 rightHeaderPrint.bind('click', function() {
-                    openInNewWindow('print.html?did=' + dialogId);
+                    Utils.misc.openInNewWindow('print.html?did=' + dialogId);
                 });
 
                 // rightHeaderSearch.bind("click", function() {
@@ -2230,7 +2231,7 @@ export default {
             document.body.removeClass().addClass('grey').html(contents);
 
             $('button.green').bind('click', function () {
-                openInNewWindow('https://www.google.com/chrome/');
+                Utils.misc.openInNewWindow('https://www.google.com/chrome/');
             });
         },
 
@@ -3509,3 +3510,5 @@ export default {
 
     _currentMainType: null
 };
+
+export default AppUI;

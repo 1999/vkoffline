@@ -18,6 +18,13 @@ import ReqManager from './requests';
 import SettingsManager from './settings';
 import StorageManager from './storage';
 
+import {
+    insertMessagesAndBroadcastProgress,
+    processResponseMessages
+} from './helpers/mail-sync-broadcaster';
+
+const MAIL_SYNC_LIMIT_PER_REQUEST = 100;
+
 // enable error processing
 errorhandler(global.__filename);
 
@@ -141,6 +148,78 @@ const sendUiState = () => {
         which: uiType,
         currentUserId: AccountsManager.currentUserId,
         currentUserFio: AccountsManager.current ? AccountsManager.current.fio : null
+    });
+};
+
+/**
+ * Faster mailSync() implementation.
+ * mailSync() is the first long async operation which is visible to user
+ * And it's vital to shorten is as much as possible.
+ *
+ * Inside mailSync consists of 3 different ops:
+ * fetchMessagesFromAPI => insertMessagesIntoDB => chromeBroadcastProress
+ * chromeBroadcastProress() depends on both previous operations
+ * insertMessagesIntoDB() depends on previous operation
+ * But fetchMessagesFromAPI() depends only on VK API requests frequency
+ * So it's possible to fetch API and not wait for chromeBroadcastProress()
+ *
+ * First sync: request messages of {mailType} until response
+ * messages number is less than MAIL_SYNC_LIMIT_PER_REQUEST
+ *
+ * 2+ sync: request messages of {mailType} until response
+ * contains message with id less or equal than {latestStoredMessageId}
+ *
+ * @param {Number} opts.userId - user id of sync operation
+ * @param {String} opt.mailType - either "inbox" or "sent"
+ * @param {Boolean} opts.isFirstSync - sync stops earlier if this is not first sync for user
+ * @param {Number} [opts.offset] offset for this mailType
+ * @param {Number} [opts.latestStoredMessageId] needed if this is not first sync
+ */
+const mailSyncFast = async ({
+    userId,
+    mailType,
+    isFirstSync,
+    offset,
+    latestStoredMessageId
+}) => {
+    const MESSAGES_FETCH_COUNT = 100;
+    console.log(mailType, offset)
+
+    if (!isFirstSync && !latestStoredMessageId) {
+        latestStoredMessageId = await DatabaseManager.getLatestTagMessageId(mailType);
+    }
+
+    const accessToken = AccountsManager.list[userId].token;
+    const reqData = {
+        access_token: accessToken,
+        count: MESSAGES_FETCH_COUNT,
+        offset: offset || 0,
+        preview_length: 0,
+        out: (mailType === 'sent') ? 1 : 0
+    };
+
+    let res;
+    try {
+        res = await ReqManager.promiseApiMethod('messages.get', reqData);
+    } catch (err) {
+        // TODO handle error
+        throw err;
+    }
+
+    // schedule insert messages and broadcast ops
+    const {messages, total, isLastChunk} = processResponseMessages(res, mailType, latestStoredMessageId);
+    insertMessagesAndBroadcastProgress(userId, mailType, messages, total, isLastChunk);
+
+    if (isLastChunk) {
+        return;
+    }
+
+    await mailSyncFast({
+        userId,
+        mailType,
+        isFirstSync,
+        latestStoredMessageId,
+        offset: (offset || 0) + MESSAGES_FETCH_COUNT
     });
 };
 
@@ -1096,12 +1175,27 @@ function openAppWindow(evt, tokenExpired) {
         // сбрасываем счетчики синхронизации
         clearSyncingDataCounters(AccountsManager.currentUserId);
 
+        // TODO navigator.online? what?
         if (navigator.onLine) {
             friendsSync(AccountsManager.currentUserId);
             longPollEventsRegistrar.init(AccountsManager.currentUserId);
 
-            mailSync(AccountsManager.currentUserId, "inbox");
-            mailSync(AccountsManager.currentUserId, "sent");
+            // start mailSync process for inbox messages
+            mailSyncFast({
+                userId: AccountsManager.currentUserId,
+                mailType: 'inbox',
+                isFirstSync: true
+            });
+
+            // start mailSync process for sent messages
+            mailSyncFast({
+                userId: AccountsManager.currentUserId,
+                mailType: 'sent',
+                isFirstSync: true
+            });
+
+            // mailSync(AccountsManager.currentUserId, "inbox");
+            // mailSync(AccountsManager.currentUserId, "sent");
         }
     };
 

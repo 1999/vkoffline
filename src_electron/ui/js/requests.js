@@ -8,12 +8,12 @@ import AccountsManager from './accounts';
 import LogManager from './logs';
 import StorageManager from './storage';
 
+// @see http://vk.com/dev/api_requests
+const AVAILABLE_LANGUAGES = ['ru', 'ua', 'be', 'en', 'es', 'fi', 'de', 'it'];
+const REQUESTS_TIMEOUT_MS = 350;
+
 export default (function () {
     'use strict';
-
-    // @see http://vk.com/dev/api_requests
-    var AVAILABLE_LANGUAGES = ['ru', 'ua', 'be', 'en', 'es', 'fi', 'de', 'it'];
-    var REQUESTS_TIMEOUT_MS = 350;
 
     var currentLocale = chrome.i18n.getMessage('@@ui_locale').split('_')[0];
     var requestsLanguage = AVAILABLE_LANGUAGES.includes(currentLocale) ? currentLocale : 'ru';
@@ -258,34 +258,24 @@ export default (function () {
 
 
     return {
-        async apiMethod(method, params, fnSuccess, fnFail) {
-            await StorageManager.load();
-
-            var performParams = {
-                method: 'POST',
-                url: 'https://api.vk.com/method/' + method
-            };
-
+        apiMethod(method, params, fnSuccess, fnFail) {
             if (typeof params === 'function') {
                 fnFail = fnSuccess;
                 fnSuccess = params;
                 params = {};
             }
 
-            if (method.indexOf('getLongPollServer') !== -1) {
-                params.use_ssl = 1;
-            }
-
-            if (params.access_token === undefined) {
-                params.access_token = AccountsManager.current.token;
-            } else if (params.access_token === null) {
-                delete params.access_token;
-            }
-
-            performParams.data = params;
-            performParams.data.lang = requestsLanguage;
-
+            const performParams = this._prepareApiMethodParams(method, params);
             return runRequest.call(this, performParams, fnSuccess, fnFail);
+        },
+
+        async promiseApiMethod(method, params = {}) {
+            await StorageManager.load();
+
+            const performParams = this._prepareApiMethodParams(method, params);
+            return new Promise((resolve, reject) => {
+                runRequest.call(this, performParams, resolve, reject);
+            });
         },
 
         forceUrlGet: function(url, params, fnSuccess, fnFail) {
@@ -329,6 +319,28 @@ export default (function () {
                 xhrs[xhrId].abort();
                 finalizeRequest(xhrId);
             }
+        },
+
+        _prepareApiMethodParams(apiMethod, params = {}) {
+            const performParams = {
+                method: 'POST',
+                url: `https://api.vk.com/method/${apiMethod}`
+            };
+
+            if (apiMethod.includes('getLongPollServer')) {
+                params.use_ssl = 1;
+            }
+
+            if (params.access_token === undefined) {
+                params.access_token = AccountsManager.current.token;
+            } else if (params.access_token === null) {
+                delete params.access_token;
+            }
+
+            performParams.data = params;
+            performParams.data.lang = requestsLanguage;
+
+            return performParams;
         },
 
         NO_INTERNET: 1,

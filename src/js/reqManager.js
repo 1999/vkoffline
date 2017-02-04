@@ -259,6 +259,9 @@ var ReqManager = (function () {
 				params = {};
 			}
 
+			// set API version
+			params.v = params.v || '3.0';
+
 			if (method.indexOf("getLongPollServer") !== -1) {
 				params.use_ssl = 1;
 			}

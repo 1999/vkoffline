@@ -1,0 +1,550 @@
+{
+	"accessGranted": {
+		"message": "Доступ надано"
+	},
+	"accounts": {
+		"message": "Аккаунти"
+	},
+	"addAttachments": {
+		"message": "Прикріпити файли"
+	},
+	"addMoreProfiles": {
+		"message": "Додати профіль ВКонтакті"
+	},
+	"ago": {
+		"message": "назад",
+		"description": "Конечная часть фразы N минут/часов назад"
+	},
+	"appName": {
+		"message": "VKontakte Offline"
+	},
+	"appDescription": {
+		"message": "Новий підхід до роботи з вашими контактами та перепискою ВКонтакті / VKontakte"
+	},
+	"appUpdated": {
+		"message": "Додаток %appname% оновився до версії %appversion%. Клікніть на цьому вікні, щоб відкрити вікно додатку."
+	},
+	"areyouready": {
+		"message": "Ви впевнені?"
+	},
+	"author": {
+		"message": "Дмитро Сорін"
+	},
+	"backToDialogsList": {
+		"message": "повернутися до списку діалогів"
+	},
+	"birthdate": {
+		"message": "дата народження"
+	},
+	"birthday": {
+		"message": "Сьогодні його-її день народження|виповнилося %years%",
+		"description": "его-ее заменится на что-то одно во всплывающем окне"
+	},
+	"close": {
+		"message": "закрити"
+	},
+	"commonDialog": {
+		"message": "без теми"
+	},
+	"contactsName": {
+		"message": "Контакти"
+	},
+	"correspondence": {
+		"message": "Листування",
+		"description": "Кнопка, отображающаяся вверху приложения. Контекст - контакты и переписка"
+	},
+	"correspondenceManagement": {
+		"message": "Керування листуванням"
+	},
+	"currentActiveAccount": {
+		"message": "поточний активний акаунт"
+	},
+	"dayAndTimeSeparator": {
+		"message": "о",
+		"description": "Разделитель даты и времени, например 20 янв 2010 в 10:43"
+	},
+	"deleteAccount": {
+		"message": "видалити акаунт"
+	},
+	"deleteMessage": {
+		"message": "видалити"
+	},
+	"deleteMessageForever": {
+		"message": "Повідомлення буде видалено назавжди і ви більше не зможете його відновити. Продовжити?"
+	},
+	"downloadPhoto": {
+		"message": "Зберегти зображення"
+	},
+	"dropFilesHere": {
+		"message": "Перетягніть файли сюди..."
+	},
+	"fileType": {
+		"message": "тип файлу"
+	},
+	"fileUploadFailed": {
+		"message": "Не вдалося розмістити файл %filename% на сервері ВКонтакті. Спробуйте завантажити цей файл на інший файл-хостинг (upload.com.ua, fileshare.in.ua, ...) та вставте ссилку у відправляюче повідомлення."
+	},
+	"fileUploadRejected": {
+		"message": "ВКонтакті відхилив запит на розміщення файла %filename% на своєму сервері. Спробуйте завантажити цей файл на інший файл-хостинг (upload.com.ua, fileshare.in.ua, ...) та вставте ссилку у відправляюче повідомлення."
+	},
+	"firstInstallText": {
+		"message": "Для коректної роботи додатку %appname% вам необхідно |надати доступ| до своїх даних ВКонтакті",
+		"description": "Текст внутри символов || преобразуется в ссылку"
+	},
+	"foldersAndTags": {
+		"message": "Папки та мітки"
+	},
+	"getUploadDataFromServer": {
+		"message": "Отримуєм дані необхідні для завантаження файлу %filename%"
+	},
+	"homephone": {
+		"message": "дом. телефон"
+	},
+	"hoursAgo": {
+		"message": "годину|години|годин",
+		"description": "Варианты слова час: 1 час назад, 2 часа назад, 10 часов назад"
+	},
+	"importantMessage": {
+		"message": "важливе повідомлення"
+	},
+	"installGrantAccess": {
+		"message": "Надати доступ зараз"
+	},
+	"justNow": {
+		"message": "щойно"
+	},
+	"kb": {
+		"message": "Кб"
+	},
+	"launcherNotificationTitle": {
+		"message": "Як запустити VK Offline?"
+	},
+	"launcherNotificationMessage": {
+		"message": "Шукайте додаток \"Запуск VKontake Offline\" в Chrome Web Store!"
+	},
+	"likeIconTitle": {
+		"message": "Розповісти друзям про додаток %appname%. Натисніть на цю іконку, щоб опублікувати інформацію про додаток на вашій стінці ВКонтакті"
+	},
+	"listenAppInstall": {
+		"message": "Слухайте кращі пісні% %artist% не вiдкриваючи ВКонтакте"
+	},
+	"listenAppOpen": {
+		"message": "Iнші пісні %artist%"
+	},
+	"mb": {
+		"message": "Мб"
+	},
+	"messageNoSubject": {
+		"message": "без теми"
+	},
+	"messagePluralForms": {
+		"message": "повідомлення|повідомлення|повідомлень",
+		"description": "Варианты слова сообщение: 1 сообщение, 2 сообщения, 10 сообщений"
+	},
+	"messageSentFail": {
+		"message": "Помилка при відправлені повідомлення"
+	},
+	"messageSentSuccess": {
+		"message": "Ваше повідомлення було успішно відправлено"
+	},
+	"messageTypeAttachments": {
+		"message": "вкладення"
+	},
+	"messageTypeAudio": {
+		"message": "аудіо-лист"
+	},
+	"messageTypeText": {
+		"message": "текст"
+	},
+	"messageTypeVideo": {
+		"message": "відео-лист"
+	},
+	"minutesAgo": {
+		"message": "хвилину|хвилини|хвилин",
+		"description": "Варианты слова минута: 1 минуту назад, 2 минуты назад, 10 минут назад"
+	},
+	"mobilephone": {
+		"message": "моб. телефон"
+	},
+	"monthes": {
+		"message": "січня|лютого|березня|квітня|травня|червня|липня|серпня|вересня|жовтня|листопада|грудня"
+	},
+	"monthesCut": {
+		"message": "січ|лют|бер|кв|тр|чер|лип|сер|вер|жов|лис|гр",
+		"description": "Короткие имена месяцев, используемые в формате 20 янв 2010"
+	},
+	"more": {
+		"message": "ще"
+	},
+	"moreMessagesForm": {
+		"message": "more x messagePluralForms",
+		"description": "Форма написания фразы 'еще x сообщений'"
+	},
+	"newApp50Message": {
+		"message": "Тепер банановий!"
+	},
+	"newApp50OpenLink": {
+		"message": "Відкрити у новому вікні"
+	},
+	"newApp50Title": {
+		"message": "Новий %appname%"
+	},
+	"newMessage": {
+		"message": "Нове повідомлення"
+	},
+	"newNotifications": {
+		"message": "Нові сповіщення"
+	},
+	"newsIconTitles": {
+		"message": "нове сповіщення|нових сповіщення|нових сповіщень"
+	},
+	"no": {
+		"message": "Ні"
+	},
+	"noInternetConnection": {
+		"message": "У вас відсутнє з’єднання з інтернетом"
+	},
+	"notificationBeforeAccountDelete": {
+		"message": "Всі ваші контакти і переписка будуть видалені. Продовжити?"
+	},
+	"notificationsHide": {
+		"message": "не показувати"
+	},
+	"notificationsShow": {
+		"message": "не ховати до закриття користувачем"
+	},
+	"offlineStatus": {
+		"message": "відключений"
+	},
+	"onlineStatus": {
+		"message": "підключений"
+	},
+	"options": {
+		"message": "Налаштування"
+	},
+	"tokenExpired": {
+		"message": "ключ доступу застарів"
+	},
+	"participantMe": {
+		"message": "Ви",
+		"description": "Фраза, которая обозначает вас в переписке, например Витя, Катя и Вы"
+	},
+	"pleaseWait": {
+		"message": "зачекайте"
+	},
+	"printCorrespondence": {
+		"message": "роздрукувати все листування"
+	},
+	"printMessage": {
+		"message": "роздрукувати текст повідомлення"
+	},
+	"remove": {
+		"message": "Видалити"
+	},
+	"removeAccountButtonText": {
+		"message": "Видалити аккаунт"
+	},
+	"respondMessage": {
+		"message": "відповісти"
+	},
+	"restoreMessage": {
+		"message": "відновити"
+	},
+	"saveBtn": {
+		"message": "Зберегти"
+	},
+	"saveBtnClicked": {
+		"message": "ОК!"
+	},
+	"saveMessageButtonTitle": {
+		"message": "зберігти"
+	},
+	"saveUploadedData": {
+		"message": "Зберігаємо дані о вкладенні на сервері"
+	},
+	"searchContact": {
+		"message": "Пошук контакту"
+	},
+	"searchContactPlaceholder": {
+		"message": "Почніть вводити дані контакта"
+	},
+	"searchMail": {
+		"message": "Пошук листів"
+	},
+	"searchMailPlaceholder": {
+		"message": "Почніть вводити текст листа"
+	},
+	"second": {
+		"message": "сек"
+	},
+	"sendMessageButtonTitle": {
+		"message": "відправити"
+	},
+	"settingsDebug": {
+		"message": "Запис помилок (не міняйте це налаштування)"
+	},
+	"settingsDebugEverything": {
+		"message": "Записувати все"
+	},
+	"settingsDebugMore": {
+		"message": "Записувати помилки, попередження та системні повідомлення"
+	},
+	"settingsDebugWarningsErrors": {
+		"message": "Записувати помилки та попередження (по замовчуванню)"
+	},
+	"settingsDeleteUser": {
+		"message": "При видалені контакту / повідомлення"
+	},
+	"settingsDeleteUserEverything": {
+		"message": "Видалити все, що пов’язано з ним на локальному комп’ютері, очистити листування та видалити з друзів ВКонтакті"
+	},
+	"settingsDeleteUserLocal": {
+		"message": "Видалити його та листування з ним тільки на локальному комп’ютері"
+	},
+	"settingsDeleteUserServer": {
+		"message": "Видалити його та листування з ним на локальному комп’ютері, а також очистити листування ВКонтакті"
+	},
+	"settingsNotificationsTime": {
+		"message": "Час відображення сповіщення"
+	},
+	"settingsShowCounters": {
+		"message": "Показувати лічильник контактів і повідомлень"
+	},
+	"settingsShowWhenVK": {
+		"message": "Показувати сповіщення про нові повідомлення при відкритій вкладці ВКонтакті"
+	},
+	"settingsShowBirthdayNotifications": {
+		"message": "Показувати сповіщення про дні народження друзів"
+	},
+	"settingsSortContacts": {
+		"message": "Виводити список контактів"
+	},
+	"settingsSortContactsAlpha": {
+		"message": "В алфавітному порядку"
+	},
+	"settingsSortContactsLast": {
+		"message": "По даті останнього листування"
+	},
+	"settingsSortContactsPopular": {
+		"message": "По частоті листування"
+	},
+	"settingsSoundLevel": {
+		"message": "Гучність оповіщення"
+	},
+	"settingsSpeechRecognitionLanguage": {
+		"message": "Мова голосового введення"
+	},
+	"showMoreInfoAboutContactOrMessage": {
+		"message": "детальніше",
+		"description": "Текст, который появляется при наведении на стрелку напротив контакта или сообщения"
+	},
+	"skipSync": {
+		"message": "Пропустити синхронізацію"
+	},
+	"subject": {
+		"message": "Тема"
+	},
+	"speechProcessing": {
+		"message": "Продовжуйте говорити"
+	},
+	"speechStart": {
+		"message": "Голосове введення"
+	},
+	"switchToAnotherAccount": {
+		"message": "переключитися на цей акаунт"
+	},
+	"syncFriends": {
+		"message": "Синхронізується список друзів"
+	},
+	"syncingContacts": {
+		"message": "Синхронізація контактів"
+	},
+	"syncingInbox": {
+		"message": "Синхронізація вхідних повідомленнь"
+	},
+	"syncingSent": {
+		"message": "Синхронізація вихідних повідомленнь"
+	},
+	"updatingContacts": {
+		"message": "Оновлення бази даних контактів"
+	},
+	"updatingInbox": {
+		"message": "Оновлення структури вхідних повідомленнь"
+	},
+	"updatingSent": {
+		"message": "Оновлення структури вихідних повідомленнь"
+	},
+	"tagAttachmentsName": {
+		"message": "З вкладеннями"
+	},
+	"tagDraftsName": {
+		"message": "Чернетки"
+	},
+	"tagImportantName": {
+		"message": "Важливі"
+	},
+	"tagInboxName": {
+		"message": "Вхідні"
+	},
+	"tagOutboxName": {
+		"message": "Вихідні"
+	},
+	"tagSentName": {
+		"message": "Надіслані"
+	},
+	"tagTrashName": {
+		"message": "Кошик"
+	},
+	"takeTour": {
+		"message": "Що всередені додатку?"
+	},
+	"tokenExpiredNotificationMessage": {
+		"message": "Натисніть, щоб відновити доступ до ваших даних ВКонтакте"
+	},
+	"tokenExpiredNotificationTitle": {
+		"message": "Ключ доступу застарів"
+	},
+	"tourAgainButtonTitle": {
+		"message": "Дивитися знов"
+	},
+	"tourFurtherButtonTitle": {
+		"message": "Далі"
+	},
+	"tourStep1Description": {
+		"message": "Ви завжди зможете знайти потрібну вам людину чи листа навіть коли з’єднання з інтернетом відсутнє чи нестабільне. Для цього додаток повністю синхронізує список ваших співбесідників та повідомлення ВКонтакті в процесі своєї роботи.|Не бійтеся того, що з’єднання з інтернетом зникне - телефони знайомих та дні народження друзів будуть завжди під рукою.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep1Title": {
+		"message": "Доступ до даних при відсутності інтернета"
+	},
+	"tourStep2Description": {
+		"message": "Навіть коли всі вікна Google Chrome закриті, додаток сповістить вас про вхідне повідомлення чи про наставший день народження вашого друга. Для цього використовується можливість роботи додатку у фоновому режимі, яка дозволяє дізнатися про нові повідомлення та події практично миттєво.|Займайтеся важливими справами та не хвилюйтесь, що важливе повідомлення пройде непоміченим.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep2Title": {
+		"message": "Додаток працює при закритому браузері"
+	},
+	"tourStep3Description": {
+		"message": "Зовні це працює аналогічно <a target='_blank' href='http://support.google.com/accounts/bin/answer.py?hl=ru&answer=1721977'>Google Multiple Sign-in</a>, коли є один активний акаунт, для якого синхронізація відбувається в реальному часі.|Перейти на іший акаунт можна на сторінці налаштувань додатку. Ви можете додати необмежену кількість акаунтів.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep3Title": {
+		"message": "Підтримка декількох акаунтів ВКонтакті"
+	},
+	"tourStep4Description": {
+		"message": "Так, ви можете не вводити текст листа на клавіатурі, а промовити його, після чого технологія Google Voice Search его распознает и преобразует в текст.|Найближчим часом в додатку з’являться відео- та аудіо-листи, котрі будуть працювати без сторонніх плагінів (Flash, Silverlight, etc).",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep4SmallDescription": {
+		"message": "Щоб наблизити це світле майбутнє, перейдіть по силкам та клікніть на зірочки в лівих верхніх частинах цих сторінок. Це підкаже розробникам Chromium, що багато людей чекають, коли ця можливість з’явиться в браузері."
+	},
+	"tourStep4Title": {
+		"message": "Голосовий ввід тексту листів"
+	},
+	"tourStep5Description": {
+		"message": "Важливі повідомлення, до котрих легко отримати доступ, видалення повідомлень з подальшою можливістю їх відновлення, власні мітки та чернетки - все це є в %appname%.|Ми з’єднали легкість та простоту діалогів ВКонтакті із зручними та звичними функціями любого E-mail кліента.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep5Title": {
+		"message": "Все, до чого ви звикли в E-mail листуванні"
+	},
+	"tourStep6Description": {
+		"message": "Всі дані зберігаються локально. Це означає, що контакти, мітки та прийняті повідомлення нікуди не відсилаються, а зберігаються в базі даних у вас на комп’ютері.|При встановлені додаток запитує у вас доступ до сайтів *.vk.com та *.userapi.com - через них додаток синхронізує ваші дані.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep6Title": {
+		"message": "Повний контроль над даними"
+	},
+	"truncatingCorrespondance": {
+		"message": "Очищаємо листування. Залишилося повідомлень: "
+	},
+	"typeCaptchaSymbols": {
+		"message": "Введіть символи з картинки"
+	},
+	"updateAccountToken": {
+		"message": "оновіть ключ доступу"
+	},
+	"uploadedPercents": {
+		"message": "завантажено %bytes% з %total% (%percents%)"
+	},
+	"writeMessage": {
+		"message": "написати повідомлення"
+	},
+	"writesMessageToSomebody": {
+		"message": "набирає повідомлення"
+	},
+	"writesMessageToYou": {
+		"message": "пише вам повідомлення"
+	},
+	"years": {
+		"message": "рік|роки|років"
+	},
+	"yes": {
+		"message": "Так"
+	},
+	"ruSymbols": {
+		"message": "йцукенгшщзфывапролдячсмить"
+	},
+	"updateTokenNow": {
+		"message": "Оновити ключ доступу зараз"
+	},
+	"updateTokenLater": {
+		"message": "Зробити це пізніше"
+	},
+	"continue": {
+		"message": "продовжити"
+	},
+	"chromeAppIsBroken": {
+		"message": "У вашому браузері відсутня можливість визначення версії додатку. Спробуйте оновити браузер до більш нової версії."
+	},
+	"updateItNow": {
+		"message": "Оновити зараз"
+	},
+	"tokenUpdatedInsteadOfAccountAdd": {
+		"message": "Ви хотіли додати новий акаунт, але на сайті ВКонтакті ви зараз авторизовані під акаунтом <a href='http://vk.com/id%id%' target='_blank'>%fio%</a>. Авторизуйтеся ВКонтакті під потрібним користувачем і додайте акаунт ще раз."
+	},
+	"tokenAddedInsteadOfUpdate": {
+		"message": "Ви хотіли оновити ключ доступу для акаунту, але на сайті ВКонтакті ви зараз авторизовані під акаунтом <a href='http://vk.com/id%id%' target='_blank'>ID%id%</a>. Синхронізувати контакти та листування цього акаунта з даними на сервері?"
+	},
+	"tokenUpdatedForWrongUser": {
+		"message": "Ви хотіли оновити ключ доступу для акаунта, але на сайті ВКонтакті ви авторизовані під акаунтом <a href='http://vk.com/id%id%' target='_blank'>%fio%</a>. Авторизуйтеся ВКонтакті під потрібним користувачем та оновіть ключ доступу ще раз."
+	},
+	"tokenUpdated": {
+		"message": "Ключ доступу успішно оновлений."
+	},
+	"accessDeniedWhenSendingMessage": {
+		"message": "Вам заборонено відсилати листи. Можливо це сталося тому що людина, котрій ви хочети написати листа, обмежила коло спілкування. Якщо ви впевнені, що це не так, перейдіть на сторінку налаштувань та оновіть ключ доступу для вашого акаунту, після чого спробуйте відправити повідомлення заново."
+	},
+	"appWontWorkWithoutAccessGranted": {
+		"message": "Додаток %appname% не зможе працювати, якщо ви не надасте доступ до своїх даних ВКонтакті"
+	},
+	"appWontWorkDueSecurityBreach": {
+		"message": "Ви авторизувались з нової IP-адреси, тому перед наданням доступу вам необхідно |підтвердити свій номер телефона| Вконтакті.",
+		"description": "Текст внутри символов | превратится в ссылку"
+	},
+	"pressHereIfSyncHangs": {
+		"message": "Якщо процес синхронізації застиг, |натисніть сюди|"
+	},
+	"startTypingMessage": {
+		"message": "Натисніть сюди, щоб відповісти..."
+	},
+	"backendIsLoading": {
+		"message": "Зачекайте будь ласка, поки завантажиться фонова сторінка додатку..."
+	},
+	"refreshPage": {
+		"message": "Оновити сторінку"
+	},
+	"settingsAttachGeolocation": {
+		"message": "Додавати до відсилаємих повідомлень ваше місцезнаходження на карті"
+	},
+	"settingsShowOnline": {
+		"message": "Показувати онлайн-статус контактів"
+	},
+	"happyBirthday": {
+		"message": "Команда додатку %appname% вітає Вас з Днем Народження!"
+	},
+	"recepientTo": {
+		"message": "Кому: ",
+		"description": "Слово, которое пишется перед адресатом сообщения. Например 'To: Dmitry Sorin'"
+	}
+}

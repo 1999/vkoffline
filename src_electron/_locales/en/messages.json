@@ -1,0 +1,550 @@
+{
+	"accessGranted": {
+		"message": "Access granted"
+	},
+	"accounts": {
+		"message": "Accounts"
+	},
+	"addAttachments": {
+		"message": "Add attachments"
+	},
+	"addMoreProfiles": {
+		"message": "Add new VK profile"
+	},
+	"ago": {
+		"message": "ago",
+		"description": "Конечная часть фразы N минут/часов назад"
+	},
+	"appName": {
+		"message": "VK Offline"
+	},
+	"appDescription": {
+		"message": "New approach of working with your contacts and correspondence in VK.com / VKontakte social network"
+	},
+	"appUpdated": {
+		"message": "%appname% app has been updated to version %appversion%. Click this notification to open the app's window."
+	},
+	"areyouready": {
+		"message": "Are you sure?"
+	},
+	"author": {
+		"message": "Dmitry Sorin"
+	},
+	"backToDialogsList": {
+		"message": "back to the dialogs list"
+	},
+	"birthdate": {
+		"message": "birthday"
+	},
+	"birthday": {
+		"message": "Today's his-her birthday|%years% old now",
+		"description": "его-ее заменится на что-то одно во всплывающем окне"
+	},
+	"close": {
+		"message": "close"
+	},
+	"commonDialog": {
+		"message": "without subject"
+	},
+	"contactsName": {
+		"message": "Contacts"
+	},
+	"correspondence": {
+		"message": "Mail",
+		"description": "Кнопка, отображающаяся вверху приложения. Контекст - контакты и переписка"
+	},
+	"correspondenceManagement": {
+		"message": "Correspondence management"
+	},
+	"currentActiveAccount": {
+		"message": "this account is now active"
+	},
+	"dayAndTimeSeparator": {
+		"message": "at",
+		"description": "Разделитель даты и времени, например 20 янв 2010 в 10:43"
+	},
+	"deleteAccount": {
+		"message": "delete account"
+	},
+	"deleteMessage": {
+		"message": "delete"
+	},
+	"deleteMessageForever": {
+		"message": "Message will be deleted and you won't be able to restore it. Continue?"
+	},
+	"downloadPhoto": {
+		"message": "Download photo"
+	},
+	"dropFilesHere": {
+		"message": "Drop files here..."
+	},
+	"fileType": {
+		"message": "file extension"
+	},
+	"fileUploadFailed": {
+		"message": "We couldn't host %filename% on VK server. Try to upload this file to another file hosting (dropbox.com, box.net, ...) and insert the link to it in your message."
+	},
+	"fileUploadRejected": {
+		"message": "VK.com rejected to host %filename% on its server. Try to upload this file to another file hosting (dropbox.com, box.net, ...) and insert the link to it in your message."
+	},
+	"firstInstallText": {
+		"message": "Now you should |grant access| to your data on VK.com",
+		"description": "Текст внутри символов || преобразуется в ссылку"
+	},
+	"foldersAndTags": {
+		"message": "Folders and tags"
+	},
+	"getUploadDataFromServer": {
+		"message": "Fetching the data needed for upload of %filename%"
+	},
+	"homephone": {
+		"message": "home phone"
+	},
+	"hoursAgo": {
+		"message": "hour|hours",
+		"description": "Варианты слова час: 1 час назад, 2 часа назад, 10 часов назад"
+	},
+	"importantMessage": {
+		"message": "important message"
+	},
+	"installGrantAccess": {
+		"message": "Grant access now"
+	},
+	"justNow": {
+		"message": "just now"
+	},
+	"kb": {
+		"message": "Kb"
+	},
+	"launcherNotificationTitle": {
+		"message": "Looking for VK Offline launcher?"
+	},
+	"launcherNotificationMessage": {
+		"message": "Google \"VK Offline launcher\" extension in Chrome Web Store!"
+	},
+	"likeIconTitle": {
+		"message": "Spread the word about %appname% app. Like and repost a piece of information about the app so your friends can see it"
+	},
+	"listenAppInstall": {
+		"message": "Explore %artist% best tracks without opening VK site"
+	},
+	"listenAppOpen": {
+		"message": "Explore other tracks by %artist%"
+	},
+	"mb": {
+		"message": "Mb"
+	},
+	"messageNoSubject": {
+		"message": "no subject"
+	},
+	"messagePluralForms": {
+		"message": "message|messages",
+		"description": "Варианты слова сообщение: 1 сообщение, 2 сообщения, 10 сообщений"
+	},
+	"messageSentFail": {
+		"message": "Error while sending message"
+	},
+	"messageSentSuccess": {
+		"message": "Your message has been sent"
+	},
+	"messageTypeAttachments": {
+		"message": "attachments"
+	},
+	"messageTypeAudio": {
+		"message": "audio message"
+	},
+	"messageTypeText": {
+		"message": "text"
+	},
+	"messageTypeVideo": {
+		"message": "video message"
+	},
+	"minutesAgo": {
+		"message": "minute|minutes",
+		"description": "Варианты слова минута: 1 минуту назад, 2 минуты назад, 10 минут назад"
+	},
+	"mobilephone": {
+		"message": "mob. phone"
+	},
+	"monthes": {
+		"message": "january|february|march|april|may|june|july|august|september|october|november|december"
+	},
+	"monthesCut": {
+		"message": "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec",
+		"description": "Короткие имена месяцев, используемые в формате 20 янв 2010"
+	},
+	"more": {
+		"message": "more"
+	},
+	"moreMessagesForm": {
+		"message": "x more messagePluralForms",
+		"description": "Форма написания фразы 'еще x сообщений'"
+	},
+	"newApp50Message": {
+		"message": "Banana boom!"
+	},
+	"newApp50OpenLink": {
+		"message": "Open in new window"
+	},
+	"newApp50Title": {
+		"message": "New %appname% app"
+	},
+	"newMessage": {
+		"message": "New message"
+	},
+	"newNotifications": {
+		"message": "Unread notifications"
+	},
+	"newsIconTitles": {
+		"message": "unread notification|unread notifications"
+	},
+	"no": {
+		"message": "No"
+	},
+	"noInternetConnection": {
+		"message": "You are currently offline"
+	},
+	"notificationBeforeAccountDelete": {
+		"message": "Your contacts and correspondence will be cleared. Proceed?"
+	},
+	"notificationsHide": {
+		"message": "hide notifications"
+	},
+	"notificationsShow": {
+		"message": "show until user closes them manually"
+	},
+	"offlineStatus": {
+		"message": "offline"
+	},
+	"onlineStatus": {
+		"message": "online"
+	},
+	"options": {
+		"message": "Options"
+	},
+	"tokenExpired": {
+		"message": "access token expired"
+	},
+	"participantMe": {
+		"message": "me",
+		"description": "Фраза, которая обозначает вас в переписке, например Витя, Катя и Вы"
+	},
+	"pleaseWait": {
+		"message": "please wait"
+	},
+	"printCorrespondence": {
+		"message": "print the whole correspondence"
+	},
+	"printMessage": {
+		"message": "print message"
+	},
+	"remove": {
+		"message": "Remove"
+	},
+	"removeAccountButtonText": {
+		"message": "Delete account"
+	},
+	"respondMessage": {
+		"message": "reply"
+	},
+	"restoreMessage": {
+		"message": "restore"
+	},
+	"saveBtn": {
+		"message": "Save"
+	},
+	"saveBtnClicked": {
+		"message": "Saved!"
+	},
+	"saveMessageButtonTitle": {
+		"message": "save"
+	},
+	"saveUploadedData": {
+		"message": "Saving information about the uploaded data"
+	},
+	"searchContact": {
+		"message": "Search contact"
+	},
+	"searchContactPlaceholder": {
+		"message": "Start typing the contact name"
+	},
+	"searchMail": {
+		"message": "Search mail"
+	},
+	"searchMailPlaceholder": {
+		"message": "Start typing message text"
+	},
+	"second": {
+		"message": "seconds"
+	},
+	"sendMessageButtonTitle": {
+		"message": "send"
+	},
+	"settingsDebug": {
+		"message": "Error log settings (do not change)"
+	},
+	"settingsDebugEverything": {
+		"message": "Log everything"
+	},
+	"settingsDebugMore": {
+		"message": "Log errors, warnings and system notifications"
+	},
+	"settingsDebugWarningsErrors": {
+		"message": "Log errors and warnings (default)"
+	},
+	"settingsDeleteUser": {
+		"message": "When you delete contact / message"
+	},
+	"settingsDeleteUserEverything": {
+		"message": "Delete contact's data and correspondence on your local computer + flush correspondence and remove from friends list on VK.com"
+	},
+	"settingsDeleteUserLocal": {
+		"message": "Delete contact's data and correspondence on your local computer"
+	},
+	"settingsDeleteUserServer": {
+		"message": "Delete contact's data and correspondence on your local computer + flush correspondence on VK.com"
+	},
+	"settingsNotificationsTime": {
+		"message": "Notifications' show time"
+	},
+	"settingsShowCounters": {
+		"message": "Show contacts and messages counters"
+	},
+	"settingsShowWhenVK": {
+		"message": "Show notifications about the new messages when VK tab is opened"
+	},
+	"settingsShowBirthdayNotifications": {
+		"message": "Show notifications about your friends' birthday coming"
+	},
+	"settingsSortContacts": {
+		"message": "Sort contact list"
+	},
+	"settingsSortContactsAlpha": {
+		"message": "Alphabetically"
+	},
+	"settingsSortContactsLast": {
+		"message": "By last message date"
+	},
+	"settingsSortContactsPopular": {
+		"message": "By messages number"
+	},
+	"settingsSoundLevel": {
+		"message": "Notifications' volume level"
+	},
+	"settingsSpeechRecognitionLanguage": {
+		"message": "Speech recognition language"
+	},
+	"showMoreInfoAboutContactOrMessage": {
+		"message": "open",
+		"description": "Текст, который появляется при наведении на стрелку напротив контакта или сообщения"
+	},
+	"skipSync": {
+		"message": "Skip syncing"
+	},
+	"subject": {
+		"message": "Subject"
+	},
+	"speechProcessing": {
+		"message": "Continue speaking"
+	},
+	"speechStart": {
+		"message": "Speech to text"
+	},
+	"switchToAnotherAccount": {
+		"message": "switch to this account"
+	},
+	"syncFriends": {
+		"message": "Friends list is syncing"
+	},
+	"syncingContacts": {
+		"message": "Syncing contacts data"
+	},
+	"syncingInbox": {
+		"message": "Syncing inbox messages"
+	},
+	"syncingSent": {
+		"message": "Syncing sent messages"
+	},
+	"updatingContacts": {
+		"message": "Updating contacts database structure"
+	},
+	"updatingInbox": {
+		"message": "Updating inbox messages database structure"
+	},
+	"updatingSent": {
+		"message": "Updating sent messages database structure"
+	},
+	"tagAttachmentsName": {
+		"message": "With attachments"
+	},
+	"tagDraftsName": {
+		"message": "Drafts"
+	},
+	"tagImportantName": {
+		"message": "Important"
+	},
+	"tagInboxName": {
+		"message": "Inbox"
+	},
+	"tagOutboxName": {
+		"message": "Outbox"
+	},
+	"tagSentName": {
+		"message": "Sent"
+	},
+	"tagTrashName": {
+		"message": "Trash"
+	},
+	"takeTour": {
+		"message": "Take a tour"
+	},
+	"tokenExpiredNotificationMessage": {
+		"message": "Press to update token now"
+	},
+	"tokenExpiredNotificationTitle": {
+		"message": "VK token expired"
+	},
+	"tourAgainButtonTitle": {
+		"message": "Watch tour slides again"
+	},
+	"tourFurtherButtonTitle": {
+		"message": "Next slide"
+	},
+	"tourStep1Description": {
+		"message": "You can always find the needed contact's data or a message when the internet connection is down or unstable. The app keeps your contacts data and correspondence synchronized during its work for this purpose.|Don't worry about your internet connection status - you contacts' phones and friends' birthdays will always be available.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep1Title": {
+		"message": "Offline access to your data"
+	},
+	"tourStep2Description": {
+		"message": "The app will notify you about the new incoming message or a birthday of your friend even if all Google Chrome windows are closed. Background pages feature is used for this purpose and it allows you to get information about the new messages and events immediately.|Do your business and don't worry about the new messages.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep2Title": {
+		"message": "The app works when your browser is closed"
+	},
+	"tourStep3Description": {
+		"message": "This feature works exactly as <a target='_blank' href='http://support.google.com/accounts/bin/answer.py?hl=ru&answer=1721977'>Google Multiple Sign-in</a>: you have one active account and its data is being synchronized until you switch to another account on the settings page of the app.|You can add unlimited number of accounts.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep3Title": {
+		"message": "Multiple VK accounts support"
+	},
+	"tourStep4Description": {
+		"message": "Yes, you can replace boring messages text typing process with just speaking this text. Google Voice Search technology will recognize your speech and convert it to text.|Soon we plan to implement video- and audiomessages in the app which won't need third-party plugins like Flash or Silverlight.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep4SmallDescription": {
+		"message": "You can get closer to the future by clicking the links behind and starring the issues there. This will let Chromium developers know that many people are waiting for this feature to appear in the browser."
+	},
+	"tourStep4Title": {
+		"message": "Type messages text by speaking it"
+	},
+	"tourStep5Description": {
+		"message": "Important messages which are easy to find, deleting messages and their restoring, your own tags and drafts - %appname% has it! We've combined simplicity and convenience of VK chats with the common features of any E-mail app.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep5Title": {
+		"message": "Well-known features from E-mail correspondance are now in the app"
+	},
+	"tourStep6Description": {
+		"message": "All data is stored on your computer. This means that your contacts, tags and inbox messages stay still on your computer and can't be sent anywhere.|When you install an app Chrome Web Store asks your permission for the app to use *.vk.com and *.userapi.com - these sites are used to synchronize your data.",
+		"description": "Параграфы текста разделяются символом |"
+	},
+	"tourStep6Title": {
+		"message": "Full control over data"
+	},
+	"truncatingCorrespondance": {
+		"message": "Processing correspondance. Messages to delete: "
+	},
+	"typeCaptchaSymbols": {
+		"message": "Type these symbols"
+	},
+	"updateAccountToken": {
+		"message": "update account access token"
+	},
+	"uploadedPercents": {
+		"message": "%bytes% of %total% uploaded (%percents%)"
+	},
+	"writeMessage": {
+		"message": "write a message"
+	},
+	"writesMessageToSomebody": {
+		"message": "is writing a message"
+	},
+	"writesMessageToYou": {
+		"message": "is writing a message to you"
+	},
+	"years": {
+		"message": "year|years"
+	},
+	"yes": {
+		"message": "Yes"
+	},
+	"ruSymbols": {
+		"message": "йцукенгшщзфывапролдячсмить"
+	},
+	"updateTokenNow": {
+		"message": "Update access token now"
+	},
+	"updateTokenLater": {
+		"message": "Do it later"
+	},
+	"continue": {
+		"message": "continue"
+	},
+	"chromeAppIsBroken": {
+		"message": "It seems like app's version detecting feature is missing in your browser. Try to update it to the latest version."
+	},
+	"updateItNow": {
+		"message": "Update it now"
+	},
+	"tokenUpdatedInsteadOfAccountAdd": {
+		"message": "You wanted to add a new account but you are authorized as <a href='http://vk.com/id%id%' target='_blank'>%fio%</a> on VK.com right now. Authorize on VK.com with the needed user/password and add acount in the app after this."
+	},
+	"tokenAddedInsteadOfUpdate": {
+		"message": "You wanted to update access token for account but you are authorized as <a href='http://vk.com/id%id%' target='_blank'>ID%id%</a> on VK.com right now. Would you like to synchronize contacts and correspondence of this account with its data on VK.com?"
+	},
+	"tokenUpdatedForWrongUser": {
+		"message": "You wanted to update access token for account but you are authorized as <a href='http://vk.com/id%id%' target='_blank'>%fio%</a> on VK.com right now. Authorize on VK.com with the needed user/password and update access token in the app after this."
+	},
+	"tokenUpdated": {
+		"message": "Access token updated successfully."
+	},
+	"accessDeniedWhenSendingMessage": {
+		"message": "You are now allowed to send messages. This can happen because the user who you write message to has limited the number of people who can write messages to him/her. If you are sure this is not the actual situation, open settings page and update your account's access token for VK.com. After this try to send the message again."
+	},
+	"appWontWorkWithoutAccessGranted": {
+		"message": "%appname% app won't work if you don't grant access to your data on VK.com."
+	},
+	"appWontWorkDueSecurityBreach": {
+		"message": "You have connected from completely new IP-address so now you should |confirm your phone number| on VK.com to proceed.",
+		"description": "Текст внутри символов | превратится в ссылку"
+	},
+	"pressHereIfSyncHangs": {
+		"message": "If sync process hangs out |press this button|"
+	},
+	"startTypingMessage": {
+		"message": "Click here to reply..."
+	},
+	"backendIsLoading": {
+		"message": "Please wait while the background page of the app is loading..."
+	},
+	"refreshPage": {
+		"message": "Refresh page"
+	},
+	"settingsAttachGeolocation": {
+		"message": "Attach your geolocation to sent messages"
+	},
+	"settingsShowOnline": {
+		"message": "Show contacts' online status"
+	},
+	"happyBirthday": {
+		"message": "Happy Birthday! Sincerely, %appname% app team."
+	},
+	"recepientTo": {
+		"message": "To: ",
+		"description": "Слово, которое пишется перед адресатом сообщения. Например 'To: Dmitry Sorin'"
+	}
+}

@@ -1391,8 +1391,8 @@
 	{
 		"key" : "refreshPage",
 		"messages" : {
-			"en" : "Обновить страницу",
-			"ru" : "Refresh page",
+			"en" : "Refresh page",
+			"ru" : "Обновить страницу",
 			"uk" : "Оновити сторінку"
 		}
 	},

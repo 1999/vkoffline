@@ -920,6 +920,7 @@ window.onerror = function(msg, url, line) {
 		 * показывать всплывающие уведомления, это прерогатива обработчика данных от LongPoll-сервера
 		 */
 		var mailSync = function(currentUserId, mailType, latestMessageId) {
+			return;
 			var offset = syncingData[currentUserId][mailType][1];
 			var userDataForRequest = AccountsManager.list[currentUserId],
 				compatName = (mailType === "inbox") ? "inbox" : "outbox",
